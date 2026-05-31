@@ -1,5 +1,6 @@
 import type { PortfolioDataPayload } from "@/lib/portfolio-data";
 import type { User } from "@/types";
+import { headers } from "next/headers";
 import { getHomeApiBaseUrl } from "@/lib/home-api";
 import { getTenantSlug } from "@/lib/tenant";
 import {
@@ -34,6 +35,15 @@ export function createEmptyPortfolioData(): PortfolioDataPayload {
   };
 }
 
+async function buildHomeApiHeaders(tenant: string, init?: RequestInit): Promise<Headers> {
+  const headersList = await headers();
+  const out = new Headers(init?.headers);
+  out.set("x-tenant", tenant);
+  const cookie = headersList.get("cookie");
+  if (cookie) out.set("cookie", cookie);
+  return out;
+}
+
 export async function fetchHomeApi(
   path: string,
   tenant: string,
@@ -41,11 +51,10 @@ export async function fetchHomeApi(
 ): Promise<Response | null> {
   const base = getHomeApiBaseUrl();
   if (!base) return null;
-  const headers = new Headers(init?.headers);
-  headers.set("x-tenant", tenant);
+  const apiHeaders = await buildHomeApiHeaders(tenant, init);
   return fetch(`${base}${path}`, {
     ...init,
-    headers,
+    headers: apiHeaders,
     cache: "no-store",
   });
 }
@@ -78,7 +87,7 @@ export async function getInitialAccountFromApi(): Promise<User> {
     tenant,
     displayName: tenant.charAt(0).toUpperCase() + tenant.slice(1),
     email: "",
-    username: "",
+    username: tenant,
     password: "",
   };
 }

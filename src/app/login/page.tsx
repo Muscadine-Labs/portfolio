@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,16 +42,30 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        role?: string;
+        tenant?: string;
+      };
+
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
         toast.error("Sign in failed", {
           description: body.error ?? "Invalid username or password",
         });
         return;
       }
+
       clearDevBannerDismissed();
+
+      if (body.role === "admin") {
+        router.replace("/admin");
+        router.refresh();
+        return;
+      }
+
       const from = searchParams.get("from");
       const dest =
         from && from.startsWith("/") && !from.startsWith("/login") ? from : "/dashboard";
@@ -72,14 +86,14 @@ export default function LoginPage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Sign in with your portfolio credentials
+          Sign in with your username and password
         </p>
       </div>
 
       <Card className="w-full max-w-md border-border/60 bg-card/90 shadow-2xl shadow-black/30 backdrop-blur">
         <CardHeader className="text-center">
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Use the username and password from Settings → Account</CardDescription>
+          <CardDescription>Enter your credentials to continue</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

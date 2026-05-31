@@ -37,6 +37,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid username or password" }, { status: 401 });
   }
 
+  if (!tenant) {
+    return NextResponse.json({ error: "Missing workspace" }, { status: 400 });
+  }
+
   const token = await createSessionToken(tenant);
   const response = NextResponse.json({ ok: true, authRequired: true });
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());

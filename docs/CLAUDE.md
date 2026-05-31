@@ -1,137 +1,137 @@
-# Portfolio Tracker — Agent Guide
+# Portfolio UI — Agent Guide
 
-Context for AI assistants working in this repo.
-
----
-
-## Next.js (read before coding)
-
-This project uses **Next.js 16** with breaking changes vs older versions. Before writing App Router code, read the relevant guide in `node_modules/next/dist/docs/` and follow deprecation notices.
+Context for AI assistants working in the **portfolio** repo (Vercel UI).
 
 ---
 
-## Product summary
+## Next.js
 
-Personal finance dashboard (net worth, assets, cash, liabilities, plan, settings).
+Next.js **16** App Router. Check `node_modules/next/dist/docs/` before using deprecated APIs.
+
+---
+
+## Product
+
+Personal finance dashboard at **portfolio.muscadine.io** (Vercel). All user data lives on the **home API** (`api.portfolio` repo on the mini PC), not in this repo.
 
 | URL | Role |
 |-----|------|
-| `portfolio.muscadine.io` | UI (Vercel) — **live**; one hostname for all users |
-| `api.portfolio.muscadine.io` | API (Cloudflare Tunnel → mini PC `:3001`) — **planned** |
+| `portfolio.muscadine.io` | This repo — UI only |
+| `api.portfolio.muscadine.io` | Home API via Cloudflare Tunnel → mini PC `:3001` |
 
-**No per-user DNS subdomains.** `User.tenant` is an internal workspace slug for SQLite scoping. JWT/session carries `tenant` after login.
-
-**Default production:** email/password → JWT on `portfolio.muscadine.io`.
-
-**Deploy plan:** `docs/PLAN.md` · **Security:** `SECURITY.md`
+**No per-user subdomains.** Login username = internal tenant slug (e.g. `nick`). Session cookies scope data.
 
 ---
 
 ## Architecture
 
-**Today:** UI + `/api/*` mock routes ship on Vercel. **Target:** home API + SQLite below.
-
 ```
-Browser
-  └─► portfolio.muscadine.io (Vercel)
-          └─► /api/backend/*  (recommended BFF)
-                  └─► Cloudflare
-                          └─► cloudflared (mini PC)
-                                  └─► API :3001
-                                          └─► SQLite /data/portfolio.db
+Browser → portfolio.muscadine.io (Vercel)
+            ├─ /login, /admin, /dashboard/*  (UI)
+            └─ /api/*  → proxy/rewrite → api.portfolio.muscadine.io
+                                              └─ SQLite on mini PC
 ```
 
 | Layer | Where |
 |-------|--------|
-| Frontend | This repo → Vercel |
-| API + DB | Docker on Linux mini PC |
-| Tunnel | cloudflared on same mini PC |
-| DNS | Cloudflare (Namesilo → CF nameservers) |
+| UI | This repo → Vercel |
+| API + SQLite | `~/Desktop/api.portfolio` on mini PC |
+| Tunnel | `cloudflared` on mini PC |
+| DNS | **Cloudflare** nameservers (required for tunnel; Vercel hosts UI only) |
 
 ---
 
-## This repo (Phase 1 monorepo)
+## Auth (wired)
 
-Single Next.js app deployed to **Vercel** (`portfolio.muscadine.io`). Mock API runs in the same deployment until the mini PC API is wired.
+- **`/login`** — username + password → home API `/api/auth/login`
+- **User session** — httpOnly cookies `portfolio_session` + `portfolio_tenant` (~30 days)
+- **Admin session** — httpOnly `portfolio_admin` → **`/admin`** user management
+- **`src/proxy.ts`** — redirects unauthenticated users to `/login`; allows `/api/admin/*` when admin cookie present
+- **`API_SECRET`** in `.env` must match home API (session HMAC); set on Vercel server env in production
 
-### Key paths
+---
 
-```
-portfolio-data.ts              # gitignored — real seed (repo root)
-portfolio-data.example.ts      # committed demo seed
-src/lib/mock-data.ts           # re-exports @portfolio/seed + helpers
-src/lib/portfolio-data.ts      # import/export validation types
-src/lib/portfolio-data-store.ts # in-memory store per tenant
-src/lib/morpho.ts              # Morpho GraphQL (v1 vaults + v2 + markets)
-src/lib/goal-tracking.ts       # goal % math only — no balances
-src/lib/site.ts                # APP_HOST, isAppHostname (no subdomain tenants)
-src/lib/asset-sections.ts      # isWalletAssetSection(), etc.
-src/components/providers/PortfolioProvider.tsx
-src/app/api/                   # auth, import, export, morpho/sync
+## Env files
+
+Only **`.env`** (gitignored) and **`.env.example`** (committed):
+
+```bash
+cp .env.example .env
 ```
 
-### Seed loading
+| Variable | Purpose |
+|----------|---------|
+| `API_URL` | Home API base (`http://127.0.0.1:3001` local) |
+| `API_SECRET` | Session signing — server only, match api.portfolio |
+| `NEXT_PUBLIC_APP_HOST` | Canonical hostname |
 
-- Alias `@portfolio/seed` → `portfolio-data.example.ts` by default.
-- `PORTFOLIO_SEED_FILE=portfolio-data.ts` in `.env.local` + `next.config.ts` for private data.
-- **Never commit** `portfolio-data.ts`.
+Do **not** add `.env.local` — Next.js loads `.env` automatically.
 
-### Crypto model
+**Why there used to be three files:** Next.js convention loads `.env`, `.env.local`, and `.env.development` (etc.) with `.env.local` overriding `.env`. That split secrets across files unnecessarily here. This repo now uses only **`.env`** + **`.env.example`**. `.env.local` was removed; merge any overrides into `.env`.
 
-- Group on-chain holdings by **wallet** (section `metadata.walletId`).
-- `network` / `protocol` on each **asset row**, not in section title.
-- Morpho sync: public address + chain only; supports `vaultPositions` (v1) and `vaultV2Positions` (v2).
-
-### Settings sections
-
-Account · Display · Wallets & DeFi · Navigation · Data (import/export JSON + Excel).
-
-### UI stack
-
-Next.js App Router, TypeScript, Tailwind, shadcn/ui, Recharts, react-hook-form + Zod.
+**Build note:** If your shell exports `NODE_ENV=development`, `npm run build` fails with a prerender error on `/_global-error`. Run builds as `NODE_ENV=production npm run build` (Vercel sets this automatically).
 
 ---
 
-## API rules (production mini PC)
+## Key paths
 
-- Resolve `tenant` from **verified JWT** on protected routes — not `x-tenant` header alone.
-- `API_SECRET`, `ADMIN_SECRET` on mini PC env only — **never** Vercel client env.
-- `POST /api/auth/register` requires `Authorization: Bearer $ADMIN_SECRET`.
-- Passwords: bcrypt in SQLite; httpOnly `portfolio_session` cookie.
-- Morpho sync should run on **mini PC API**, not on public Vercel.
-- `ALLOWED_ORIGINS=https://portfolio.muscadine.io` if browser calls API without BFF proxy.
+```
+src/app/login/              Sign-in page (entry for users)
+src/app/admin/              Admin portal (create/edit/delete users)
+src/app/global-error.tsx    Minimal error UI (no ThemeProvider — required for build)
+src/contexts/PortfolioAgreementContext.tsx   Terms acceptance (localStorage)
+src/components/providers/PortfolioProvider.tsx  Client state + auto-save to API
+src/lib/home-api.ts         proxyToHomeApi() for route handlers
+src/lib/portfolio-api.ts    SSR fetch to home API (forwards cookies)
+src/lib/auth.ts             Session verification (matches API HMAC)
+src/proxy.ts                Auth gate + x-tenant from cookie
+src/app/api/admin/users/    Proxy PATCH/POST/DELETE to home API
+next.config.ts              Rewrites /api/* → API_URL when set
+```
 
----
-
-## Phase 1 scope (shipped in UI)
-
-- Manual assets / cash / liabilities with sections
-- JSON import/export; Excel export (Overview, Assets, Cash, Liabilities, Plan)
-- Connected wallets + Morpho sync (mock route on Vercel today)
-- Plan: income allocation (collapsible bucket tree on Plan → Income), wallet map (labels only), goals with section tracking
-- Overview chart prefs in settings; net worth history from seed file; Y-axis scaled to data range (not zero)
-
-**Not yet:** BFF to mini PC, SQLite persistence, snapshot API, live price feeds. **Live on Vercel:** UI, mock `/api/*`, Morpho sync route, import/export.
+**No seed data in this repo.** Portfolio payload comes from home API `GET /api/me`.
 
 ---
 
-## Golden rules for agents
+## Data flow
 
-1. **Minimize diff** — match existing patterns; no drive-by refactors.
-2. **No PII in git** — use `portfolio-data.example.ts` for demos; never add real addresses/names to committed files.
-3. **No secrets in code** — env vars only.
-4. **Production target** = mini PC + Cloudflare + Vercel; tenant from session JWT.
-5. **$0/mo default** — no VPS in the default plan.
-6. Read `node_modules/next/dist/docs/` when touching Next.js APIs.
+1. User signs in → cookies set by home API (proxied through Vercel)
+2. `TenantPage` SSR → `getInitialPortfolioFromApi()` with session cookies
+3. `PortfolioProvider` edits state → debounced `POST /api/export` → SQLite on mini PC
+
+---
+
+## Admin UI
+
+- Edit pencil on each row: username, name, email, password
+- Admin row: edit username/password only; **no delete**
+- User rows: edit all fields + delete (wipes SQLite row + portfolio JSON)
+
+---
+
+## DNS blocker (production)
+
+Tunnel only works when **Cloudflare** serves DNS for `muscadine.io`. CNAME at Vercel alone is not enough. See `../api.portfolio/docs/CLAUDE.md`.
+
+---
+
+## Golden rules
+
+1. **Minimize diff** — match existing patterns.
+2. **No user data in git** — SQLite lives in api.portfolio `data/`.
+3. **No secrets in committed files** — only `.env.example` placeholders.
+4. **`API_SECRET` on Vercel** — server env only, never `NEXT_PUBLIC_*`.
+5. Read `docs/PLAN.md` and `SECURITY.md` for deployment boundaries.
 
 ---
 
 ## Commands
 
 ```bash
-npm run dev          # Turbopack
-npm run dev:webpack  # if Turbopack cache issues
-npm run clean        # rm -rf .next
-npm run build
+cp .env.example .env
+npm run dev          # :3000 — requires api.portfolio on :3001
+NODE_ENV=production npm run build
 npm run lint
 ```
+
+Also run api.portfolio on `:3001` locally when `API_URL=http://127.0.0.1:3001`.

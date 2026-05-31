@@ -4,6 +4,8 @@ import { type ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNavProvider, useMobileNav } from "@/components/layout/MobileNavContext";
 import { PortfolioProvider } from "@/components/providers/PortfolioProvider";
+import { PortfolioAgreementProvider } from "@/contexts/PortfolioAgreementContext";
+import { PortfolioAgreementModal } from "@/components/legal/PortfolioAgreementModal";
 import { DevelopmentBanner } from "@/components/shared/DevelopmentBanner";
 import { ThemePreferenceSync } from "@/components/shared/ThemePreferenceSync";
 import type { PortfolioImportResult } from "@/lib/portfolio-data";
@@ -63,13 +65,16 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   return (
-    <PortfolioProvider
-      initialAccount={initialAccount}
-      initialPortfolio={initialPortfolio}
-    >
-      <MobileNavProvider>
-        <ShellInner>{children}</ShellInner>
-      </MobileNavProvider>
-    </PortfolioProvider>
+    <PortfolioAgreementProvider>
+      <PortfolioProvider
+        initialAccount={initialAccount}
+        initialPortfolio={initialPortfolio}
+      >
+        <MobileNavProvider>
+          <ShellInner>{children}</ShellInner>
+          <PortfolioAgreementModal />
+        </MobileNavProvider>
+      </PortfolioProvider>
+    </PortfolioAgreementProvider>
   );
 }

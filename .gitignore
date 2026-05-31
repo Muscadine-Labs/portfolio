@@ -32,15 +32,9 @@ yarn-error.log*
 
 # private portfolio seed moved to api.portfolio repo (seed/portfolio-data.ts)
 
-# env files (can opt-in for committing if needed)
-.env.local
+# env — only .env is used locally; .env.example is committed
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.development
-.env.test
-.env.production
+!.env.example
 
 # vercel
 .vercel

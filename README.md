@@ -63,7 +63,7 @@ See `docs/PLAN.md`, `docs/CLAUDE.md`, and `SECURITY.md` for deployment and priva
 
 One hostname (`portfolio.muscadine.io`). Middleware sets `x-tenant` from `DEV_TENANT` or session (internal workspace ID). `/` redirects to `/dashboard`.
 
-## Deployment status (v0.2.2)
+## Deployment status (v0.3.0)
 
 | Component | Status |
 |-----------|--------|
