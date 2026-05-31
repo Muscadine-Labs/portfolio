@@ -19,7 +19,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { isWalletAssetSection } from "@/lib/asset-sections";
+import { isCryptoAssetSection } from "@/lib/asset-sections";
 import type { Asset } from "@/types";
 
 const assetSchema = z.object({
@@ -69,9 +69,9 @@ export function AssetDrawer({
 
   const sectionId = useWatch({ control, name: "sectionId" });
   const selectedSection = assetSections.find((s) => s.id === sectionId);
-  const showPositionFields = selectedSection
-    ? isWalletAssetSection(selectedSection)
-    : false;
+  const showPositionFields =
+    (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
+    Boolean(asset?.network || asset?.protocol);
 
   useDrawerFormReset(
     open,
@@ -150,17 +150,16 @@ export function AssetDrawer({
           {showPositionFields ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Network and protocol apply to this position only — one wallet section can hold
-                assets on Base, Ethereum, and other chains.
+                Optional per position — chain and where it is held (exchange, wallet, or protocol).
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="network">Network</Label>
-                  <Input id="network" {...register("network")} placeholder="e.g. Base, Ethereum" />
+                  <Input id="network" {...register("network")} placeholder="e.g. Base, Ethereum, Bitcoin" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="protocol">Protocol</Label>
-                  <Input id="protocol" {...register("protocol")} placeholder="e.g. Morpho" />
+                  <Label htmlFor="protocol">Exchange</Label>
+                  <Input id="protocol" {...register("protocol")} placeholder="e.g. Coinbase, Kraken, Ledger" />
                 </div>
               </div>
             </div>

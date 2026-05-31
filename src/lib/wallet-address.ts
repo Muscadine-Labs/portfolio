@@ -120,20 +120,8 @@ export function normalizeConnectedWalletAddress(address: string, networks: Walle
   return trimmed;
 }
 
-export function getMorphoWalletNetworks(networks: WalletChain[]): Array<"ethereum" | "base"> {
-  return normalizeWalletNetworks(networks).filter(
-    (network): network is "ethereum" | "base" =>
-      network === "ethereum" || network === "base"
-  );
-}
 
-export function morphoChainIdForWallet(chain: WalletChain): number | undefined {
-  if (chain === "ethereum") return 1;
-  if (chain === "base") return 8453;
-  return undefined;
-}
-
-/** Mask addresses / long identifiers in UI (full value still stored for sync). */
+/** Mask addresses / long identifiers in UI (full value still stored). */
 export function formatSensitiveReference(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return trimmed;

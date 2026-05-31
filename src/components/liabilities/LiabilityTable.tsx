@@ -501,7 +501,6 @@ export function LiabilityTable() {
         defaultGroupId={defaultGroupId}
         onSave={saveSection}
         showDefiToggle
-        linkWallet
       />
       <SectionGroupDrawer
         open={groupDrawerOpen}

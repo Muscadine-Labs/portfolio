@@ -82,9 +82,10 @@ export interface SectionGroup {
 export interface SectionMetadata {
   /** Show DeFi collateral / LTV columns for liability sections */
   isDefi?: boolean;
+  /** Show network / exchange columns for crypto asset sections */
+  isCrypto?: boolean;
   /**
-   * Links this assets (or cash/liabilities) section to a connected wallet.
-   * Crypto is grouped by wallet; `network` on each asset is the chain for that position.
+   * @deprecated Wallet linking removed — ignored on save
    */
   walletId?: string;
   /** Custodian or provider, e.g. Fidelity, Coinbase */

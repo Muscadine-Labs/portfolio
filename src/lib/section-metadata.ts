@@ -5,6 +5,7 @@ export function parseSectionMetadata(raw: unknown): SectionMetadata | undefined 
 
   const metadata: SectionMetadata = {};
   if (raw.isDefi === true) metadata.isDefi = true;
+  if (raw.isCrypto === true) metadata.isCrypto = true;
   if (typeof raw.walletId === "string" && raw.walletId.trim()) {
     metadata.walletId = raw.walletId.trim();
   }

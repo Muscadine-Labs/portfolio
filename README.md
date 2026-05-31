@@ -89,7 +89,7 @@ Single hostname (`portfolio.muscadine.io`). Middleware redirects unauthenticated
 
 ---
 
-## Deployment status (v0.8.0)
+## Deployment status (v1.0.0)
 
 | Component | Status |
 |-----------|--------|

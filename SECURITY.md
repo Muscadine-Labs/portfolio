@@ -41,7 +41,6 @@ See `api-portfolio/.env.example` and `.env.example` in this repo.
 |------|--------|
 | Portfolio CRUD / import-export | HTTPS via tunnel (and Vercel proxy) |
 | Login password | Hashed on the API; never log plaintext |
-| EVM address (Morpho sync) | Public on-chain data to `api.morpho.org` — no private keys |
 | Private keys / seeds | **Not supported** — do not store them in the app |
 
 ---

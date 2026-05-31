@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v0.8.0** — Drawer sticky save footer (mobile-safe), wallet order index, wallet section sync.
+**Release v1.0.0** — First production release: Morpho/wallet linking removed, crypto network/exchange columns, plan save fixes, wallets tab last.
 
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 

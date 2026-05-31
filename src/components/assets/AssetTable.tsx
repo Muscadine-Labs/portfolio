@@ -33,9 +33,7 @@ import {
   getMarketValue,
 } from "@/lib/utils";
 import {
-  formatWalletAddress,
-  getWalletForSection,
-  isWalletAssetSection,
+  isCryptoAssetSection,
 } from "@/lib/asset-sections";
 import { sumAssetSectionTotals } from "@/lib/section-totals";
 import {
@@ -86,7 +84,7 @@ function showColumn(
   visibleColumns: Set<AssetColumnKey>
 ): boolean {
   if (!visibleColumns.has(key)) return false;
-  if (WALLET_POSITION_COLUMNS.has(key)) return isWalletAssetSection(section);
+  if (WALLET_POSITION_COLUMNS.has(key)) return isCryptoAssetSection(section);
   return true;
 }
 
@@ -132,7 +130,7 @@ const COLUMN_LABELS: Record<AssetColumnKey, string> = {
   price: "Price",
   qty: "Qty",
   network: "Network",
-  protocol: "Protocol",
+  protocol: "Exchange",
   costBasis: "Cost",
   avgCost: "Avg",
   marketValue: "Mkt val",
@@ -157,7 +155,6 @@ const RIGHT_ALIGNED = new Set<AssetColumnKey>([
 export function AssetTable() {
   const {
     assets,
-    walletMapNodes,
     sectionGroups,
     getSections,
     getSectionGroups,
@@ -200,7 +197,7 @@ export function AssetTable() {
   );
 
   const walletSectionIds = useMemo(
-    () => new Set(sections.filter(isWalletAssetSection).map((s) => s.id)),
+    () => new Set(sections.filter(isCryptoAssetSection).map((s) => s.id)),
     [sections]
   );
 
@@ -209,11 +206,11 @@ export function AssetTable() {
       if (sectionFilter.startsWith("group:")) {
         const groupId = sectionFilter.slice("group:".length);
         return sections.some(
-          (section) => section.groupId === groupId && isWalletAssetSection(section)
+          (section) => section.groupId === groupId && isCryptoAssetSection(section)
         );
       }
       const section = sections.find((s) => s.id === sectionFilter);
-      return section ? isWalletAssetSection(section) : false;
+      return section ? isCryptoAssetSection(section) : false;
     }
     return walletSectionIds.size > 0;
   }, [sectionFilter, sections, walletSectionIds]);
@@ -429,7 +426,6 @@ export function AssetTable() {
 
     const sectionTotals =
       sectionAssets.length > 0 ? sumAssetSectionTotals(sectionAssets) : null;
-    const linkedWallet = getWalletForSection(section, walletMapNodes);
     const col = (key: AssetColumnKey) => showColumn(key, section, visibleColumns);
 
     const stats = sectionTotals
@@ -446,9 +442,6 @@ export function AssetTable() {
             value: formatPercent(sectionTotals.gainPercent),
             valueClassName: getGainColor(sectionTotals.gainPercent),
           },
-          ...(linkedWallet
-            ? [{ label: "Wallet", value: formatWalletAddress(linkedWallet.address ?? "") }]
-            : []),
         ]
       : [];
 
@@ -672,7 +665,7 @@ export function AssetTable() {
         page="assets"
         defaultGroupId={defaultGroupId}
         onSave={saveSection}
-        linkWallet
+        showCryptoToggle
       />
       <SectionGroupDrawer
         open={groupDrawerOpen}

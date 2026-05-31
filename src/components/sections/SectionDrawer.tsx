@@ -19,7 +19,6 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createSectionId } from "@/lib/sections";
-import { formatWalletAddress } from "@/lib/asset-sections";
 import { isSectionGroupPage } from "@/lib/section-groups";
 import type { PageType, PortfolioSection, SectionGroupPage } from "@/types";
 
@@ -32,7 +31,7 @@ const sectionSchema = z.object({
   groupSelection: z.string().optional(),
   newGroupName: z.string().optional(),
   isDefi: z.boolean().optional(),
-  walletId: z.string().optional(),
+  isCrypto: z.boolean().optional(),
 });
 
 type SectionFormValues = z.infer<typeof sectionSchema>;
@@ -45,7 +44,7 @@ interface SectionDrawerProps {
   defaultGroupId?: string;
   onSave: (section: PortfolioSection) => void;
   showDefiToggle?: boolean;
-  linkWallet?: boolean;
+  showCryptoToggle?: boolean;
 }
 
 export function SectionDrawer({
@@ -56,9 +55,9 @@ export function SectionDrawer({
   defaultGroupId,
   onSave,
   showDefiToggle = false,
-  linkWallet = false,
+  showCryptoToggle = false,
 }: SectionDrawerProps) {
-  const { walletMapNodes, getSectionGroups, addSectionGroup } = usePortfolio();
+  const { getSectionGroups, addSectionGroup } = usePortfolio();
   const supportsGroups = isSectionGroupPage(page);
   const pageGroups = supportsGroups ? getSectionGroups(page as SectionGroupPage) : [];
 
@@ -70,11 +69,10 @@ export function SectionDrawer({
       groupSelection: NO_GROUP_VALUE,
       newGroupName: "",
       isDefi: false,
-      walletId: "",
+      isCrypto: false,
     },
   });
 
-  const walletId = useWatch({ control, name: "walletId" });
   const groupSelection = useWatch({ control, name: "groupSelection" });
 
   useDrawerFormReset(
@@ -88,7 +86,7 @@ export function SectionDrawer({
           groupSelection: section.groupId ?? NO_GROUP_VALUE,
           newGroupName: "",
           isDefi: section.metadata?.isDefi ?? false,
-          walletId: section.metadata?.walletId ?? "",
+          isCrypto: section.metadata?.isCrypto ?? false,
         };
       }
       return {
@@ -97,7 +95,7 @@ export function SectionDrawer({
         groupSelection: defaultGroupId ?? NO_GROUP_VALUE,
         newGroupName: "",
         isDefi: false,
-        walletId: "",
+        isCrypto: false,
       };
     },
     [section?.id, defaultGroupId]
@@ -106,13 +104,11 @@ export function SectionDrawer({
   const onSubmit = (values: SectionFormValues) => {
     const metadata: PortfolioSection["metadata"] = { ...section?.metadata };
     if (showDefiToggle) metadata.isDefi = values.isDefi;
-    if (linkWallet) {
-      if (values.walletId) metadata.walletId = values.walletId;
-      else delete metadata.walletId;
-    }
+    if (showCryptoToggle) metadata.isCrypto = values.isCrypto;
     const account = values.account?.trim();
     if (account) metadata.account = account;
     else delete metadata.account;
+    delete metadata.walletId;
 
     let groupId: string | undefined;
     if (supportsGroups) {
@@ -128,7 +124,7 @@ export function SectionDrawer({
 
     const hasMeta =
       metadata.isDefi === true ||
-      (metadata.walletId != null && metadata.walletId !== "") ||
+      metadata.isCrypto === true ||
       (metadata.account != null && metadata.account !== "");
 
     onSave({
@@ -141,16 +137,6 @@ export function SectionDrawer({
     });
     onOpenChange(false);
   };
-
-  const walletOptions = [
-    { value: "", label: "No linked wallet" },
-    ...walletMapNodes.map((w) => ({
-      value: w.id,
-      label: w.address
-        ? `${w.label} (${formatWalletAddress(w.address)})`
-        : w.label,
-    })),
-  ];
 
   const groupOptions = [
     { value: NO_GROUP_VALUE, label: "No group" },
@@ -195,27 +181,15 @@ export function SectionDrawer({
               placeholder="Optional — e.g. Fidelity, Coinbase"
             />
           </div>
-          {linkWallet ? (
-            <div className="space-y-2">
-              <Label htmlFor="section-wallet">Connected wallet</Label>
-              {walletMapNodes.length > 0 ? (
-                <NativeSelect
-                  id="section-wallet"
-                  value={walletId ?? ""}
-                  onValueChange={(v) => setValue("walletId", v)}
-                  options={walletOptions}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No wallets yet — create one under Plan → Wallets, then link it here.
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Links this section to a wallet. Morpho vaults and markets sync into linked sections
-                when you run sync from Plan → Wallets. You only need to link the pages you use
-                (assets, cash, and/or liabilities).
-              </p>
-            </div>
+          {showCryptoToggle ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                {...register("isCrypto")}
+              />
+              Crypto section (show network &amp; exchange columns on assets)
+            </label>
           ) : null}
           {showDefiToggle ? (
             <label className="flex items-center gap-2 text-sm">

@@ -27,13 +27,6 @@ import {
   EMPTY_UI_PREFERENCES,
   EMPTY_WALLET_MAP_NODES,
 } from "@/lib/portfolio-empty";
-import type { MorphoSyncResult } from "@/lib/morpho";
-import { isMorphoManagedId } from "@/lib/morpho";
-import {
-  syncSectionsFromWalletLinks,
-  syncWalletAndSectionsFromSectionLink,
-  type WalletSectionTargets,
-} from "@/lib/wallet-section-links";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { sortNetWorthHistory } from "@/lib/net-worth-history";
 import { normalizeUiPreferences, writeSidebarCompactToStorage } from "@/lib/sidebar-preference";
@@ -111,13 +104,9 @@ interface PortfolioContextValue {
   setMonthlyAutoSnapshot: (enabled: boolean) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
   setSidebarCompact: (compact: boolean) => void;
-  applyMorphoSync: (
-    walletId: string,
-    result: MorphoSyncResult,
-    targets?: WalletSectionTargets
-  ) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
+  savePortfolioNow: () => void;
   account: User;
   updateAccount: (patch: Partial<User>) => void;
 }
@@ -245,12 +234,6 @@ export function PortfolioProvider({
   const [walletMapNodes, setWalletMapNodes] = useState<WalletMapNode[]>(
     boot.walletMapNodes ?? EMPTY_WALLET_MAP_NODES
   );
-  const sectionsRef = useRef(sections);
-  const walletMapNodesRef = useRef(walletMapNodes);
-  useEffect(() => {
-    sectionsRef.current = sections;
-    walletMapNodesRef.current = walletMapNodes;
-  }, [sections, walletMapNodes]);
   const [monthlyIncome, setMonthlyIncome] = useState<number | undefined>(boot.monthlyIncome);
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthSnapshot[]>(
     boot.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY
@@ -261,7 +244,14 @@ export function PortfolioProvider({
   const [account, setAccount] = useState<User>(initialAccount);
 
   const skipPersistRef = useRef(true);
+  const saveNowRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPayloadRef = useRef<PortfolioDataPayload | null>(null);
+  const persistInFlightRef = useRef<Promise<void> | null>(null);
+
+  const savePortfolioNow = useCallback(() => {
+    saveNowRef.current = true;
+  }, []);
 
   const updateAccount = useCallback((patch: Partial<User>) => {
     setAccount((prev) => ({ ...prev, ...patch }));
@@ -343,34 +333,6 @@ export function PortfolioProvider({
     [account.tenant]
   );
 
-  const applyMorphoSync = useCallback(
-    (walletId: string, result: MorphoSyncResult, targets?: WalletSectionTargets) => {
-      const syncAssets = !targets || Boolean(targets.assetsSectionId);
-      const syncCash = !targets || Boolean(targets.cashSectionId);
-      const syncLiabilities = !targets || Boolean(targets.liabilitiesSectionId);
-
-      if (syncAssets) {
-        setAssets((prev) => [
-          ...prev.filter((a) => !(a.walletId === walletId && isMorphoManagedId(a.id))),
-          ...result.assets,
-        ]);
-      }
-      if (syncLiabilities) {
-        setLiabilities((prev) => [
-          ...prev.filter((l) => !(l.walletId === walletId && isMorphoManagedId(l.id))),
-          ...result.liabilities,
-        ]);
-      }
-      if (syncCash) {
-        setCashAccounts((prev) => [
-          ...prev.filter((c) => !(c.walletId === walletId && isMorphoManagedId(c.id))),
-          ...result.cashAccounts,
-        ]);
-      }
-    },
-    []
-  );
-
   const applyAssetPrices = useCallback((pricesBySymbol: Record<string, number>) => {
     let updated = 0;
     setAssets((prev) =>
@@ -388,6 +350,14 @@ export function PortfolioProvider({
   const setIncomePlanDescription = useCallback((description: string) => {
     setIncomePlan((prev) => ({ ...prev, description }));
   }, []);
+
+  const setMonthlyIncomeWithSave = useCallback(
+    (value: number | undefined) => {
+      setMonthlyIncome(value);
+      savePortfolioNow();
+    },
+    [savePortfolioNow]
+  );
 
   const getSections = useCallback(
     (page: PageType) => getSectionsForPage(sections, page),
@@ -464,17 +434,15 @@ export function PortfolioProvider({
   );
 
   const upsertSection = useCallback((section: PortfolioSection) => {
-    const existing = sectionsRef.current.find(
-      (s) => s.id === section.id && s.page === section.page
-    );
-    const synced = syncWalletAndSectionsFromSectionLink(
-      sectionsRef.current,
-      walletMapNodesRef.current,
-      section,
-      existing?.metadata?.walletId
-    );
-    setSections(synced.sections);
-    setWalletMapNodes(synced.wallets);
+    setSections((prev) => {
+      const idx = prev.findIndex((s) => s.id === section.id && s.page === section.page);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = section;
+        return next;
+      }
+      return [...prev, section];
+    });
   }, []);
 
   const deleteSection = useCallback((sectionId: string, page: PageType) => {
@@ -572,11 +540,13 @@ export function PortfolioProvider({
       }
       return [...prev, item];
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const deletePlanningItem = useCallback((id: string) => {
     setPlanningItems((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const upsertSpendingItem = useCallback((item: SpendingItem) => {
     setSpendingItems((prev) => {
@@ -588,11 +558,13 @@ export function PortfolioProvider({
       }
       return [...prev, item];
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const deleteSpendingItem = useCallback((id: string) => {
     setSpendingItems((prev) => prev.filter((i) => i.id !== id));
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const upsertAllocationNode = useCallback((node: AllocationNode) => {
     setAllocationNodes((prev) => {
@@ -604,7 +576,8 @@ export function PortfolioProvider({
       }
       return [...prev, node];
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const deleteAllocationNode = useCallback((id: string) => {
     setAllocationNodes((prev) => {
@@ -616,7 +589,8 @@ export function PortfolioProvider({
       collect(id);
       return prev.filter((n) => !remove.has(n.id));
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const upsertWalletMapNode = useCallback((node: WalletMapNode) => {
     setWalletMapNodes((prev) => {
@@ -628,8 +602,8 @@ export function PortfolioProvider({
       }
       return [...prev, node];
     });
-    setSections((prev) => syncSectionsFromWalletLinks(prev, node));
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const deleteWalletMapNode = useCallback((id: string) => {
     setWalletMapNodes((prev) => {
@@ -641,14 +615,8 @@ export function PortfolioProvider({
       collect(id);
       return prev.filter((n) => !remove.has(n.id));
     });
-    setSections((prev) =>
-      prev.map((s) =>
-        s.metadata?.walletId === id
-          ? { ...s, metadata: { ...s.metadata, walletId: undefined } }
-          : s
-      )
-    );
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const replacePortfolioData = useCallback((data: PortfolioImportResult) => {
     hydrateFromPayload(data, account.tenant, {
@@ -667,6 +635,29 @@ export function PortfolioProvider({
       setNetWorthHistory,
     });
   }, [account.tenant]);
+
+  const persistPortfolio = useCallback((payload: PortfolioDataPayload, options?: { keepalive?: boolean }) => {
+    const body = JSON.stringify(payload);
+    const request = fetch("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      keepalive: options?.keepalive === true,
+      body,
+    }).then(async (res) => {
+      if (!res.ok && options?.keepalive !== true) {
+        const errorBody = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(errorBody.error ?? `Save failed (${res.status})`);
+      }
+    }).catch(() => {
+      if (options?.keepalive !== true) {
+        toast.error("Could not reach the server — changes not saved");
+      }
+    });
+
+    persistInFlightRef.current = request.then(() => undefined);
+    return request;
+  }, []);
 
   useEffect(() => {
     if (skipPersistRef.current) {
@@ -689,24 +680,24 @@ export function PortfolioProvider({
       monthlyIncome,
       netWorthHistory,
     });
+    latestPayloadRef.current = payload;
+
+    const runSave = () => {
+      saveTimerRef.current = null;
+      void persistPortfolio(payload);
+    };
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      void fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const body = (await res.json().catch(() => ({}))) as { error?: string };
-            toast.error(body.error ?? `Save failed (${res.status})`);
-          }
-        })
-        .catch(() => {
-          toast.error("Could not reach the server — changes not saved");
-        });
-    }, 800);
+
+    if (saveNowRef.current) {
+      saveNowRef.current = false;
+      runSave();
+      return () => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      };
+    }
+
+    saveTimerRef.current = setTimeout(runSave, 800);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -725,7 +716,24 @@ export function PortfolioProvider({
     uiPreferences,
     monthlyIncome,
     netWorthHistory,
+    persistPortfolio,
   ]);
+
+  useEffect(() => {
+    const flushPendingSave = () => {
+      if (skipPersistRef.current) return;
+      const payload = latestPayloadRef.current;
+      if (!payload) return;
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      void persistPortfolio(payload, { keepalive: true });
+    };
+
+    window.addEventListener("pagehide", flushPendingSave);
+    return () => window.removeEventListener("pagehide", flushPendingSave);
+  }, [persistPortfolio]);
 
   const value = useMemo(
     () => ({
@@ -746,7 +754,7 @@ export function PortfolioProvider({
       addNetWorthSnapshot,
       deleteNetWorthSnapshot,
       monthlyIncome,
-      setMonthlyIncome,
+      setMonthlyIncome: setMonthlyIncomeWithSave,
       getSections,
       getSectionGroups,
       upsertSectionGroup,
@@ -776,9 +784,9 @@ export function PortfolioProvider({
       setMonthlyAutoSnapshot,
       setThemePreference,
       setSidebarCompact,
-      applyMorphoSync,
       applyAssetPrices,
       replacePortfolioData,
+      savePortfolioNow,
       account,
       updateAccount,
     }),
@@ -800,6 +808,7 @@ export function PortfolioProvider({
       addNetWorthSnapshot,
       deleteNetWorthSnapshot,
       monthlyIncome,
+      setMonthlyIncomeWithSave,
       getSections,
       getSectionGroups,
       upsertSectionGroup,
@@ -829,9 +838,9 @@ export function PortfolioProvider({
       setMonthlyAutoSnapshot,
       setThemePreference,
       setSidebarCompact,
-      applyMorphoSync,
       applyAssetPrices,
       replacePortfolioData,
+      savePortfolioNow,
       account,
       updateAccount,
     ]

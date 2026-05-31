@@ -1,6 +1,6 @@
 import type { NavPageKey, UiPreferences } from "@/types";
 
-export const PLAN_TAB_IDS = ["income", "wallets", "budget", "goals"] as const;
+export const PLAN_TAB_IDS = ["income", "budget", "goals", "wallets"] as const;
 export type PlanTabId = (typeof PLAN_TAB_IDS)[number];
 
 export const NAV_PAGE_LABELS: Record<NavPageKey, string> = {

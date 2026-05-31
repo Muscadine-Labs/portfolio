@@ -1,13 +1,15 @@
-import type { PortfolioSection, WalletMapNode } from "@/types";
+import type { PortfolioSection } from "@/types";
 
-/** Asset section tied to a connected wallet (one section = one wallet, many networks). */
-export function isWalletAssetSection(section: PortfolioSection): boolean {
-  return Boolean(section.metadata?.walletId);
-}
-
-/** Show network / protocol columns — position lives on a chain inside a wallet. */
-export function isWalletPositionSection(section: PortfolioSection): boolean {
-  return isWalletAssetSection(section);
+function sectionLooksCrypto(section: PortfolioSection): boolean {
+  const id = section.id.toLowerCase();
+  const label = section.label.toLowerCase();
+  return (
+    id.includes("crypto") ||
+    label.includes("crypto") ||
+    label.includes("bitcoin") ||
+    label.includes("defi") ||
+    label.includes("exchange")
+  );
 }
 
 /** Legacy buckets: Bitcoin cold, CEX — not tied to an on-chain connected wallet. */
@@ -16,13 +18,21 @@ export function isLegacyCryptoBucket(section: PortfolioSection): boolean {
   return id.includes("crypto_bitcoin") || id.includes("crypto_exchanges");
 }
 
-export function getWalletForSection(
-  section: PortfolioSection,
-  wallets: WalletMapNode[]
-): WalletMapNode | undefined {
-  const walletId = section.metadata?.walletId;
-  if (!walletId) return undefined;
-  return wallets.find((w) => w.id === walletId);
+/** Crypto / on-chain asset section — show network & exchange columns on positions. */
+export function isCryptoAssetSection(section: PortfolioSection): boolean {
+  if (section.metadata?.isCrypto === true || section.metadata?.isDefi === true) return true;
+  if (isLegacyCryptoBucket(section)) return true;
+  return sectionLooksCrypto(section);
+}
+
+/** @deprecated Use isCryptoAssetSection */
+export function isWalletAssetSection(section: PortfolioSection): boolean {
+  return isCryptoAssetSection(section);
+}
+
+/** Show network / exchange columns — position lives on a chain or exchange. */
+export function isWalletPositionSection(section: PortfolioSection): boolean {
+  return isCryptoAssetSection(section);
 }
 
 export function formatWalletAddress(address: string): string {

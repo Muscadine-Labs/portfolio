@@ -427,7 +427,6 @@ export function CashPageContent() {
         page="cash"
         defaultGroupId={defaultGroupId}
         onSave={saveSection}
-        linkWallet
       />
       <SectionGroupDrawer
         open={groupDrawerOpen}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { WalletNetworkToggles } from "@/components/plan/WalletNetworkToggles";
-import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
 import {
@@ -30,7 +29,7 @@ import {
   validateWalletNetworks,
 } from "@/lib/wallet-address";
 import { WALLET_TYPE_OPTIONS } from "@/lib/wallet-types";
-import type { PageType, WalletChain, WalletMapNode, WalletType } from "@/types";
+import type { WalletChain, WalletMapNode, WalletType } from "@/types";
 
 const schema = z.object({
   label: z.string().min(1, "Name is required"),
@@ -39,9 +38,6 @@ const schema = z.object({
   address: z.string().optional(),
   status: z.enum(["active", "planned"]),
   notes: z.string().optional(),
-  assetsSectionId: z.string().optional(),
-  cashSectionId: z.string().optional(),
-  liabilitiesSectionId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -50,16 +46,6 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "planned", label: "Not created yet" },
 ] as const;
-
-function sectionOptionsForPage(
-  sections: ReturnType<typeof usePortfolio>["sections"],
-  page: PageType
-) {
-  return sections
-    .filter((section) => section.page === page)
-    .sort((a, b) => a.order - b.order)
-    .map((section) => ({ value: section.id, label: section.label }));
-}
 
 interface WalletMapDrawerProps {
   open: boolean;
@@ -80,7 +66,6 @@ export function WalletMapDrawer({
   siblingCount,
   onSave,
 }: WalletMapDrawerProps) {
-  const { sections } = usePortfolio();
   const [networks, setNetworks] = useState<WalletChain[]>(["ethereum", "base"]);
   const { register, handleSubmit, reset, setValue, control } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -90,18 +75,12 @@ export function WalletMapDrawer({
       status: "active",
       walletType: "",
       address: "",
-      assetsSectionId: "",
-      cashSectionId: "",
-      liabilitiesSectionId: "",
     },
   });
 
   const status = useWatch({ control, name: "status" });
   const walletType = useWatch({ control, name: "walletType" });
   const address = useWatch({ control, name: "address" }) ?? "";
-  const assetsSectionId = useWatch({ control, name: "assetsSectionId" }) ?? "";
-  const cashSectionId = useWatch({ control, name: "cashSectionId" }) ?? "";
-  const liabilitiesSectionId = useWatch({ control, name: "liabilitiesSectionId" }) ?? "";
 
   useDrawerFormReset(
     open,
@@ -122,25 +101,9 @@ export function WalletMapDrawer({
         address: initialAddress,
         status: node?.status ?? "active",
         notes: node?.notes ?? "",
-        assetsSectionId: node?.links?.assetsSectionId ?? "",
-        cashSectionId: node?.links?.cashSectionId ?? "",
-        liabilitiesSectionId: node?.links?.liabilitiesSectionId ?? "",
       };
     },
     [node?.id, parentId, siblingCount]
-  );
-
-  const assetSectionOptions = useMemo(
-    () => sectionOptionsForPage(sections, "assets"),
-    [sections]
-  );
-  const cashSectionOptions = useMemo(
-    () => sectionOptionsForPage(sections, "cash"),
-    [sections]
-  );
-  const liabilitySectionOptions = useMemo(
-    () => sectionOptionsForPage(sections, "liabilities"),
-    [sections]
   );
 
   const handleAddressChange = (value: string) => {
@@ -164,12 +127,6 @@ export function WalletMapDrawer({
       }
     }
 
-    const links = {
-      assetsSectionId: values.assetsSectionId || undefined,
-      cashSectionId: values.cashSectionId || undefined,
-      liabilitiesSectionId: values.liabilitiesSectionId || undefined,
-    };
-
     onSave({
       id: node?.id ?? createEntityId("wm"),
       parentId: node?.parentId ?? parentId,
@@ -180,10 +137,6 @@ export function WalletMapDrawer({
         ? normalizeConnectedWalletAddress(trimmedAddress, normalizedNetworks ?? [])
         : undefined,
       networks: normalizedNetworks,
-      links:
-        links.assetsSectionId || links.cashSectionId || links.liabilitiesSectionId
-          ? links
-          : undefined,
       status: values.status,
       notes: values.notes?.trim() || undefined,
       owner: undefined,
@@ -199,8 +152,7 @@ export function WalletMapDrawer({
             {node ? "Edit wallet" : parentLabel ? `Add under ${parentLabel}` : "Add root wallet"}
           </DrawerTitle>
           <DrawerDescription>
-            Plan your wallet tree. Optionally link portfolio sections — Morpho positions route to
-            whichever sections you connect (one or more of assets, cash, liabilities).
+            Plan your wallet tree with labels, order, type, status, address, and networks.
           </DrawerDescription>
         </DrawerHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
@@ -273,42 +225,6 @@ export function WalletMapDrawer({
                 Select every chain this wallet uses. With an address, only compatible chains can be
                 selected.
               </p>
-            </div>
-            <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
-              <p className="text-xs font-medium text-foreground">Portfolio sections (optional)</p>
-              <p className="text-xs text-muted-foreground">
-                Link this wallet to specific sections. The section will show this wallet on its end
-                too. Morpho sync only needs the sections you care about — not all three.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Assets section</Label>
-                  <NativeSelect
-                    value={assetsSectionId}
-                    onValueChange={(value) => setValue("assetsSectionId", value)}
-                    options={[{ value: "", label: "— None —" }, ...assetSectionOptions]}
-                    placeholder="Select…"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Cash section</Label>
-                  <NativeSelect
-                    value={cashSectionId}
-                    onValueChange={(value) => setValue("cashSectionId", value)}
-                    options={[{ value: "", label: "— None —" }, ...cashSectionOptions]}
-                    placeholder="Select…"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Liabilities section</Label>
-                  <NativeSelect
-                    value={liabilitiesSectionId}
-                    onValueChange={(value) => setValue("liabilitiesSectionId", value)}
-                    options={[{ value: "", label: "— None —" }, ...liabilitySectionOptions]}
-                    placeholder="Select…"
-                  />
-                </div>
-              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="wallet-notes">Notes (optional)</Label>

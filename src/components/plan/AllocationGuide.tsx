@@ -194,6 +194,7 @@ export function AllocationGuide() {
     setMonthlyIncome,
     upsertAllocationNode,
     deleteAllocationNode,
+    savePortfolioNow,
   } = usePortfolio();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -253,6 +254,7 @@ export function AllocationGuide() {
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={incomePlan.description}
               onChange={(e) => setIncomePlanDescription(e.target.value)}
+              onBlur={() => savePortfolioNow()}
             />
           </div>
 

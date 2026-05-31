@@ -1,24 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WalletMapDrawer } from "@/components/plan/WalletMapDrawer";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { formatWalletAddress } from "@/lib/asset-sections";
-import type { MorphoSyncResult } from "@/lib/morpho";
-import {
-  getMorphoWalletNetworks,
-  walletNetworkLabel,
-} from "@/lib/wallet-address";
-import {
-  hasMorphoSectionTarget,
-  resolveWalletSectionTargets,
-  sectionLabelForTarget,
-} from "@/lib/wallet-section-links";
+import { walletNetworkLabel } from "@/lib/wallet-address";
 import { getWalletChildren, isOnChainWallet } from "@/lib/wallet-map";
 import { walletTypeLabel } from "@/lib/wallet-types";
 import { cn } from "@/lib/utils";
@@ -27,40 +17,21 @@ import type { WalletMapNode } from "@/types";
 function WalletRow({
   node,
   nodes,
-  sections,
   depth,
-  syncingKey,
   onEdit,
   onAddChild,
   onDelete,
-  onSyncMorpho,
 }: {
   node: WalletMapNode;
   nodes: WalletMapNode[];
-  sections: ReturnType<typeof usePortfolio>["sections"];
   depth: number;
-  syncingKey: string | null;
   onEdit: (node: WalletMapNode) => void;
   onAddChild: (parent: WalletMapNode) => void;
   onDelete: (id: string) => void;
-  onSyncMorpho: (node: WalletMapNode, network: "ethereum" | "base") => void;
 }) {
   const children = getWalletChildren(nodes, node.id);
   const isPlanned = node.status === "planned";
   const typeLabel = walletTypeLabel(node.walletType);
-  const morphoNetworks = getMorphoWalletNetworks(node.networks ?? []);
-  const sectionTargets = resolveWalletSectionTargets(node, sections);
-  const linkedLabels = [
-    sectionTargets.assetsSectionId
-      ? `Assets · ${sectionLabelForTarget(sections, sectionTargets.assetsSectionId)}`
-      : null,
-    sectionTargets.cashSectionId
-      ? `Cash · ${sectionLabelForTarget(sections, sectionTargets.cashSectionId)}`
-      : null,
-    sectionTargets.liabilitiesSectionId
-      ? `Liabilities · ${sectionLabelForTarget(sections, sectionTargets.liabilitiesSectionId)}`
-      : null,
-  ].filter(Boolean);
 
   return (
     <>
@@ -112,11 +83,6 @@ function WalletRow({
             {node.notes ? (
               <p className="mt-0.5 text-xs text-muted-foreground/90">{node.notes}</p>
             ) : null}
-            {linkedLabels.length > 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Linked: {linkedLabels.join(" · ")}
-              </p>
-            ) : null}
           </div>
           <div className="flex shrink-0 gap-0.5">
             <Button
@@ -141,46 +107,16 @@ function WalletRow({
             </Button>
           </div>
         </div>
-
-        {morphoNetworks.length > 0 && isOnChainWallet(node) ? (
-          <div className="flex flex-wrap gap-2">
-            {morphoNetworks.map((network) => {
-              const syncKey = `${node.id}:${network}`;
-              const syncing = syncingKey === syncKey;
-              return (
-                <Button
-                  key={network}
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={syncing}
-                  onClick={() => onSyncMorpho(node, network)}
-                >
-                  {syncing ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  Sync Morpho · {walletNetworkLabel(network)}
-                </Button>
-              );
-            })}
-          </div>
-        ) : null}
       </div>
       {children.map((child) => (
         <WalletRow
           key={child.id}
           node={child}
           nodes={nodes}
-          sections={sections}
           depth={depth + 1}
-          syncingKey={syncingKey}
           onEdit={onEdit}
           onAddChild={onAddChild}
           onDelete={onDelete}
-          onSyncMorpho={onSyncMorpho}
         />
       ))}
     </>
@@ -188,15 +124,13 @@ function WalletRow({
 }
 
 export function WalletMapGuide() {
-  const { walletMapNodes, sections, upsertWalletMapNode, deleteWalletMapNode, applyMorphoSync } =
-    usePortfolio();
+  const { walletMapNodes, upsertWalletMapNode, deleteWalletMapNode } = usePortfolio();
   const roots = useMemo(() => getWalletChildren(walletMapNodes, null), [walletMapNodes]);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<WalletMapNode | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
   const [parentLabel, setParentLabel] = useState<string | undefined>();
-  const [syncingKey, setSyncingKey] = useState<string | null>(null);
 
   const openAdd = (pid: string | null, label?: string) => {
     setEditing(null);
@@ -216,50 +150,6 @@ export function WalletMapGuide() {
     ? getWalletChildren(walletMapNodes, parentId).length
     : roots.length;
 
-  const syncMorpho = async (node: WalletMapNode, network: "ethereum" | "base") => {
-    if (!node.address) return;
-
-    const targets = resolveWalletSectionTargets(node, sections);
-
-    if (!hasMorphoSectionTarget(targets)) {
-      toast.error("Link at least one section", {
-        description:
-          "Choose an assets, cash, or liabilities section on this wallet (or from the section editor).",
-      });
-      return;
-    }
-
-    const syncKey = `${node.id}:${network}`;
-    setSyncingKey(syncKey);
-    try {
-      const res = await fetch("/api/morpho/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          address: node.address,
-          chain: network,
-          walletId: node.id,
-          ...targets,
-        }),
-      });
-      const data = (await res.json()) as MorphoSyncResult & { error?: string };
-      if (!res.ok) {
-        toast.error("Morpho sync failed", { description: data.error });
-        return;
-      }
-      applyMorphoSync(node.id, data, targets);
-      const count =
-        data.assets.length + data.liabilities.length + data.cashAccounts.length;
-      toast.success("Morpho sync complete", {
-        description: `Updated ${count} positions on ${walletNetworkLabel(network)}`,
-      });
-    } catch {
-      toast.error("Morpho sync failed", { description: "Could not reach the API." });
-    } finally {
-      setSyncingKey(null);
-    }
-  };
-
   return (
     <div className="space-y-4">
       <Card className="border-border/60 bg-card/80">
@@ -268,8 +158,8 @@ export function WalletMapGuide() {
             <div>
               <CardTitle className="text-base">Wallets</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Organize wallets in a tree. Active wallets can include an address, networks, linked
-                portfolio sections, and Morpho sync.
+                Organize wallets in a tree. Active wallets can include an address and supported
+                networks.
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => openAdd(null)}>
@@ -289,13 +179,10 @@ export function WalletMapGuide() {
                 key={root.id}
                 node={root}
                 nodes={walletMapNodes}
-                sections={sections}
                 depth={0}
-                syncingKey={syncingKey}
                 onEdit={openEdit}
                 onAddChild={(node) => openAdd(node.id, node.label)}
                 onDelete={deleteWalletMapNode}
-                onSyncMorpho={(node, network) => void syncMorpho(node, network)}
               />
             ))
           )}

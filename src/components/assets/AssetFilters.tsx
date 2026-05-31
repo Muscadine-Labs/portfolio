@@ -31,7 +31,7 @@ export const ASSET_COLUMN_OPTIONS: ColumnOption<AssetColumnKey>[] = [
 
 export const WALLET_POSITION_COLUMN_OPTIONS: ColumnOption<AssetColumnKey>[] = [
   { key: "network", label: "Network" },
-  { key: "protocol", label: "Protocol" },
+  { key: "protocol", label: "Exchange" },
 ];
 
 /** @deprecated Use WALLET_POSITION_COLUMN_OPTIONS */
