@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -109,7 +110,8 @@ export function SpendingDrawer({
         <DrawerHeader>
           <DrawerTitle>{item ? "Edit Item" : "Add Item"}</DrawerTitle>
         </DrawerHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
           <div className="space-y-2">
             <Label>Name</Label>
             <Input {...register("name")} />
@@ -151,7 +153,8 @@ export function SpendingDrawer({
             <Label>Notes</Label>
             <Input {...register("notes")} />
           </div>
-          <DrawerFooter className="px-0">
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">Save</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

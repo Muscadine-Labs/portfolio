@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -130,11 +131,12 @@ export function LiabilityDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{liability ? "Edit Liability" : "Add Liability"}</DrawerTitle>
         </DrawerHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-4 pb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
           <div className="space-y-2">
             <Label>Name</Label>
             <Input {...register("name")} />
@@ -299,7 +301,8 @@ export function LiabilityDrawer({
             </div>
           )}
 
-          <DrawerFooter className="px-0">
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">Save</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

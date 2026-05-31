@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -120,14 +121,12 @@ export function AssetDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{asset?.id ? "Edit Asset" : "Add Asset"}</DrawerTitle>
         </DrawerHeader>
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="space-y-4 overflow-y-auto px-4 pb-4"
-        >
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="symbol">Symbol</Label>
@@ -195,7 +194,8 @@ export function AssetDrawer({
               />
             </div>
           </div>
-          <DrawerFooter className="px-0">
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">{asset?.id ? "Save Changes" : "Add Asset"}</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

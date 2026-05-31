@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
@@ -33,6 +34,7 @@ import type { PageType, WalletChain, WalletMapNode, WalletType } from "@/types";
 
 const schema = z.object({
   label: z.string().min(1, "Name is required"),
+  order: z.number().int().min(0, "Order must be 0 or greater"),
   walletType: z.string().optional(),
   address: z.string().optional(),
   status: z.enum(["active", "planned"]),
@@ -84,6 +86,7 @@ export function WalletMapDrawer({
     resolver: zodResolver(schema),
     defaultValues: {
       label: "",
+      order: 0,
       status: "active",
       walletType: "",
       address: "",
@@ -114,6 +117,7 @@ export function WalletMapDrawer({
       setNetworks(initialNetworks);
       return {
         label: node?.label ?? "",
+        order: node?.order ?? siblingCount,
         walletType: node?.walletType ?? "",
         address: initialAddress,
         status: node?.status ?? "active",
@@ -123,7 +127,7 @@ export function WalletMapDrawer({
         liabilitiesSectionId: node?.links?.liabilitiesSectionId ?? "",
       };
     },
-    [node?.id, parentId]
+    [node?.id, parentId, siblingCount]
   );
 
   const assetSectionOptions = useMemo(
@@ -170,7 +174,7 @@ export function WalletMapDrawer({
       id: node?.id ?? createEntityId("wm"),
       parentId: node?.parentId ?? parentId,
       label: values.label.trim(),
-      order: node?.order ?? siblingCount,
+      order: values.order,
       walletType: (values.walletType as WalletType) || undefined,
       address: trimmedAddress
         ? normalizeConnectedWalletAddress(trimmedAddress, normalizedNetworks ?? [])
@@ -199,105 +203,124 @@ export function WalletMapDrawer({
             whichever sections you connect (one or more of assets, cash, liabilities).
           </DrawerDescription>
         </DrawerHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
-          <div className="space-y-2">
-            <Label htmlFor="wallet-label">Label</Label>
-            <Input
-              id="wallet-label"
-              {...register("label")}
-              placeholder="e.g. Ledger A"
-              autoComplete="off"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="wallet-type">Type</Label>
-            <NativeSelect
-              id="wallet-type"
-              value={walletType}
-              onValueChange={(value) => setValue("walletType", value)}
-              options={WALLET_TYPE_OPTIONS}
-              placeholder="Choose type"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="wallet-status">Status</Label>
-            <NativeSelect
-              id="wallet-status"
-              value={status}
-              onValueChange={(value) => setValue("status", value as FormValues["status"])}
-              options={STATUS_OPTIONS}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="wallet-address">Address (optional)</Label>
-            <Input
-              id="wallet-address"
-              value={address}
-              onChange={(event) => handleAddressChange(event.target.value)}
-              placeholder="0x…, bc1…, or Solana address"
-              className="font-mono text-sm"
-              autoComplete="off"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Networks</Label>
-            <WalletNetworkToggles
-              idPrefix={`wallet-drawer-${node?.id ?? "new"}`}
-              address={address}
-              selected={networks}
-              onChange={setNetworks}
-            />
-            <p className="text-xs text-muted-foreground">
-              Select every chain this wallet uses. With an address, only compatible chains can be
-              selected.
-            </p>
-          </div>
-          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
-            <p className="text-xs font-medium text-foreground">Portfolio sections (optional)</p>
-            <p className="text-xs text-muted-foreground">
-              Link this wallet to specific sections. The section will show this wallet on its end
-              too. Morpho sync only needs the sections you care about — not all three.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Assets section</Label>
-                <NativeSelect
-                  value={assetsSectionId}
-                  onValueChange={(value) => setValue("assetsSectionId", value)}
-                  options={[{ value: "", label: "— None —" }, ...assetSectionOptions]}
-                  placeholder="Select…"
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_5rem]">
+              <div className="space-y-2">
+                <Label htmlFor="wallet-label">Label</Label>
+                <Input
+                  id="wallet-label"
+                  {...register("label")}
+                  placeholder="e.g. Ledger A"
+                  autoComplete="off"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Cash section</Label>
-                <NativeSelect
-                  value={cashSectionId}
-                  onValueChange={(value) => setValue("cashSectionId", value)}
-                  options={[{ value: "", label: "— None —" }, ...cashSectionOptions]}
-                  placeholder="Select…"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Liabilities section</Label>
-                <NativeSelect
-                  value={liabilitiesSectionId}
-                  onValueChange={(value) => setValue("liabilitiesSectionId", value)}
-                  options={[{ value: "", label: "— None —" }, ...liabilitySectionOptions]}
-                  placeholder="Select…"
+              <div className="space-y-2">
+                <Label htmlFor="wallet-order">Order</Label>
+                <Input
+                  id="wallet-order"
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  {...register("order", { valueAsNumber: true })}
+                  aria-describedby="wallet-order-hint"
                 />
               </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="wallet-notes">Notes (optional)</Label>
-            <Input
-              id="wallet-notes"
-              {...register("notes")}
-              placeholder="Internal notes"
-              autoComplete="off"
-            />
-          </div>
-          <DrawerFooter className="px-0">
+            <p id="wallet-order-hint" className="text-xs text-muted-foreground">
+              Sibling index among wallets at the same level (0, 1, 2…). Lower numbers appear first.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-type">Type</Label>
+              <NativeSelect
+                id="wallet-type"
+                value={walletType}
+                onValueChange={(value) => setValue("walletType", value)}
+                options={WALLET_TYPE_OPTIONS}
+                placeholder="Choose type"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-status">Status</Label>
+              <NativeSelect
+                id="wallet-status"
+                value={status}
+                onValueChange={(value) => setValue("status", value as FormValues["status"])}
+                options={STATUS_OPTIONS}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-address">Address (optional)</Label>
+              <Input
+                id="wallet-address"
+                value={address}
+                onChange={(event) => handleAddressChange(event.target.value)}
+                placeholder="0x…, bc1…, or Solana address"
+                className="font-mono text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Networks</Label>
+              <WalletNetworkToggles
+                idPrefix={`wallet-drawer-${node?.id ?? "new"}`}
+                address={address}
+                selected={networks}
+                onChange={setNetworks}
+              />
+              <p className="text-xs text-muted-foreground">
+                Select every chain this wallet uses. With an address, only compatible chains can be
+                selected.
+              </p>
+            </div>
+            <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+              <p className="text-xs font-medium text-foreground">Portfolio sections (optional)</p>
+              <p className="text-xs text-muted-foreground">
+                Link this wallet to specific sections. The section will show this wallet on its end
+                too. Morpho sync only needs the sections you care about — not all three.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Assets section</Label>
+                  <NativeSelect
+                    value={assetsSectionId}
+                    onValueChange={(value) => setValue("assetsSectionId", value)}
+                    options={[{ value: "", label: "— None —" }, ...assetSectionOptions]}
+                    placeholder="Select…"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Cash section</Label>
+                  <NativeSelect
+                    value={cashSectionId}
+                    onValueChange={(value) => setValue("cashSectionId", value)}
+                    options={[{ value: "", label: "— None —" }, ...cashSectionOptions]}
+                    placeholder="Select…"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Liabilities section</Label>
+                  <NativeSelect
+                    value={liabilitiesSectionId}
+                    onValueChange={(value) => setValue("liabilitiesSectionId", value)}
+                    options={[{ value: "", label: "— None —" }, ...liabilitySectionOptions]}
+                    placeholder="Select…"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-notes">Notes (optional)</Label>
+              <Input
+                id="wallet-notes"
+                {...register("notes")}
+                placeholder="Internal notes"
+                autoComplete="off"
+              />
+            </div>
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">Save</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -163,7 +164,8 @@ export function SectionDrawer({
         <DrawerHeader>
           <DrawerTitle>{section ? "Edit Section" : "Add Section"}</DrawerTitle>
         </DrawerHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
           {supportsGroups ? (
             <div className="space-y-2">
               <Label htmlFor="section-group">Group</Label>
@@ -225,7 +227,8 @@ export function SectionDrawer({
               DeFi section (show collateral / LTV columns)
             </label>
           ) : null}
-          <DrawerFooter className="px-0">
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">{section ? "Save" : "Create Section"}</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

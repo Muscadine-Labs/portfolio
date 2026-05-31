@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v0.7.1** — Production docs at repo root; save error toasts; wallet section sync.
+**Release v0.8.0** — Drawer sticky save footer (mobile-safe), wallet order index, wallet section sync.
 
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 

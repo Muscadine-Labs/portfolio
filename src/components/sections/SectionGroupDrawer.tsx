@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Drawer,
+  DrawerBody,
   DrawerClose,
   DrawerContent,
   DrawerFooter,
@@ -69,7 +70,8 @@ export function SectionGroupDrawer({
         <DrawerHeader>
           <DrawerTitle>{group ? "Edit group" : "Add group"}</DrawerTitle>
         </DrawerHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+          <DrawerBody className="space-y-4 pb-4">
           <div className="space-y-2">
             <Label htmlFor="group-name">Group name</Label>
             <Input
@@ -78,7 +80,8 @@ export function SectionGroupDrawer({
               placeholder="e.g. Retirement, DeFi"
             />
           </div>
-          <DrawerFooter className="px-0">
+          </DrawerBody>
+          <DrawerFooter>
             <Button type="submit">{group ? "Save" : "Create group"}</Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">

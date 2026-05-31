@@ -76,6 +76,13 @@ function WalletRow({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                variant="outline"
+                className="min-w-[1.75rem] justify-center font-mono text-[10px] tabular-nums"
+                title="Order among siblings at this level"
+              >
+                {node.order}
+              </Badge>
               <span className="font-medium">{node.label}</span>
               {typeLabel ? (
                 <Badge variant="secondary" className="text-[10px]">
