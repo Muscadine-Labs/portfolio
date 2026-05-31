@@ -5,14 +5,14 @@
 For deployment, security, and detailed conventions, read **`docs/`** first:
 
 - `docs/CLAUDE.md` — codebase map and agent rules  
-- `docs/PLAN.md` — mini PC API + Cloudflare Tunnel + Vercel  
+- `README.md` — production stack and Vercel env  
 - `SECURITY.md` — privacy and trust boundaries (repo root)  
 
 ---
 
 Personal finance dashboard (Next.js 16): net worth, assets, cash, liabilities, plan, settings.
 
-**Deployed:** https://portfolio.muscadine.io (Vercel). **Next:** mini PC API + SQLite at `api-portfolio.muscadine.io`.
+**Deployed:** https://portfolio.muscadine.io (Vercel). **Data:** https://api-portfolio.muscadine.io (mini PC + tunnel).
 
 ---
 

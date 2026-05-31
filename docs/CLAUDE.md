@@ -142,7 +142,7 @@ Tunnel only works when **Cloudflare** serves DNS for `muscadine.io`. CNAME at Ve
 2. **No user data in git** — SQLite lives in api-portfolio `data/`.
 3. **No secrets in committed files** — only `.env.example` placeholders.
 4. **`API_SECRET` on Vercel** — server env only, never `NEXT_PUBLIC_*`.
-5. Read `docs/PLAN.md` and `SECURITY.md` for deployment boundaries.
+5. Read `README.md` and `SECURITY.md` for deployment boundaries.
 
 ---
 

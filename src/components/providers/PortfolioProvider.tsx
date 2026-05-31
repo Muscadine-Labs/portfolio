@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { getSectionsForPage, createSectionId } from "@/lib/sections";
 import { createSectionGroupId, getSectionGroupsForPage } from "@/lib/section-groups";
 import {
@@ -28,6 +29,11 @@ import {
 } from "@/lib/portfolio-empty";
 import type { MorphoSyncResult } from "@/lib/morpho";
 import { isMorphoManagedId } from "@/lib/morpho";
+import {
+  syncSectionsFromWalletLinks,
+  syncWalletAndSectionsFromSectionLink,
+  type WalletSectionTargets,
+} from "@/lib/wallet-section-links";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { sortNetWorthHistory } from "@/lib/net-worth-history";
 import { normalizeUiPreferences, writeSidebarCompactToStorage } from "@/lib/sidebar-preference";
@@ -105,7 +111,11 @@ interface PortfolioContextValue {
   setMonthlyAutoSnapshot: (enabled: boolean) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
   setSidebarCompact: (compact: boolean) => void;
-  applyMorphoSync: (walletId: string, result: MorphoSyncResult) => void;
+  applyMorphoSync: (
+    walletId: string,
+    result: MorphoSyncResult,
+    targets?: WalletSectionTargets
+  ) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
   account: User;
@@ -235,6 +245,12 @@ export function PortfolioProvider({
   const [walletMapNodes, setWalletMapNodes] = useState<WalletMapNode[]>(
     boot.walletMapNodes ?? EMPTY_WALLET_MAP_NODES
   );
+  const sectionsRef = useRef(sections);
+  const walletMapNodesRef = useRef(walletMapNodes);
+  useEffect(() => {
+    sectionsRef.current = sections;
+    walletMapNodesRef.current = walletMapNodes;
+  }, [sections, walletMapNodes]);
   const [monthlyIncome, setMonthlyIncome] = useState<number | undefined>(boot.monthlyIncome);
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthSnapshot[]>(
     boot.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY
@@ -327,20 +343,33 @@ export function PortfolioProvider({
     [account.tenant]
   );
 
-  const applyMorphoSync = useCallback((walletId: string, result: MorphoSyncResult) => {
-    setAssets((prev) => [
-      ...prev.filter((a) => !(a.walletId === walletId || isMorphoManagedId(a.id))),
-      ...result.assets,
-    ]);
-    setLiabilities((prev) => [
-      ...prev.filter((l) => !(l.walletId === walletId || isMorphoManagedId(l.id))),
-      ...result.liabilities,
-    ]);
-    setCashAccounts((prev) => [
-      ...prev.filter((c) => !(c.walletId === walletId || isMorphoManagedId(c.id))),
-      ...result.cashAccounts,
-    ]);
-  }, []);
+  const applyMorphoSync = useCallback(
+    (walletId: string, result: MorphoSyncResult, targets?: WalletSectionTargets) => {
+      const syncAssets = !targets || Boolean(targets.assetsSectionId);
+      const syncCash = !targets || Boolean(targets.cashSectionId);
+      const syncLiabilities = !targets || Boolean(targets.liabilitiesSectionId);
+
+      if (syncAssets) {
+        setAssets((prev) => [
+          ...prev.filter((a) => !(a.walletId === walletId && isMorphoManagedId(a.id))),
+          ...result.assets,
+        ]);
+      }
+      if (syncLiabilities) {
+        setLiabilities((prev) => [
+          ...prev.filter((l) => !(l.walletId === walletId && isMorphoManagedId(l.id))),
+          ...result.liabilities,
+        ]);
+      }
+      if (syncCash) {
+        setCashAccounts((prev) => [
+          ...prev.filter((c) => !(c.walletId === walletId && isMorphoManagedId(c.id))),
+          ...result.cashAccounts,
+        ]);
+      }
+    },
+    []
+  );
 
   const applyAssetPrices = useCallback((pricesBySymbol: Record<string, number>) => {
     let updated = 0;
@@ -435,15 +464,17 @@ export function PortfolioProvider({
   );
 
   const upsertSection = useCallback((section: PortfolioSection) => {
-    setSections((prev) => {
-      const idx = prev.findIndex((s) => s.id === section.id && s.page === section.page);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = section;
-        return next;
-      }
-      return [...prev, section];
-    });
+    const existing = sectionsRef.current.find(
+      (s) => s.id === section.id && s.page === section.page
+    );
+    const synced = syncWalletAndSectionsFromSectionLink(
+      sectionsRef.current,
+      walletMapNodesRef.current,
+      section,
+      existing?.metadata?.walletId
+    );
+    setSections(synced.sections);
+    setWalletMapNodes(synced.wallets);
   }, []);
 
   const deleteSection = useCallback((sectionId: string, page: PageType) => {
@@ -597,6 +628,7 @@ export function PortfolioProvider({
       }
       return [...prev, node];
     });
+    setSections((prev) => syncSectionsFromWalletLinks(prev, node));
   }, []);
 
   const deleteWalletMapNode = useCallback((id: string) => {
@@ -664,9 +696,16 @@ export function PortfolioProvider({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).catch(() => {
-        /* silent — user can re-export manually */
-      });
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = (await res.json().catch(() => ({}))) as { error?: string };
+            toast.error(body.error ?? `Save failed (${res.status})`);
+          }
+        })
+        .catch(() => {
+          toast.error("Could not reach the server — changes not saved");
+        });
     }, 800);
 
     return () => {

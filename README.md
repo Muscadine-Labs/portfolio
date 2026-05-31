@@ -1,72 +1,103 @@
 # Portfolio
 
-**Live:** [portfolio.muscadine.io](https://portfolio.muscadine.io) (Vercel). The UI and Phase 1 API routes run on Vercel; persistent storage on your mini PC (`api-portfolio.muscadine.io`) is still on the roadmap — see `docs/PLAN.md`.
+Personal finance dashboard — **live** at [portfolio.muscadine.io](https://portfolio.muscadine.io).
 
-Personal finance dashboard at `portfolio.muscadine.io`. “Workspace” in Settings is an internal ID, not a DNS hostname.
+Data persists on your home API ([api-portfolio.muscadine.io](https://api-portfolio.muscadine.io)) via SQLite on a Linux mini PC. The Vercel deployment is UI + server-side API proxy only.
 
-## Tech Stack
+| Component | URL | Where |
+|-----------|-----|--------|
+| UI | https://portfolio.muscadine.io | Vercel |
+| Home API | https://api-portfolio.muscadine.io | Mini PC + Cloudflare Tunnel |
 
-- Next.js (App Router), TypeScript, Tailwind CSS
+Companion repo: [Muscadine-Labs/api-portfolio](https://github.com/Muscadine-Labs/api-portfolio)
+
+---
+
+## Tech stack
+
+- Next.js 16 (App Router), TypeScript, Tailwind CSS
 - shadcn/ui, Recharts, Framer Motion
 - react-hook-form + Zod
-- Portfolio seed in `portfolio-data.ts` at repo root (gitignored); demo in `portfolio-data.example.ts` — see `SECURITY.md`
+- Auto-save via `POST /api/export` → home API
 
-## Getting Started
+---
+
+## Getting started (local)
 
 ```bash
 npm install
-npm run dev
+cp .env.example .env
+npm run dev   # http://localhost:3000
 ```
 
-### URLs
+With the home API on `:3001`:
 
-| Host | Page |
-|------|------|
-| [portfolio.muscadine.io](https://portfolio.muscadine.io) | Production (login, dashboard, all routes) |
-| `localhost:3000` | Local dev |
-| `api-portfolio.muscadine.io` | Planned home API (mini PC + tunnel — not required for the live UI yet) |
+```bash
+# .env
+API_URL=http://127.0.0.1:3001
+API_SECRET=<match api-portfolio .env>
+```
 
-Copy `.env.example` to `.env.local`. Set `DEV_TENANT` to match your seed user slug and `PORTFOLIO_SEED_FILE=portfolio-data.ts` after copying `portfolio-data.example.ts` → `portfolio-data.ts`.
+Optional: copy `portfolio-data.example.ts` → `portfolio-data.ts` for offline seed dev when `API_URL` is unset.
 
-## Project Structure
+---
+
+## Production (Vercel)
+
+Set in **Settings → Environment Variables** (server only):
+
+| Variable | Example |
+|----------|---------|
+| `API_URL` | `https://api-portfolio.muscadine.io` |
+| `API_SECRET` | Same value as mini PC `API_SECRET` |
+| `NEXT_PUBLIC_APP_HOST` | `portfolio.muscadine.io` |
+
+Do **not** put `ADMIN_SECRET` or Finnhub keys on Vercel — those stay on the mini PC.
+
+Sign in at `/login` (username = tenant slug from home API).
+
+---
+
+## Project structure
 
 ```
 src/
-├── app/                    # App Router (pages + layouts)
-│   ├── api/                # API routes (mock / in-memory on Vercel today)
-│   ├── dashboard/
-│   ├── assets/
-│   ├── cash/
-│   ├── liabilities/
-│   ├── plan/               # Guide, budget, goals (tabs)
-│   ├── planning/           # redirects → /plan
-│   ├── spending/           # redirects → /plan
-│   ├── analytics/
-│   ├── settings/
-│   ├── layout.tsx
-│   ├── page.tsx            # Landing / login
-│   └── globals.css
-├── components/             # UI by feature + shadcn ui/
-├── hooks/                  # Custom React hooks
-├── lib/                    # Utils, mock data, XLSX, tenant helpers
-├── types/                  # Shared TypeScript types
-└── proxy.ts                # Session gate; x-tenant from workspace slug (not DNS)
-docs/                       # PLAN.md, CLAUDE.md
-SECURITY.md                 # Privacy and trust boundaries (repo root)
-LICENSE                     # MIT
-public/                     # Static assets
+├── app/              # Pages + /api/* route handlers (proxy to home API)
+├── components/       # UI by feature
+├── lib/              # Portfolio logic, validation, auth, proxy
+├── types/
+└── proxy.ts          # Session gate (middleware)
+docs/CLAUDE.md        # Agent guide
+SECURITY.md           # Privacy and trust boundaries
 ```
 
-See `docs/PLAN.md`, `docs/CLAUDE.md`, and `SECURITY.md` for deployment and privacy.
+---
 
 ## Routing
 
-One hostname (`portfolio.muscadine.io`). Middleware sets `x-tenant` from `DEV_TENANT` or session (internal workspace ID). `/` redirects to `/dashboard`.
+Single hostname (`portfolio.muscadine.io`). Middleware redirects unauthenticated users to `/login`. Tenant scope comes from session cookie, not DNS.
 
-## Deployment status (v0.3.0)
+| Route | Purpose |
+|-------|---------|
+| `/dashboard` | Overview + net worth chart |
+| `/assets`, `/cash`, `/liabilities` | Holdings |
+| `/plan` | Income, wallets, budget, goals |
+| `/settings` | Account, display, data import/export |
+| `/reset` | Username / password change |
+| `/admin` | User management (admin session) |
+
+---
+
+## Deployment status (v0.7.0)
 
 | Component | Status |
 |-----------|--------|
-| UI on Vercel | **Live** — https://portfolio.muscadine.io |
-| Mini PC API + SQLite | Planned — `api-portfolio.muscadine.io` |
-| Vercel production data | Demo seed (`portfolio-data.example.ts`) + in-memory store; edits may reset on cold start until the home API is connected |
+| UI on Vercel | **Live** |
+| Login + session proxy | **Live** |
+| Portfolio CRUD via home API | **Live** |
+| Cloudflare tunnel | **Live** |
+| systemd on mini PC | **Live** |
+| DB backup job | Not configured |
+| Net worth snapshot timer | Optional — see api-portfolio `scripts/` |
+
+See `SECURITY.md` for privacy boundaries and `docs/CLAUDE.md` for codebase conventions.
