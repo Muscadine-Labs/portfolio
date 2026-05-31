@@ -1,0 +1,81 @@
+"use client";
+
+import {
+  RecordFilters,
+  type ColumnOption,
+} from "@/components/shared/RecordFilters";
+import type { PortfolioSection } from "@/types";
+
+export type AssetColumnKey =
+  | "symbol"
+  | "name"
+  | "price"
+  | "qty"
+  | "network"
+  | "protocol"
+  | "costBasis"
+  | "avgCost"
+  | "marketValue"
+  | "gainDollars"
+  | "gainPercent"
+  | "pctOfAssets"
+  | "pctOfClass";
+
+export const ASSET_COLUMN_OPTIONS: ColumnOption<AssetColumnKey>[] = [
+  { key: "symbol", label: "Symbol" },
+  { key: "name", label: "Name" },
+  { key: "price", label: "Price" },
+  { key: "qty", label: "Qty" },
+  { key: "costBasis", label: "Cost Basis" },
+  { key: "avgCost", label: "Avg Cost / Share" },
+  { key: "marketValue", label: "Market Value" },
+  { key: "gainDollars", label: "Gain $" },
+  { key: "gainPercent", label: "Gain %" },
+  { key: "pctOfAssets", label: "% of Assets" },
+  { key: "pctOfClass", label: "% of Class" },
+];
+
+export const WALLET_POSITION_COLUMN_OPTIONS: ColumnOption<AssetColumnKey>[] = [
+  { key: "network", label: "Network" },
+  { key: "protocol", label: "Protocol" },
+];
+
+/** @deprecated Use WALLET_POSITION_COLUMN_OPTIONS */
+export const DEFI_ASSET_COLUMN_OPTIONS = WALLET_POSITION_COLUMN_OPTIONS;
+
+export function getAssetColumnOptions(showWalletPositionColumns: boolean) {
+  return showWalletPositionColumns
+    ? [...ASSET_COLUMN_OPTIONS, ...WALLET_POSITION_COLUMN_OPTIONS]
+    : ASSET_COLUMN_OPTIONS;
+}
+
+interface AssetFiltersProps {
+  search: string;
+  onSearchChange: (value: string) => void;
+  sectionFilter: string;
+  onSectionFilterChange: (value: string) => void;
+  sections: PortfolioSection[];
+  showWalletPositionColumns?: boolean;
+  /** @deprecated Use showWalletPositionColumns */
+  showDefiColumns?: boolean;
+  visibleColumns: Set<AssetColumnKey>;
+  onToggleColumn: (key: AssetColumnKey) => void;
+  resultCount: number;
+  totalCount: number;
+}
+
+export function AssetFilters({
+  showWalletPositionColumns,
+  showDefiColumns = false,
+  ...props
+}: AssetFiltersProps) {
+  const showPositionCols = showWalletPositionColumns ?? showDefiColumns;
+  return (
+    <RecordFilters
+      {...props}
+      columnOptions={getAssetColumnOptions(showPositionCols)}
+      entityLabel="assets"
+      searchPlaceholder="Symbol or name…"
+    />
+  );
+}

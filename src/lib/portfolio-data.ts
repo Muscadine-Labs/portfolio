@@ -1,0 +1,763 @@
+import { normalizeOverviewChart } from "@/lib/overview-chart";
+import { normalizeThemePreference } from "@/lib/theme-preference";
+import {
+  EMPTY_ALLOCATION_NODES,
+  EMPTY_ASSETS,
+  EMPTY_CASH_ACCOUNTS,
+  EMPTY_CONNECTED_WALLETS,
+  EMPTY_INCOME_PLAN,
+  EMPTY_LIABILITIES,
+  EMPTY_NET_WORTH_HISTORY,
+  EMPTY_PLANNING_ITEMS,
+  EMPTY_SECTIONS,
+  EMPTY_SPENDING_ITEMS,
+  EMPTY_UI_PREFERENCES,
+  EMPTY_WALLET_MAP_NODES,
+} from "@/lib/portfolio-empty";
+import type {
+  AllocationNode,
+  Asset,
+  CashAccount,
+  ConnectedWallet,
+  IncomePlanConfig,
+  Liability,
+  OverviewChartLineType,
+  PageType,
+  PlanningItem,
+  PortfolioSection,
+  SpendingItem,
+  UiPreferences,
+  WalletChain,
+  WalletMapNode,
+} from "@/types";
+
+export interface PortfolioDataPayload {
+  sections: PortfolioSection[];
+  assets: Asset[];
+  cashAccounts: CashAccount[];
+  liabilities: Liability[];
+  planningItems: PlanningItem[];
+  spendingItems: SpendingItem[];
+  allocationNodes?: AllocationNode[];
+  incomePlan?: IncomePlanConfig;
+  walletMapNodes?: WalletMapNode[];
+  uiPreferences?: UiPreferences;
+  connectedWallets?: ConnectedWallet[];
+  monthlyIncome?: number;
+  netWorthHistory?: import("@/types").NetWorthSnapshot[];
+}
+
+export type PortfolioImportResult = PortfolioDataPayload;
+
+export type PortfolioValidationResult =
+  | { ok: true; data: PortfolioDataPayload }
+  | { ok: false; error: string };
+
+const PAGE_TYPES: PageType[] = [
+  "assets",
+  "cash",
+  "liabilities",
+  "planning",
+  "spending",
+];
+
+const GOAL_STATUSES: PlanningItem["status"][] = [
+  "not_started",
+  "in_progress",
+  "completed",
+];
+
+const SPEND_FREQUENCIES: SpendingItem["frequency"][] = [
+  "monthly",
+  "weekly",
+  "yearly",
+  "one_time",
+];
+
+const TRACK_PAGES: NonNullable<PlanningItem["trackPage"]>[] = [
+  "assets",
+  "cash",
+  "liabilities",
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function requireFiniteNumber(
+  value: unknown,
+  label: string,
+  errors: string[]
+): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    errors.push(label);
+    return null;
+  }
+  return value;
+}
+
+function optionalFiniteNumber(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return undefined;
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function collectDuplicateIds(ids: string[], label: string, errors: string[]): void {
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      errors.push(`Duplicate ${label} id: ${id}`);
+      return;
+    }
+    seen.add(id);
+  }
+}
+
+export function createDefaultPortfolioData(): PortfolioDataPayload {
+  return {
+    sections: structuredClone(EMPTY_SECTIONS),
+    assets: structuredClone(EMPTY_ASSETS),
+    cashAccounts: structuredClone(EMPTY_CASH_ACCOUNTS),
+    liabilities: structuredClone(EMPTY_LIABILITIES),
+    planningItems: structuredClone(EMPTY_PLANNING_ITEMS),
+    spendingItems: structuredClone(EMPTY_SPENDING_ITEMS),
+    allocationNodes: structuredClone(EMPTY_ALLOCATION_NODES),
+    incomePlan: structuredClone(EMPTY_INCOME_PLAN),
+    walletMapNodes: structuredClone(EMPTY_WALLET_MAP_NODES),
+    uiPreferences: structuredClone(EMPTY_UI_PREFERENCES),
+    connectedWallets: structuredClone(EMPTY_CONNECTED_WALLETS),
+    netWorthHistory: structuredClone(EMPTY_NET_WORTH_HISTORY),
+  };
+}
+
+export function validatePortfolioPayload(body: unknown): PortfolioValidationResult {
+  if (!isRecord(body)) {
+    return { ok: false, error: "Import must be a JSON object." };
+  }
+
+  const errors: string[] = [];
+  const requiredArrays = [
+    "sections",
+    "assets",
+    "cashAccounts",
+    "liabilities",
+    "planningItems",
+    "spendingItems",
+  ] as const;
+
+  for (const key of requiredArrays) {
+    if (!Array.isArray(body[key])) {
+      errors.push(`Missing or invalid "${key}" array.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, error: errors.join(" ") };
+  }
+
+  const sections: PortfolioSection[] = [];
+  /** Section ids are unique per page (cash and liabilities may share slug-style ids). */
+  const sectionIdsByPage = new Map<PageType, Set<string>>();
+
+  for (const [index, raw] of (body.sections as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`sections[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`sections[${index}].id is required.`);
+      continue;
+    }
+    if (!PAGE_TYPES.includes(raw.page as PageType)) {
+      errors.push(`sections[${index}].page is invalid.`);
+      continue;
+    }
+    const page = raw.page as PageType;
+    const idsOnPage = sectionIdsByPage.get(page) ?? new Set<string>();
+    if (idsOnPage.has(raw.id)) {
+      errors.push(`Duplicate section id "${raw.id}" on page "${page}".`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.label)) {
+      errors.push(`sections[${index}].label is required.`);
+      continue;
+    }
+    const order = requireFiniteNumber(raw.order, `sections[${index}].order`, errors);
+    if (order === null) continue;
+
+    const metadata =
+      raw.metadata === undefined
+        ? undefined
+        : isRecord(raw.metadata)
+          ? { isDefi: raw.metadata.isDefi === true ? true : undefined }
+          : (errors.push(`sections[${index}].metadata must be an object.`), undefined);
+
+    idsOnPage.add(raw.id);
+    sectionIdsByPage.set(page, idsOnPage);
+    sections.push({
+      id: raw.id,
+      page,
+      label: raw.label.trim(),
+      order,
+      metadata,
+    });
+  }
+
+  function requireSectionId(
+    sectionId: unknown,
+    page: PageType,
+    label: string
+  ): string | null {
+    if (!isNonEmptyString(sectionId)) {
+      errors.push(`${label}: sectionId is required.`);
+      return null;
+    }
+    if (!sectionIdsByPage.get(page)?.has(sectionId)) {
+      errors.push(`${label}: unknown sectionId "${sectionId}" for page "${page}".`);
+      return null;
+    }
+    return sectionId;
+  }
+
+  function hasSectionOnPage(sectionId: string, page: PageType): boolean {
+    return sectionIdsByPage.get(page)?.has(sectionId) ?? false;
+  }
+
+  const assets: Asset[] = [];
+  for (const [index, raw] of (body.assets as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`assets[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`assets[${index}].id is required.`);
+      continue;
+    }
+    const sectionId = requireSectionId(raw.sectionId, "assets", `assets[${index}]`);
+    if (!sectionId) continue;
+    const price = requireFiniteNumber(raw.price, `assets[${index}].price`, errors);
+    const quantity = requireFiniteNumber(
+      raw.quantity,
+      `assets[${index}].quantity`,
+      errors
+    );
+    if (price === null || quantity === null) continue;
+    if (!isNonEmptyString(raw.symbol) || !isNonEmptyString(raw.name)) {
+      errors.push(`assets[${index}].symbol and name are required.`);
+      continue;
+    }
+    const costBasis = optionalFiniteNumber(raw.costBasis);
+    if (raw.costBasis != null && raw.costBasis !== "" && costBasis === undefined) {
+      errors.push(`assets[${index}].costBasis must be a number.`);
+      continue;
+    }
+    assets.push({
+      id: raw.id,
+      symbol: raw.symbol.trim(),
+      name: raw.name.trim(),
+      sectionId,
+      price,
+      quantity,
+      costBasis,
+      network: optionalString(raw.network),
+      protocol: optionalString(raw.protocol),
+    });
+  }
+
+  collectDuplicateIds(
+    assets.map((a) => a.id),
+    "asset",
+    errors
+  );
+
+  const cashAccounts: CashAccount[] = [];
+  for (const [index, raw] of (body.cashAccounts as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`cashAccounts[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`cashAccounts[${index}].id is required.`);
+      continue;
+    }
+    const sectionId = requireSectionId(raw.sectionId, "cash", `cashAccounts[${index}]`);
+    if (!sectionId) continue;
+    const balance = requireFiniteNumber(
+      raw.balance,
+      `cashAccounts[${index}].balance`,
+      errors
+    );
+    if (balance === null) continue;
+    if (!isNonEmptyString(raw.name)) {
+      errors.push(`cashAccounts[${index}].name is required.`);
+      continue;
+    }
+    cashAccounts.push({
+      id: raw.id,
+      name: raw.name.trim(),
+      sectionId,
+      balance,
+      originalAmount: optionalFiniteNumber(raw.originalAmount),
+      interest: optionalFiniteNumber(raw.interest),
+      protocol: optionalString(raw.protocol),
+      address: optionalString(raw.address),
+    });
+  }
+
+  collectDuplicateIds(
+    cashAccounts.map((a) => a.id),
+    "cash account",
+    errors
+  );
+
+  const liabilities: Liability[] = [];
+  for (const [index, raw] of (body.liabilities as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`liabilities[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`liabilities[${index}].id is required.`);
+      continue;
+    }
+    const sectionId = requireSectionId(raw.sectionId, "liabilities", `liabilities[${index}]`);
+    if (!sectionId) continue;
+    const balance = requireFiniteNumber(
+      raw.balance,
+      `liabilities[${index}].balance`,
+      errors
+    );
+    if (balance === null) continue;
+    if (!isNonEmptyString(raw.name)) {
+      errors.push(`liabilities[${index}].name is required.`);
+      continue;
+    }
+    liabilities.push({
+      id: raw.id,
+      name: raw.name.trim(),
+      sectionId,
+      balance,
+      initialBalance: optionalFiniteNumber(raw.initialBalance),
+      interestAccrued: optionalFiniteNumber(raw.interestAccrued),
+      apy: optionalFiniteNumber(raw.apy),
+      collateral: optionalFiniteNumber(raw.collateral),
+      lltv: optionalFiniteNumber(raw.lltv),
+      ltv: optionalFiniteNumber(raw.ltv),
+      liquidationPrice: optionalFiniteNumber(raw.liquidationPrice),
+      address: optionalString(raw.address),
+    });
+  }
+
+  collectDuplicateIds(
+    liabilities.map((l) => l.id),
+    "liability",
+    errors
+  );
+
+  const planningItems: PlanningItem[] = [];
+  for (const [index, raw] of (body.planningItems as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`planningItems[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`planningItems[${index}].id is required.`);
+      continue;
+    }
+    const sectionId = requireSectionId(raw.sectionId, "planning", `planningItems[${index}]`);
+    if (!sectionId) continue;
+    if (!isNonEmptyString(raw.title)) {
+      errors.push(`planningItems[${index}].title is required.`);
+      continue;
+    }
+    const status = raw.status as PlanningItem["status"];
+    if (!GOAL_STATUSES.includes(status)) {
+      errors.push(`planningItems[${index}].status is invalid.`);
+      continue;
+    }
+    const trackPage = raw.trackPage as PlanningItem["trackPage"] | undefined;
+    if (trackPage != null && !TRACK_PAGES.includes(trackPage)) {
+      errors.push(`planningItems[${index}].trackPage is invalid.`);
+      continue;
+    }
+    const trackSectionId = optionalString(raw.trackSectionId);
+    if (
+      trackSectionId &&
+      trackPage &&
+      !hasSectionOnPage(trackSectionId, trackPage)
+    ) {
+      errors.push(`planningItems[${index}].trackSectionId is unknown for trackPage.`);
+      continue;
+    }
+    planningItems.push({
+      id: raw.id,
+      sectionId,
+      title: raw.title.trim(),
+      targetAmount: optionalFiniteNumber(raw.targetAmount),
+      currentAmount: optionalFiniteNumber(raw.currentAmount),
+      targetDate: optionalString(raw.targetDate),
+      status,
+      notes: optionalString(raw.notes),
+      trackPage,
+      trackSectionId,
+    });
+  }
+
+  collectDuplicateIds(
+    planningItems.map((i) => i.id),
+    "planning item",
+    errors
+  );
+
+  const spendingItems: SpendingItem[] = [];
+  for (const [index, raw] of (body.spendingItems as unknown[]).entries()) {
+    if (!isRecord(raw)) {
+      errors.push(`spendingItems[${index}] must be an object.`);
+      continue;
+    }
+    if (!isNonEmptyString(raw.id)) {
+      errors.push(`spendingItems[${index}].id is required.`);
+      continue;
+    }
+    const sectionId = requireSectionId(raw.sectionId, "spending", `spendingItems[${index}]`);
+    if (!sectionId) continue;
+    if (!isNonEmptyString(raw.name)) {
+      errors.push(`spendingItems[${index}].name is required.`);
+      continue;
+    }
+    const budget = requireFiniteNumber(
+      raw.budget,
+      `spendingItems[${index}].budget`,
+      errors
+    );
+    const spent = requireFiniteNumber(
+      raw.spent,
+      `spendingItems[${index}].spent`,
+      errors
+    );
+    if (budget === null || spent === null) continue;
+    const frequency = raw.frequency as SpendingItem["frequency"];
+    if (!SPEND_FREQUENCIES.includes(frequency)) {
+      errors.push(`spendingItems[${index}].frequency is invalid.`);
+      continue;
+    }
+    spendingItems.push({
+      id: raw.id,
+      sectionId,
+      name: raw.name.trim(),
+      budget,
+      spent,
+      frequency,
+      notes: optionalString(raw.notes),
+    });
+  }
+
+  collectDuplicateIds(
+    spendingItems.map((i) => i.id),
+    "spending item",
+    errors
+  );
+
+  let allocationNodes: AllocationNode[] | undefined;
+  if (body.allocationNodes !== undefined) {
+    if (!Array.isArray(body.allocationNodes)) {
+      errors.push('"allocationNodes" must be an array.');
+    } else {
+      allocationNodes = [];
+      const nodeIds = new Set<string>();
+      for (const [index, raw] of body.allocationNodes.entries()) {
+        if (!isRecord(raw)) {
+          errors.push(`allocationNodes[${index}] must be an object.`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.id)) {
+          errors.push(`allocationNodes[${index}].id is required.`);
+          continue;
+        }
+        const percentOfParent = requireFiniteNumber(
+          raw.percentOfParent,
+          `allocationNodes[${index}].percentOfParent`,
+          errors
+        );
+        const order = requireFiniteNumber(
+          raw.order,
+          `allocationNodes[${index}].order`,
+          errors
+        );
+        if (percentOfParent === null || order === null) continue;
+        if (!isNonEmptyString(raw.label)) {
+          errors.push(`allocationNodes[${index}].label is required.`);
+          continue;
+        }
+        const parentId =
+          raw.parentId === null ? null : optionalString(raw.parentId) ?? null;
+        if (raw.parentId != null && parentId === null) {
+          errors.push(`allocationNodes[${index}].parentId is invalid.`);
+          continue;
+        }
+        nodeIds.add(raw.id);
+        allocationNodes.push({
+          id: raw.id,
+          parentId,
+          label: raw.label.trim(),
+          percentOfParent,
+          order,
+          notes: optionalString(raw.notes),
+          trackPage: TRACK_PAGES.includes(raw.trackPage as (typeof TRACK_PAGES)[number])
+            ? (raw.trackPage as PlanningItem["trackPage"])
+            : undefined,
+          trackSectionId: optionalString(raw.trackSectionId),
+        });
+      }
+      for (const node of allocationNodes) {
+        if (node.parentId && !nodeIds.has(node.parentId)) {
+          errors.push(`allocationNodes: unknown parentId "${node.parentId}".`);
+        }
+      }
+      collectDuplicateIds(
+        allocationNodes.map((n) => n.id),
+        "allocation node",
+        errors
+      );
+    }
+  }
+
+  let walletMapNodes: WalletMapNode[] | undefined;
+  if (body.walletMapNodes !== undefined) {
+    if (!Array.isArray(body.walletMapNodes)) {
+      errors.push('"walletMapNodes" must be an array.');
+    } else {
+      walletMapNodes = [];
+      const nodeIds = new Set<string>();
+      for (const [index, raw] of body.walletMapNodes.entries()) {
+        if (!isRecord(raw)) {
+          errors.push(`walletMapNodes[${index}] must be an object.`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.id)) {
+          errors.push(`walletMapNodes[${index}].id is required.`);
+          continue;
+        }
+        const order = requireFiniteNumber(
+          raw.order,
+          `walletMapNodes[${index}].order`,
+          errors
+        );
+        if (order === null) continue;
+        if (!isNonEmptyString(raw.label)) {
+          errors.push(`walletMapNodes[${index}].label is required.`);
+          continue;
+        }
+        const status = raw.status;
+        if (status !== "active" && status !== "planned") {
+          errors.push(`walletMapNodes[${index}].status is invalid.`);
+          continue;
+        }
+        const parentId =
+          raw.parentId === null ? null : optionalString(raw.parentId) ?? null;
+        nodeIds.add(raw.id);
+        walletMapNodes.push({
+          id: raw.id,
+          parentId,
+          label: raw.label.trim(),
+          order,
+          owner: optionalString(raw.owner),
+          identifier: optionalString(raw.identifier),
+          status,
+        });
+      }
+      for (const node of walletMapNodes) {
+        if (node.parentId && !nodeIds.has(node.parentId)) {
+          errors.push(`walletMapNodes: unknown parentId "${node.parentId}".`);
+        }
+      }
+      collectDuplicateIds(
+        walletMapNodes.map((n) => n.id),
+        "wallet map node",
+        errors
+      );
+    }
+  }
+
+  let incomePlan: IncomePlanConfig | undefined;
+  if (body.incomePlan !== undefined) {
+    if (!isRecord(body.incomePlan) || typeof body.incomePlan.description !== "string") {
+      errors.push('"incomePlan.description" must be a string.');
+    } else {
+      incomePlan = { description: body.incomePlan.description };
+    }
+  }
+
+  let uiPreferences: UiPreferences | undefined;
+  if (body.uiPreferences !== undefined) {
+    if (!isRecord(body.uiPreferences)) {
+      errors.push('"uiPreferences" must be an object.');
+    } else {
+      const nav = body.uiPreferences.navPages;
+      const tabs = body.uiPreferences.planTabs;
+      if (!isRecord(nav) || !isRecord(tabs)) {
+        errors.push('"uiPreferences" must include navPages and planTabs.');
+      } else {
+        const navKeys = ["assets", "cash", "liabilities", "plan"] as const;
+        const tabKeys = ["income", "wallets", "budget", "goals"] as const;
+        const navValid = navKeys.every((k) => typeof nav[k] === "boolean");
+        const tabsValid = tabKeys.every((k) => typeof tabs[k] === "boolean");
+        if (!navValid || !tabsValid) {
+          errors.push('"uiPreferences" has invalid navigation flags.');
+        } else {
+          const chart = isRecord(body.uiPreferences.overviewChart)
+            ? body.uiPreferences.overviewChart
+            : undefined;
+          const lineType = chart?.lineType as OverviewChartLineType | undefined;
+          const validLineTypes: OverviewChartLineType[] = [
+            "monotone",
+            "linear",
+            "natural",
+            "step",
+            "stepBefore",
+            "stepAfter",
+          ];
+          const rawTheme = body.uiPreferences.theme;
+          uiPreferences = {
+            theme: normalizeThemePreference(
+              typeof rawTheme === "string" ? rawTheme : undefined
+            ),
+            navPages: {
+              assets: nav.assets as boolean,
+              cash: nav.cash as boolean,
+              liabilities: nav.liabilities as boolean,
+              plan: nav.plan as boolean,
+            },
+            planTabs: {
+              income: tabs.income as boolean,
+              wallets: tabs.wallets as boolean,
+              budget: tabs.budget as boolean,
+              goals: tabs.goals as boolean,
+            },
+            overviewChart: normalizeOverviewChart({
+              showBar: typeof chart?.showBar === "boolean" ? chart.showBar : undefined,
+              showLine: typeof chart?.showLine === "boolean" ? chart.showLine : undefined,
+              barColor:
+                typeof chart?.barColor === "string" ? chart.barColor : undefined,
+              lineColor:
+                typeof chart?.lineColor === "string" ? chart.lineColor : undefined,
+              lineType:
+                lineType && validLineTypes.includes(lineType) ? lineType : undefined,
+            }),
+          };
+        }
+      }
+    }
+  }
+
+  if (!uiPreferences) {
+    uiPreferences = structuredClone(EMPTY_UI_PREFERENCES);
+  }
+
+  let connectedWallets: ConnectedWallet[] | undefined;
+  if (body.connectedWallets !== undefined) {
+    if (!Array.isArray(body.connectedWallets)) {
+      errors.push('"connectedWallets" must be an array.');
+    } else {
+      connectedWallets = [];
+      const walletIds = new Set<string>();
+      const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "other"];
+      for (const [index, raw] of body.connectedWallets.entries()) {
+        if (!isRecord(raw)) {
+          errors.push(`connectedWallets[${index}] must be an object.`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.id)) {
+          errors.push(`connectedWallets[${index}].id is required.`);
+          continue;
+        }
+        if (walletIds.has(raw.id)) {
+          errors.push(`Duplicate wallet id: ${raw.id}`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.label) || !isNonEmptyString(raw.address)) {
+          errors.push(`connectedWallets[${index}].label and address are required.`);
+          continue;
+        }
+        const chain = raw.chain as WalletChain;
+        if (!chains.includes(chain)) {
+          errors.push(`connectedWallets[${index}].chain is invalid.`);
+          continue;
+        }
+        walletIds.add(raw.id);
+        const links = isRecord(raw.links) ? raw.links : undefined;
+        connectedWallets.push({
+          id: raw.id,
+          label: raw.label.trim(),
+          address: raw.address.trim(),
+          chain,
+          notes: optionalString(raw.notes),
+          links: links
+            ? {
+                assetsSectionId: optionalString(links.assetsSectionId),
+                cashSectionId: optionalString(links.cashSectionId),
+                liabilitiesSectionId: optionalString(links.liabilitiesSectionId),
+              }
+            : undefined,
+        });
+      }
+    }
+  }
+
+  let monthlyIncome: number | undefined;
+  if (body.monthlyIncome !== undefined && body.monthlyIncome !== null) {
+    if (typeof body.monthlyIncome !== "number" || !Number.isFinite(body.monthlyIncome)) {
+      errors.push('"monthlyIncome" must be a number.');
+    } else {
+      monthlyIncome = body.monthlyIncome;
+    }
+  }
+
+  let netWorthHistory: import("@/types").NetWorthSnapshot[] | undefined;
+  if (body.netWorthHistory !== undefined && body.netWorthHistory !== null) {
+    if (!Array.isArray(body.netWorthHistory)) {
+      errors.push('"netWorthHistory" must be an array.');
+    } else {
+      netWorthHistory = body.netWorthHistory as import("@/types").NetWorthSnapshot[];
+    }
+  }
+
+  if (errors.length > 0) {
+    const summary =
+      errors.length === 1
+        ? errors[0]
+        : `Import rejected: ${errors.slice(0, 3).join(" ")}${
+            errors.length > 3 ? ` (+${errors.length - 3} more)` : ""
+          }`;
+    return { ok: false, error: summary };
+  }
+
+  return {
+    ok: true,
+    data: {
+      sections,
+      assets,
+      cashAccounts,
+      liabilities,
+      planningItems,
+      spendingItems,
+      allocationNodes,
+      incomePlan,
+      walletMapNodes,
+      uiPreferences,
+      connectedWallets,
+      monthlyIncome,
+      netWorthHistory,
+    },
+  };
+}
