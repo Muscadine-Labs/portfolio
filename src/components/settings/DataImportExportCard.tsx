@@ -72,10 +72,10 @@ export function DataImportExportCard({ embedded = false }: { embedded?: boolean 
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     setExportingExcel(true);
     try {
-      exportPortfolioToXlsx(
+      await exportPortfolioToXlsx(
         buildPortfolioPayload({
           sections: portfolio.sections,
           sectionGroups: portfolio.sectionGroups,
@@ -165,7 +165,7 @@ export function DataImportExportCard({ embedded = false }: { embedded?: boolean 
         </CardHeader>
       ) : null}
       <CardContent className={cn("flex flex-wrap gap-3", embedded && "px-0 pb-0 pt-0")}>
-        <Button variant="default" disabled={exportingExcel} onClick={handleExportExcel}>
+        <Button variant="default" disabled={exportingExcel} onClick={() => void handleExportExcel()}>
           <Download className="mr-2 h-4 w-4" />
           {exportingExcel ? "Exporting…" : "Export to Excel"}
         </Button>

@@ -105,7 +105,8 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
           <span>
             <span className="font-medium">Auto-snapshot on the 1st</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              When enabled, the home API records your net worth on the first day of each month.
+              When enabled, the home API records net worth and total cost basis on the first of
+              each month (requires the snapshot timer on the mini PC).
             </span>
           </span>
         </label>

@@ -99,6 +99,6 @@ Single hostname (`portfolio.muscadine.io`). Middleware redirects unauthenticated
 | Cloudflare tunnel | **Live** |
 | systemd on mini PC | **Live** |
 | DB backup job | Not configured |
-| Net worth snapshot timer | Optional — see api-portfolio `scripts/` |
+| Net worth snapshot timer | **Live** — 1st of month via `portfolio-snapshot.timer` |
 
 See `SECURITY.md`, `CLAUDE.md`, and `LICENSE` for privacy, agent conventions, and license.

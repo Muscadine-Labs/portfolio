@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import writeExcelFile from "write-excel-file/browser";
 import { computeOverviewSnapshot } from "@/lib/overview";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
 import {
@@ -11,12 +11,18 @@ import {
 export type PortfolioExportData = PortfolioDataPayload;
 export type { PortfolioImportResult };
 
-function sheetFromRows(rows: (string | number | null | undefined)[][]): XLSX.WorkSheet {
-  return XLSX.utils.aoa_to_sheet(rows);
+type CellValue = string | number | boolean | Date | null;
+
+function rows(values: (string | number | null | undefined)[][]): CellValue[][] {
+  return values.map((row) =>
+    row.map((cell) => (cell === undefined || cell === "" ? null : cell))
+  );
 }
 
-export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: string): void {
-  const wb = XLSX.utils.book_new();
+export async function exportPortfolioToXlsx(
+  data: PortfolioExportData,
+  filename?: string
+): Promise<void> {
   const assetSections = data.sections
     .filter((s) => s.page === "assets")
     .sort((a, b) => a.order - b.order);
@@ -37,7 +43,7 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
     data.sectionGroups ?? []
   );
 
-  const overviewRows: (string | number)[][] = [
+  const overviewRows = rows([
     ["Portfolio Export"],
     ["Generated", new Date().toISOString()],
     [],
@@ -67,12 +73,11 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
     ...(data.netWorthHistory ?? []).map((s) => [
       s.period,
       s.netWorth,
-      s.totalCostBasis ?? "",
+      s.totalCostBasis ?? null,
     ]),
-  ];
-  XLSX.utils.book_append_sheet(wb, sheetFromRows(overviewRows), "Overview");
+  ]);
 
-  const assetRows: (string | number)[][] = [["Assets"], []];
+  const assetRows: (string | number | null | undefined)[][] = [["Assets"], []];
   const assetHeaders = [
     "Symbol",
     "Name",
@@ -84,7 +89,7 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
     "Gain $",
     "Gain %",
     "Network",
-    "Protocol",
+    "Exchange",
   ];
 
   for (const section of assetSections) {
@@ -98,40 +103,38 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
         asset.name,
         asset.price,
         asset.quantity,
-        asset.costBasis ?? "",
-        avg ?? "",
+        asset.costBasis ?? null,
+        avg ?? null,
         getMarketValue(asset),
         gain.dollars,
         formatPercent(gain.percent),
-        asset.network ?? "",
-        asset.protocol ?? "",
+        asset.network ?? null,
+        asset.protocol ?? null,
       ]);
     }
     assetRows.push([]);
   }
-  XLSX.utils.book_append_sheet(wb, sheetFromRows(assetRows), "Assets");
 
-  const cashRows: (string | number)[][] = [
+  const cashRows = rows([
     ["Cash"],
     [],
     ["Section", "Name", "Balance", "Protocol", "Address", "Original", "Interest"],
-  ];
-  for (const section of cashSections) {
-    for (const account of data.cashAccounts.filter((a) => a.sectionId === section.id)) {
-      cashRows.push([
-        section.label,
-        account.name,
-        account.balance,
-        account.protocol ?? "",
-        account.address ?? "",
-        account.originalAmount ?? "",
-        account.interest ?? "",
-      ]);
-    }
-  }
-  XLSX.utils.book_append_sheet(wb, sheetFromRows(cashRows), "Cash");
+    ...cashSections.flatMap((section) =>
+      data.cashAccounts
+        .filter((a) => a.sectionId === section.id)
+        .map((account) => [
+          section.label,
+          account.name,
+          account.balance,
+          account.protocol ?? null,
+          account.address ?? null,
+          account.originalAmount ?? null,
+          account.interest ?? null,
+        ])
+    ),
+  ]);
 
-  const liaRows: (string | number)[][] = [
+  const liaRows = rows([
     ["Liabilities"],
     [],
     [
@@ -144,30 +147,29 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
       "LTV %",
       "Liquidation Price",
     ],
-  ];
-  for (const section of liabilitySections) {
-    for (const l of data.liabilities.filter((x) => x.sectionId === section.id)) {
-      liaRows.push([
-        section.label,
-        l.name,
-        l.balance,
-        l.address ?? "",
-        l.collateral ?? "",
-        l.lltv ?? "",
-        l.ltv ?? "",
-        l.liquidationPrice ?? "",
-      ]);
-    }
-  }
-  XLSX.utils.book_append_sheet(wb, sheetFromRows(liaRows), "Liabilities");
+    ...liabilitySections.flatMap((section) =>
+      data.liabilities
+        .filter((l) => l.sectionId === section.id)
+        .map((l) => [
+          section.label,
+          l.name,
+          l.balance,
+          l.address ?? null,
+          l.collateral ?? null,
+          l.lltv ?? null,
+          l.ltv ?? null,
+          l.liquidationPrice ?? null,
+        ])
+    ),
+  ]);
 
-  const planRows: (string | number)[][] = [
+  const planRows: (string | number | null | undefined)[][] = [
     ["Plan"],
     ["Generated", new Date().toISOString()],
     [],
     ["Income"],
     ["Description", data.incomePlan?.description ?? ""],
-    ["Monthly Income", data.monthlyIncome ?? ""],
+    ["Monthly Income", data.monthlyIncome ?? null],
     [],
     ["Allocation Guide"],
     ["Label", "Parent", "% of Parent", "Order", "Notes", "Track Page", "Track Section"],
@@ -175,24 +177,24 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
       .sort((a, b) => a.order - b.order)
       .map((n) => [
         n.label,
-        n.parentId ?? "",
+        n.parentId ?? null,
         n.percentOfParent,
         n.order,
-        n.notes ?? "",
-        n.trackPage ?? "",
-        n.trackSectionId ?? "",
+        n.notes ?? null,
+        n.trackPage ?? null,
+        n.trackSectionId ?? null,
       ]),
     [],
     ["Wallet Map"],
-    ["Label", "Parent", "Owner", "Type", "Identifier", "Status", "Order"],
+    ["Label", "Parent", "Owner", "Type", "Address", "Status", "Order"],
     ...(data.walletMapNodes ?? [])
       .sort((a, b) => a.order - b.order)
       .map((n) => [
         n.label,
-        n.parentId ?? "",
-        n.owner ?? "",
-        n.walletType ?? "",
-        n.identifier ?? "",
+        n.parentId ?? null,
+        n.owner ?? null,
+        n.walletType ?? null,
+        n.address ?? n.identifier ?? null,
         n.status,
         n.order,
       ]),
@@ -208,11 +210,11 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
       planRows.push([
         section.label,
         item.title,
-        item.targetAmount ?? "",
-        item.currentAmount ?? "",
-        item.targetDate ?? "",
+        item.targetAmount ?? null,
+        item.currentAmount ?? null,
+        item.targetDate ?? null,
         item.status,
-        item.notes ?? "",
+        item.notes ?? null,
       ]);
     }
   }
@@ -228,13 +230,19 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
         item.budget,
         item.spent,
         item.frequency,
-        item.notes ?? "",
+        item.notes ?? null,
       ]);
     }
   }
-  XLSX.utils.book_append_sheet(wb, sheetFromRows(planRows), "Plan");
 
   const outName =
     filename ?? `portfolio-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(wb, outName);
+
+  await writeExcelFile([
+    { data: overviewRows, sheet: "Overview" },
+    { data: rows(assetRows), sheet: "Assets" },
+    { data: cashRows, sheet: "Cash" },
+    { data: liaRows, sheet: "Liabilities" },
+    { data: rows(planRows), sheet: "Plan" },
+  ]).toFile(outName);
 }
