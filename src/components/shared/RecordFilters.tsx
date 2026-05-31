@@ -73,6 +73,7 @@ export interface RecordFiltersProps<K extends string> {
   entityLabel: string;
   /** Start with the full filter panel collapsed (default true). */
   defaultExpanded?: boolean;
+  trailingActions?: ReactNode;
 }
 
 function ActiveChip({ children }: { children: ReactNode }) {
@@ -97,6 +98,7 @@ export function RecordFilters<K extends string>({
   totalCount,
   entityLabel,
   defaultExpanded = false,
+  trailingActions,
 }: RecordFiltersProps<K>) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -220,6 +222,7 @@ export function RecordFilters<K extends string>({
             <p className="min-w-0 flex-1 text-xs text-muted-foreground">
               Showing {resultCount} of {totalCount} {entityLabel}
             </p>
+            {trailingActions}
             {!expanded && activeFilterCount > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {hasSearch ? <ActiveChip>Search</ActiveChip> : null}

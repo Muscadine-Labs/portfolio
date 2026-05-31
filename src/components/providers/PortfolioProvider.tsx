@@ -30,6 +30,8 @@ import { isMorphoManagedId } from "@/lib/morpho";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
+import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
+import { isFinnhubEligible } from "@/lib/finnhub";
 import type {
   AllocationNode,
   Asset,
@@ -92,6 +94,7 @@ interface PortfolioContextValue {
   upsertConnectedWallet: (wallet: ConnectedWallet) => void;
   deleteConnectedWallet: (id: string) => void;
   applyMorphoSync: (walletId: string, result: MorphoSyncResult) => void;
+  applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
   account: User;
   updateAccount: (patch: Partial<User>) => void;
@@ -131,6 +134,24 @@ function buildPortfolioPayload(state: {
   };
 }
 
+function toNormalizedPortfolio(data: PortfolioImportResult): PortfolioDataPayload {
+  return normalizePortfolioEntityIds({
+    sections: data.sections ?? EMPTY_SECTIONS,
+    assets: data.assets ?? EMPTY_ASSETS,
+    cashAccounts: data.cashAccounts ?? EMPTY_CASH_ACCOUNTS,
+    liabilities: data.liabilities ?? EMPTY_LIABILITIES,
+    planningItems: data.planningItems ?? EMPTY_PLANNING_ITEMS,
+    spendingItems: data.spendingItems ?? EMPTY_SPENDING_ITEMS,
+    allocationNodes: data.allocationNodes ?? EMPTY_ALLOCATION_NODES,
+    incomePlan: data.incomePlan ?? EMPTY_INCOME_PLAN,
+    walletMapNodes: data.walletMapNodes ?? EMPTY_WALLET_MAP_NODES,
+    uiPreferences: data.uiPreferences ?? EMPTY_UI_PREFERENCES,
+    connectedWallets: data.connectedWallets ?? EMPTY_CONNECTED_WALLETS,
+    monthlyIncome: data.monthlyIncome,
+    netWorthHistory: data.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY,
+  });
+}
+
 function hydrateFromPayload(
   data: PortfolioImportResult,
   setters: {
@@ -149,24 +170,25 @@ function hydrateFromPayload(
     setNetWorthHistory: (v: NetWorthSnapshot[]) => void;
   }
 ) {
-  setters.setSections(data.sections);
-  setters.setAssets(data.assets);
-  setters.setCashAccounts(data.cashAccounts);
-  setters.setLiabilities(data.liabilities);
-  setters.setPlanningItems(data.planningItems);
-  setters.setSpendingItems(data.spendingItems);
-  if (data.allocationNodes) setters.setAllocationNodes(data.allocationNodes);
-  if (data.incomePlan) setters.setIncomePlan(data.incomePlan);
-  if (data.walletMapNodes) setters.setWalletMapNodes(data.walletMapNodes);
-  if (data.uiPreferences) {
+  const normalized = toNormalizedPortfolio(data);
+  setters.setSections(normalized.sections);
+  setters.setAssets(normalized.assets);
+  setters.setCashAccounts(normalized.cashAccounts);
+  setters.setLiabilities(normalized.liabilities);
+  setters.setPlanningItems(normalized.planningItems);
+  setters.setSpendingItems(normalized.spendingItems);
+  if (normalized.allocationNodes) setters.setAllocationNodes(normalized.allocationNodes);
+  if (normalized.incomePlan) setters.setIncomePlan(normalized.incomePlan);
+  if (normalized.walletMapNodes) setters.setWalletMapNodes(normalized.walletMapNodes);
+  if (normalized.uiPreferences) {
     setters.setUiPreferences({
-      ...data.uiPreferences,
-      theme: normalizeThemePreference(data.uiPreferences.theme),
+      ...normalized.uiPreferences,
+      theme: normalizeThemePreference(normalized.uiPreferences.theme),
     });
   }
-  if (data.connectedWallets) setters.setConnectedWallets(data.connectedWallets);
-  if (data.monthlyIncome !== undefined) setters.setMonthlyIncome(data.monthlyIncome);
-  if (data.netWorthHistory) setters.setNetWorthHistory(data.netWorthHistory);
+  if (normalized.connectedWallets) setters.setConnectedWallets(normalized.connectedWallets);
+  if (normalized.monthlyIncome !== undefined) setters.setMonthlyIncome(normalized.monthlyIncome);
+  if (normalized.netWorthHistory) setters.setNetWorthHistory(normalized.netWorthHistory);
 }
 
 /**
@@ -181,43 +203,32 @@ export function PortfolioProvider({
   initialAccount: User;
   initialPortfolio: PortfolioImportResult;
 }) {
-  const [sections, setSections] = useState<PortfolioSection[]>(
-    initialPortfolio.sections ?? EMPTY_SECTIONS
-  );
-  const [assets, setAssets] = useState<Asset[]>(initialPortfolio.assets ?? EMPTY_ASSETS);
-  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>(
-    initialPortfolio.cashAccounts ?? EMPTY_CASH_ACCOUNTS
-  );
-  const [liabilities, setLiabilities] = useState<Liability[]>(
-    initialPortfolio.liabilities ?? EMPTY_LIABILITIES
-  );
-  const [planningItems, setPlanningItems] = useState<PlanningItem[]>(
-    initialPortfolio.planningItems ?? EMPTY_PLANNING_ITEMS
-  );
-  const [spendingItems, setSpendingItems] = useState<SpendingItem[]>(
-    initialPortfolio.spendingItems ?? EMPTY_SPENDING_ITEMS
-  );
+  const [boot] = useState(() => toNormalizedPortfolio(initialPortfolio));
+  const [sections, setSections] = useState<PortfolioSection[]>(boot.sections);
+  const [assets, setAssets] = useState<Asset[]>(boot.assets);
+  const [cashAccounts, setCashAccounts] = useState<CashAccount[]>(boot.cashAccounts);
+  const [liabilities, setLiabilities] = useState<Liability[]>(boot.liabilities);
+  const [planningItems, setPlanningItems] = useState<PlanningItem[]>(boot.planningItems);
+  const [spendingItems, setSpendingItems] = useState<SpendingItem[]>(boot.spendingItems);
   const [allocationNodes, setAllocationNodes] = useState<AllocationNode[]>(
-    initialPortfolio.allocationNodes ?? EMPTY_ALLOCATION_NODES
+    boot.allocationNodes ?? EMPTY_ALLOCATION_NODES
   );
   const [incomePlan, setIncomePlan] = useState<IncomePlanConfig>(
-    initialPortfolio.incomePlan ?? EMPTY_INCOME_PLAN
+    boot.incomePlan ?? EMPTY_INCOME_PLAN
   );
   const [walletMapNodes, setWalletMapNodes] = useState<WalletMapNode[]>(
-    initialPortfolio.walletMapNodes ?? EMPTY_WALLET_MAP_NODES
+    boot.walletMapNodes ?? EMPTY_WALLET_MAP_NODES
   );
-  const [monthlyIncome, setMonthlyIncome] = useState<number | undefined>(
-    initialPortfolio.monthlyIncome
-  );
+  const [monthlyIncome, setMonthlyIncome] = useState<number | undefined>(boot.monthlyIncome);
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthSnapshot[]>(
-    initialPortfolio.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY
+    boot.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY
   );
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() => ({
-    ...(initialPortfolio.uiPreferences ?? EMPTY_UI_PREFERENCES),
-    theme: normalizeThemePreference(initialPortfolio.uiPreferences?.theme),
+    ...(boot.uiPreferences ?? EMPTY_UI_PREFERENCES),
+    theme: normalizeThemePreference(boot.uiPreferences?.theme),
   }));
   const [connectedWallets, setConnectedWallets] = useState<ConnectedWallet[]>(
-    initialPortfolio.connectedWallets ?? EMPTY_CONNECTED_WALLETS
+    boot.connectedWallets ?? EMPTY_CONNECTED_WALLETS
   );
   const [account, setAccount] = useState<User>(initialAccount);
 
@@ -295,6 +306,20 @@ export function PortfolioProvider({
       ...prev.filter((c) => !(c.walletId === walletId || isMorphoManagedId(c.id))),
       ...result.cashAccounts,
     ]);
+  }, []);
+
+  const applyAssetPrices = useCallback((pricesBySymbol: Record<string, number>) => {
+    let updated = 0;
+    setAssets((prev) =>
+      prev.map((asset) => {
+        if (!isFinnhubEligible(asset)) return asset;
+        const price = pricesBySymbol[asset.symbol.toUpperCase()];
+        if (price == null || price <= 0 || price === asset.price) return asset;
+        updated += 1;
+        return { ...asset, price };
+      })
+    );
+    return updated;
   }, []);
 
   const setIncomePlanDescription = useCallback((description: string) => {
@@ -595,6 +620,7 @@ export function PortfolioProvider({
       upsertConnectedWallet,
       deleteConnectedWallet,
       applyMorphoSync,
+      applyAssetPrices,
       replacePortfolioData,
       account,
       updateAccount,
@@ -639,6 +665,7 @@ export function PortfolioProvider({
       upsertConnectedWallet,
       deleteConnectedWallet,
       applyMorphoSync,
+      applyAssetPrices,
       replacePortfolioData,
       account,
       updateAccount,

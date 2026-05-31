@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isNavPageVisible } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
-import type { NavPageKey } from "@/types";
+import type { NavPageKey, User } from "@/types";
 
 type MainNavItem = {
   href: string;
@@ -64,6 +64,14 @@ function NavLink({
       {label}
     </Link>
   );
+}
+
+function accountSubtitle(account: User): string {
+  const email = account.email?.trim();
+  if (email) return email;
+  const username = account.username?.trim();
+  if (username) return `@${username}`;
+  return account.tenant;
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
@@ -122,7 +130,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{account.displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">{account.tenant}.portfolio</p>
+            <p className="truncate text-xs text-muted-foreground">{accountSubtitle(account)}</p>
           </div>
         </div>
       </div>

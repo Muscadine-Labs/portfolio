@@ -1,5 +1,7 @@
 # Portfolio UI — Agent Guide
 
+**Release v0.4.0** — Finnhub price refresh UI, sidebar account label fix, entity ID normalization, dev banner removed.
+
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 
 ---
@@ -65,6 +67,8 @@ cp .env.example .env
 | `API_SECRET` | Session signing — server only, match api.portfolio |
 | `NEXT_PUBLIC_APP_HOST` | Canonical hostname |
 
+**Finnhub** keys live only on the home API (`FINNHUB_API_KEY`, `FINNHUB_WEBHOOK_SECRET`). The UI calls `POST /api/market/quotes` (proxied); no Finnhub env on Vercel.
+
 Do **not** add `.env.local` — Next.js loads `.env` automatically.
 
 **Why there used to be three files:** Next.js convention loads `.env`, `.env.local`, and `.env.development` (etc.) with `.env.local` overriding `.env`. That split secrets across files unnecessarily here. This repo now uses only **`.env`** + **`.env.example`**. `.env.local` was removed; merge any overrides into `.env`.
@@ -82,10 +86,12 @@ src/app/global-error.tsx    Minimal error UI (no ThemeProvider — required for 
 src/contexts/PortfolioAgreementContext.tsx   Terms acceptance (localStorage)
 src/components/providers/PortfolioProvider.tsx  Client state + auto-save to API
 src/lib/home-api.ts         proxyToHomeApi() for route handlers
+src/lib/finnhub.ts          isFinnhubEligible + market quote types
 src/lib/portfolio-api.ts    SSR fetch to home API (forwards cookies)
 src/lib/auth.ts             Session verification (matches API HMAC)
 src/proxy.ts                Auth gate + x-tenant from cookie
 src/app/api/admin/users/    Proxy PATCH/POST/DELETE to home API
+src/app/api/market/quotes/  Proxy Finnhub refresh to home API
 next.config.ts              Rewrites /api/* → API_URL when set
 ```
 
@@ -98,6 +104,8 @@ next.config.ts              Rewrites /api/* → API_URL when set
 1. User signs in → cookies set by home API (proxied through Vercel)
 2. `TenantPage` SSR → `getInitialPortfolioFromApi()` with session cookies
 3. `PortfolioProvider` edits state → debounced `POST /api/export` → SQLite on mini PC
+
+**Market prices:** Assets page **Refresh prices** → `POST /api/market/quotes` → home API Finnhub quotes → SQLite + local state. Covers **stocks, ETFs, and metals** (metals in a Metals/Commodities section use ETF-backed spot approximations). API calls are deduped and capped at **60/minute** (Finnhub free tier). Webhook: `POST /api/webhooks/finnhub` on home API (Finnhub dashboard URL: `https://api.portfolio.muscadine.io/api/webhooks/finnhub`).
 
 ---
 

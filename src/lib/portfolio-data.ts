@@ -1,5 +1,6 @@
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeThemePreference } from "@/lib/theme-preference";
+import { createEntityId } from "@/lib/sections";
 import {
   EMPTY_ALLOCATION_NODES,
   EMPTY_ASSETS,
@@ -137,6 +138,42 @@ export function createDefaultPortfolioData(): PortfolioDataPayload {
     uiPreferences: structuredClone(EMPTY_UI_PREFERENCES),
     connectedWallets: structuredClone(EMPTY_CONNECTED_WALLETS),
     netWorthHistory: structuredClone(EMPTY_NET_WORTH_HISTORY),
+  };
+}
+
+function dedupeEntityIds<T extends { id: string }>(items: T[], prefix: string): T[] {
+  const seen = new Set<string>();
+  return items.map((item) => {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      return item;
+    }
+    const id = createEntityId(prefix);
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
+/** Repair duplicate entity ids from legacy imports (e.g. truncated slug collisions). */
+export function normalizePortfolioEntityIds(
+  payload: PortfolioDataPayload
+): PortfolioDataPayload {
+  return {
+    ...payload,
+    assets: dedupeEntityIds(payload.assets ?? [], "asset"),
+    cashAccounts: dedupeEntityIds(payload.cashAccounts ?? [], "cash"),
+    liabilities: dedupeEntityIds(payload.liabilities ?? [], "lia"),
+    planningItems: dedupeEntityIds(payload.planningItems ?? [], "plan"),
+    spendingItems: dedupeEntityIds(payload.spendingItems ?? [], "spend"),
+    allocationNodes: payload.allocationNodes
+      ? dedupeEntityIds(payload.allocationNodes, "alloc")
+      : payload.allocationNodes,
+    walletMapNodes: payload.walletMapNodes
+      ? dedupeEntityIds(payload.walletMapNodes, "wallet")
+      : payload.walletMapNodes,
+    connectedWallets: payload.connectedWallets
+      ? dedupeEntityIds(payload.connectedWallets, "cw")
+      : payload.connectedWallets,
   };
 }
 
@@ -572,8 +609,10 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           label: raw.label.trim(),
           order,
           owner: optionalString(raw.owner),
+          walletType: optionalString(raw.walletType) as WalletMapNode["walletType"],
           identifier: optionalString(raw.identifier),
           status,
+          notes: optionalString(raw.notes),
         });
       }
       for (const node of walletMapNodes) {

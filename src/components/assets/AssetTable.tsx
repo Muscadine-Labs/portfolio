@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSectionFilterFromUrl } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
-import { Pencil, Trash2 } from "lucide-react";
+import { Loader2, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -36,6 +36,8 @@ import {
   isWalletAssetSection,
 } from "@/lib/asset-sections";
 import { sumAssetSectionTotals } from "@/lib/section-totals";
+import { isFinnhubEligible, type MarketQuotesResponse } from "@/lib/finnhub";
+import { toast } from "sonner";
 import type { Asset, PortfolioSection } from "@/types";
 
 const DEFAULT_VISIBLE_COLUMNS: AssetColumnKey[] = [
@@ -125,6 +127,7 @@ export function AssetTable() {
     deleteAsset,
     upsertSection,
     deleteSection,
+    applyAssetPrices,
   } = usePortfolio();
   const sections = getSections("assets");
   const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
@@ -141,6 +144,12 @@ export function AssetTable() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [editingSection, setEditingSection] = useState<PortfolioSection | null>(null);
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
+
+  const finnhubEligibleCount = useMemo(
+    () => assets.filter(isFinnhubEligible).length,
+    [assets]
+  );
 
   const walletSectionIds = useMemo(
     () => new Set(sections.filter(isWalletAssetSection).map((s) => s.id)),
@@ -220,6 +229,43 @@ export function AssetTable() {
 
   const showEmptySections = search.trim() === "" && sectionFilter === "all";
 
+  const refreshPrices = async () => {
+    if (finnhubEligibleCount === 0) {
+      toast.message("No stock/ETF/metal assets to refresh", {
+        description: "Finnhub updates symbols without wallet or on-chain metadata.",
+      });
+      return;
+    }
+
+    setRefreshingPrices(true);
+    try {
+      const res = await fetch("/api/market/quotes", { method: "POST" });
+      const data = (await res.json()) as MarketQuotesResponse;
+      if (!res.ok) {
+        toast.error("Price refresh failed", { description: data.error ?? "Unknown error" });
+        return;
+      }
+
+      const prices = data.prices ?? {};
+      const updated = applyAssetPrices(prices);
+      const parts: string[] = [];
+      if (updated > 0) parts.push(`${updated} price${updated === 1 ? "" : "s"} updated`);
+      if ((data.notFound?.length ?? 0) > 0) {
+        parts.push(`${data.notFound!.length} symbol(s) not found`);
+      }
+      if (typeof data.apiCalls === "number") {
+        parts.push(`${data.apiCalls} Finnhub call${data.apiCalls === 1 ? "" : "s"}`);
+      }
+      toast.success("Prices refreshed", {
+        description: parts.length > 0 ? parts.join(" · ") : data.message ?? "No changes",
+      });
+    } catch {
+      toast.error("Price refresh failed", { description: "Could not reach the server." });
+    } finally {
+      setRefreshingPrices(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="border-emerald-500/25 bg-gradient-to-br from-card to-emerald-500/5">
@@ -244,6 +290,22 @@ export function AssetTable() {
         onToggleColumn={toggleColumn}
         resultCount={resultCount}
         totalCount={assets.length}
+        trailingActions={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={refreshingPrices}
+            onClick={() => void refreshPrices()}
+          >
+            {refreshingPrices ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Refresh prices
+          </Button>
+        }
       />
 
       {sections.length === 0 && (

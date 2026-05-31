@@ -1,4 +1,5 @@
 import type { PortfolioDataPayload } from "@/lib/portfolio-data";
+import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
 import type { User } from "@/types";
 import { headers } from "next/headers";
 import { getHomeApiBaseUrl } from "@/lib/home-api";
@@ -64,12 +65,14 @@ export async function getInitialPortfolioFromApi(): Promise<PortfolioDataPayload
   const res = await fetchHomeApi("/api/me", tenant);
   if (res?.ok) {
     const body = (await res.json()) as { portfolio?: PortfolioDataPayload };
-    if (body.portfolio) return body.portfolio;
+    if (body.portfolio) return normalizePortfolioEntityIds(body.portfolio);
   }
 
   const exportRes = await fetchHomeApi("/api/export", tenant);
   if (exportRes?.ok) {
-    return (await exportRes.json()) as PortfolioDataPayload;
+    return normalizePortfolioEntityIds(
+      (await exportRes.json()) as PortfolioDataPayload
+    );
   }
 
   return createEmptyPortfolioData();

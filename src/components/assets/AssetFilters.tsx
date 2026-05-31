@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode } from "react";
 import {
   RecordFilters,
   type ColumnOption,
@@ -62,17 +63,20 @@ interface AssetFiltersProps {
   onToggleColumn: (key: AssetColumnKey) => void;
   resultCount: number;
   totalCount: number;
+  trailingActions?: ReactNode;
 }
 
 export function AssetFilters({
   showWalletPositionColumns,
   showDefiColumns = false,
+  trailingActions,
   ...props
 }: AssetFiltersProps) {
   const showPositionCols = showWalletPositionColumns ?? showDefiColumns;
   return (
     <RecordFilters
       {...props}
+      trailingActions={trailingActions}
       columnOptions={getAssetColumnOptions(showPositionCols)}
       entityLabel="assets"
       searchPlaceholder="Symbol or name…"

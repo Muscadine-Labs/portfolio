@@ -18,7 +18,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { clearDevBannerDismissed } from "@/lib/dev-banner";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -57,8 +56,6 @@ export default function LoginPage() {
         });
         return;
       }
-
-      clearDevBannerDismissed();
 
       if (body.role === "admin") {
         router.replace("/admin");

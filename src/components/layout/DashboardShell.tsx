@@ -6,7 +6,6 @@ import { MobileNavProvider, useMobileNav } from "@/components/layout/MobileNavCo
 import { PortfolioProvider } from "@/components/providers/PortfolioProvider";
 import { PortfolioAgreementProvider } from "@/contexts/PortfolioAgreementContext";
 import { PortfolioAgreementModal } from "@/components/legal/PortfolioAgreementModal";
-import { DevelopmentBanner } from "@/components/shared/DevelopmentBanner";
 import { ThemePreferenceSync } from "@/components/shared/ThemePreferenceSync";
 import type { PortfolioImportResult } from "@/lib/portfolio-data";
 import type { User } from "@/types";
@@ -52,7 +51,6 @@ function ShellInner({ children }: { children: ReactNode }) {
 
       <div className="md:pl-64">
         <ThemePreferenceSync />
-        <DevelopmentBanner />
         {children}
       </div>
     </div>

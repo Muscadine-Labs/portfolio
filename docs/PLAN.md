@@ -57,7 +57,7 @@ The monorepo is **UI + mock API** in one Next.js app, **deployed to Vercel** at 
 | Pages | Done | `src/app/` — dashboard, assets, cash, liabilities, plan, settings |
 | Portfolio state | In-memory per tenant | `src/lib/portfolio-data-store.ts` |
 | Seed data | Gitignored private file | `portfolio-data.ts` (copy from `portfolio-data.example.ts`) |
-| Import / export | JSON + Excel (5 sheets) | `POST /api/import`, `/api/export`, `src/lib/xlsx-portfolio.ts` |
+| Import / export | JSON import; Excel export only | `POST /api/import`, `/api/export`, `src/lib/xlsx-portfolio.ts` |
 | Auth (optional) | Env or per-tenant credentials | `src/lib/auth.ts`, `/api/auth/*` |
 | Morpho sync | Vault v1 + v2 + markets | `src/lib/morpho.ts`, `POST /api/morpho/sync` |
 | Overview chart | Seed history + live KPIs from holdings | `NET_WORTH_HISTORY` in seed file |
@@ -183,7 +183,7 @@ curl -X POST https://api.portfolio.muscadine.io/api/auth/register \
 ```
 
 1. Login at `portfolio.muscadine.io/login`.
-2. Import JSON or Excel → SQLite on mini PC.
+2. Import JSON via Settings → SQLite on mini PC.
 3. Confirm from phone on LTE.
 
 ---
