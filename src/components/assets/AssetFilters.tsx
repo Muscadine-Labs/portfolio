@@ -1,11 +1,4 @@
-"use client";
-
-import { type ReactNode } from "react";
-import {
-  RecordFilters,
-  type ColumnOption,
-} from "@/components/shared/RecordFilters";
-import type { PortfolioSection } from "@/types";
+import { type ColumnOption } from "@/components/shared/ColumnPickerPopover";
 
 export type AssetColumnKey =
   | "symbol"
@@ -48,38 +41,4 @@ export function getAssetColumnOptions(showWalletPositionColumns: boolean) {
   return showWalletPositionColumns
     ? [...ASSET_COLUMN_OPTIONS, ...WALLET_POSITION_COLUMN_OPTIONS]
     : ASSET_COLUMN_OPTIONS;
-}
-
-interface AssetFiltersProps {
-  search: string;
-  onSearchChange: (value: string) => void;
-  sectionFilter: string;
-  onSectionFilterChange: (value: string) => void;
-  sections: PortfolioSection[];
-  showWalletPositionColumns?: boolean;
-  /** @deprecated Use showWalletPositionColumns */
-  showDefiColumns?: boolean;
-  visibleColumns: Set<AssetColumnKey>;
-  onToggleColumn: (key: AssetColumnKey) => void;
-  resultCount: number;
-  totalCount: number;
-  trailingActions?: ReactNode;
-}
-
-export function AssetFilters({
-  showWalletPositionColumns,
-  showDefiColumns = false,
-  trailingActions,
-  ...props
-}: AssetFiltersProps) {
-  const showPositionCols = showWalletPositionColumns ?? showDefiColumns;
-  return (
-    <RecordFilters
-      {...props}
-      trailingActions={trailingActions}
-      columnOptions={getAssetColumnOptions(showPositionCols)}
-      entityLabel="assets"
-      searchPlaceholder="Symbol or name…"
-    />
-  );
 }

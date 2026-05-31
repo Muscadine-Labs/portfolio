@@ -2,24 +2,22 @@
 
 import { startTransition, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { scrollToPortfolioTarget } from "@/lib/portfolio-scroll";
 
 /** Reads and updates section filter via `?section=` (overview deep links). */
-export function useSectionFilterFromUrl(sectionIds: string[]) {
+export function useSectionFilterFromUrl(filterIds: string[]) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const param = searchParams.get("section");
 
-  const sectionFilter =
-    param && sectionIds.includes(param) ? param : "all";
+  const sectionFilter = param && filterIds.includes(param) ? param : "all";
   const highlightSectionId =
-    param && sectionIds.includes(param) ? param : null;
+    param && filterIds.includes(param) && !param.startsWith("group:") ? param : null;
 
   const setSectionFilter = (value: string) => {
-    const next =
-      value !== "all" && sectionIds.includes(value) ? value : "all";
-    const current =
-      param && sectionIds.includes(param) ? param : "all";
+    const next = value !== "all" && filterIds.includes(value) ? value : "all";
+    const current = param && filterIds.includes(param) ? param : "all";
     if (next === current) return;
 
     startTransition(() => {
@@ -52,13 +50,16 @@ export function useScrollToSectionFromUrl() {
 
     const timer = window.setTimeout(() => {
       if (!mountedRef.current) return;
-      document
-        .getElementById(`section-${sectionId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+      scrollToPortfolioTarget(sectionId);
+    }, 150);
 
     return () => window.clearTimeout(timer);
   }, [sectionId]);
 
   return sectionId;
+}
+
+/** Scroll to a section or group block after toolbar pill / nav selection. */
+export function scrollToPortfolioSection(sectionId: string) {
+  scrollToPortfolioTarget(sectionId);
 }

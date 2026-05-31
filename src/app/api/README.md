@@ -2,7 +2,7 @@
 
 Server-side API routes for the Portfolio backend.
 
-Planned routes (Start9 / `api.portfolio.muscadine.io`):
+Planned routes (Start9 / `api-portfolio.muscadine.io`):
 
 ```
 api/

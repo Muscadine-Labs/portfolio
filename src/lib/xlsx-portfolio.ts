@@ -33,7 +33,8 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
     data.liabilities,
     assetSections,
     cashSections,
-    liabilitySections
+    liabilitySections,
+    data.sectionGroups ?? []
   );
 
   const overviewRows: (string | number)[][] = [
@@ -62,12 +63,11 @@ export function exportPortfolioToXlsx(data: PortfolioExportData, filename?: stri
     ...snapshot.liabilities.map((r) => [r.label, r.value]),
     [],
     ["Net Worth History"],
-    ["Period", "Net Worth", "Total Assets", "Total Liabilities"],
+    ["Period", "Net Worth", "Total Cost Basis"],
     ...(data.netWorthHistory ?? []).map((s) => [
       s.period,
       s.netWorth,
-      s.totalAssets ?? "",
-      s.totalLiabilities ?? "",
+      s.totalCostBasis ?? "",
     ]),
   ];
   XLSX.utils.book_append_sheet(wb, sheetFromRows(overviewRows), "Overview");

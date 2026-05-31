@@ -2,18 +2,22 @@
 
 **Default stack ($0/mo):** Vercel UI · Linux mini PC (API + SQLite + Cloudflare Tunnel) · DNS on Cloudflare.
 
-- **UI:** [portfolio.muscadine.io](https://portfolio.muscadine.io) — **deployed on Vercel** (single URL; no per-user subdomains)
-- **API:** `api.portfolio.muscadine.io` (Cloudflare Tunnel → mini PC `:3001`) — **not live yet**
+- **UI:** [portfolio.muscadine.io](https://portfolio.muscadine.io) — **deployed on Vercel**
+- **API:** `api-portfolio.muscadine.io` (Cloudflare Tunnel → mini PC `:3001`) — **wired locally; tunnel DNS pending**
 - **Security / trust boundaries:** `SECURITY.md` (repo root)
 
-### Deployment status
+### Deployment status (v0.6)
 
 | Piece | Status |
 |-------|--------|
 | Next.js UI on Vercel | **Live** at `portfolio.muscadine.io` |
-| Mock API routes on Vercel | **Live** (`/api/*` in this repo; in-memory per deployment) |
-| Mini PC API + SQLite + tunnel | **Next** — persistent data and Morpho sync target |
-| BFF `/api/backend/*` → home API | Not wired |
+| UI → home API proxy (`/api/*` rewrite) | **Wired** when `API_URL` set |
+| Auth + session cookies | **Live** (login, admin portal) |
+| Portfolio CRUD via `GET /api/me`, `POST /api/export` | **Live** (SQLite on mini PC) |
+| Net worth history + chart | **Live** — edit in Settings → Data; bars + cost basis line on Overview |
+| Section groups (Overview roll-ups) | **Live** — `SectionGroup` + `groupId` on sections |
+| Monthly auto-snapshot cron | **API ready** — toggle in Settings → Data; systemd timer on mini PC |
+| Mini PC tunnel (`api-portfolio.muscadine.io`) | **Next** — Cloudflare nameservers + `cloudflared` |
 
 ---
 
@@ -21,7 +25,7 @@
 
 ```
 portfolio.muscadine.io          →  Vercel (Next.js UI)
-api.portfolio.muscadine.io      →  Cloudflare (HTTPS edge)
+api-portfolio.muscadine.io      →  Cloudflare (HTTPS edge)
                                       ↓ tunnel (outbound from home)
                                  cloudflared + API + SQLite  →  Linux mini PC
 ```
@@ -29,11 +33,9 @@ api.portfolio.muscadine.io      →  Cloudflare (HTTPS edge)
 **Login flow (production):**
 
 1. User opens `https://portfolio.muscadine.io/login`.
-2. UI calls home API via `/api/backend/*` proxy (recommended) or `https://api.portfolio.muscadine.io`.
-3. Mini PC validates email/password, sets **httpOnly** session (JWT with internal `tenant` workspace id).
-4. All reads/writes scoped to that workspace in SQLite (not derived from hostname).
-
-**Cloudflare** terminates HTTPS and forwards through the tunnel. **Your mini PC** holds all financial data.
+2. UI proxies auth and data to home API via `API_URL` rewrites.
+3. Mini PC validates username/password, sets **httpOnly** session (HMAC with `API_SECRET`).
+4. All reads/writes scoped to tenant slug in SQLite.
 
 ---
 
@@ -42,57 +44,59 @@ api.portfolio.muscadine.io      →  Cloudflare (HTTPS edge)
 | Piece | Where | Cost |
 |-------|--------|------|
 | UI | Vercel — `portfolio.muscadine.io` | Free |
-| API + SQLite | Linux mini PC — Docker, port **3001** | Free (your hardware) |
+| API + SQLite | Linux mini PC — port **3001** | Free (your hardware) |
 | Tunnel | **cloudflared** on the same mini PC | Free |
 | DNS | **Cloudflare** (domain delegated from Namesilo) | Free |
 
 ---
 
-## This repo today (Phase 1 — Vercel + local dev)
+## This repo today (v0.6)
 
-The monorepo is **UI + mock API** in one Next.js app, **deployed to Vercel** at `portfolio.muscadine.io`. Persistent storage moves to the mini PC API when Phase B–D are done.
+UI-only Next.js app on Vercel. **No tenant data in git.** Local dev pairs with api-portfolio on `:3001`.
 
 | Area | Status | Location |
 |------|--------|----------|
 | Pages | Done | `src/app/` — dashboard, assets, cash, liabilities, plan, settings |
-| Portfolio state | In-memory per tenant | `src/lib/portfolio-data-store.ts` |
-| Seed data | Gitignored private file | `portfolio-data.ts` (copy from `portfolio-data.example.ts`) |
-| Import / export | JSON import; Excel export only | `POST /api/import`, `/api/export`, `src/lib/xlsx-portfolio.ts` |
-| Auth (optional) | Env or per-tenant credentials | `src/lib/auth.ts`, `/api/auth/*` |
-| Morpho sync | Vault v1 + v2 + markets | `src/lib/morpho.ts`, `POST /api/morpho/sync` |
-| Overview chart | Seed history + live KPIs from holdings | `NET_WORTH_HISTORY` in seed file |
-| Settings | Account, display, wallets, nav, data | `src/components/settings/` |
+| Portfolio state | From home API | `PortfolioProvider` + `POST /api/export` auto-save |
+| Section groups | Done | `src/lib/section-groups.ts`, grouped Assets/Cash/Liabilities UI |
+| Net worth chart | Done | `OverviewNetWorthChart.tsx` — bars (net worth) + line (cost basis) |
+| Net worth history | Done | `NetWorthHistorySettingsCard.tsx` — Settings → Data |
+| Import / export | JSON + Excel | proxied to home API |
+| Morpho sync | Done | proxied `POST /api/morpho/sync` |
+| Finnhub refresh | Done | proxied `POST /api/market/quotes` |
+| Settings | Account, display, nav, data | `src/components/settings/` |
 
 **Env (local):**
 
 ```bash
-DEV_TENANT=nick
-PORTFOLIO_SEED_FILE=portfolio-data.ts   # optional; default = example seed
-PORTFOLIO_USERNAME=...                  # optional gate
-PORTFOLIO_PASSWORD=...
+API_URL=http://127.0.0.1:3001
+API_SECRET=...   # match api-portfolio
 ```
 
-**Not wired yet:** `/api/backend/*` proxy to mini PC, SQLite, JWT auth on API, quarterly snapshots API.
+**Not wired yet:** Public tunnel hostname for production API (DNS on Cloudflare).
 
 ---
 
 ## Data model conventions
 
-### Private seed (`portfolio-data.ts`)
+### Section groups
 
-- All balances, wallet addresses, goals, wallet map, net-worth history → **repo root**, **gitignored**.
-- Committed template: `portfolio-data.example.ts` (generic “Alex” household demo).
-- App imports via `@portfolio/seed` alias (`next.config.ts` + `PORTFOLIO_SEED_FILE`).
+- Named roll-up buckets for Overview and grouped page layout.
+- Sections link via `groupId`; groups have `metadata.account` optional label.
+- Legacy `metadata.overviewGroup` string migrates to groups on import.
 
 ### Crypto: wallets, not networks
 
-- On-chain assets grouped by **connected wallet** (one assets section per wallet, `metadata.walletId`).
-- **Network** and **protocol** are per **position** (same wallet can hold Base, Ethereum, etc.).
-- Settings → Wallets: link address to sections; Morpho sync uses **default sync network** (Base/Ethereum) only for the GraphQL query.
+- On-chain assets grouped by **connected wallet** (`metadata.walletId`).
+- **Network** and **protocol** per position row.
 
-### Plan tab
+### Net worth snapshots
 
-- Income allocation tree (collapsible buckets in `AllocationGuide.tsx`), wallet map (reference only — no secrets), goals linked to section totals via `src/lib/goal-tracking.ts`.
+```typescript
+{ period: string; netWorth: number; totalCostBasis?: number }
+```
+
+Chart uses net worth + cost basis only. Capture current / cron fills from live holdings.
 
 ---
 
@@ -100,99 +104,57 @@ PORTFOLIO_PASSWORD=...
 
 1. Namesilo → Cloudflare nameservers for `muscadine.io`.
 2. Cloudflare: CNAME `portfolio` → Vercel.
-3. Tunnel public hostname `api.portfolio` → `http://127.0.0.1:3001` (auto DNS; **not** home IP A record).
+3. Tunnel public hostname `api-portfolio` → `http://127.0.0.1:3001` (auto DNS; **not** home IP A record).
 
 ---
 
-## Phase A — Mini PC: API + SQLite (2–4 hours)
+## Phase A — Mini PC: API + SQLite
 
-### API routes (`portfolio-api` or `api/` in monorepo)
-
-```
-api/app/api/
-├── auth/login, logout, status, register
-├── me
-├── assets, cash, liabilities, snapshots
-├── export, import
-├── morpho/sync          ← run here in production (not Vercel)
-└── health               GET → 200
-```
-
-- SQLite: `/data/portfolio.db` (Docker volume).
-- Tenant from **verified JWT** on every protected route — not client `x-tenant` alone.
-- Env: `API_SECRET`, `ADMIN_SECRET`, `ALLOWED_ORIGINS=https://portfolio.muscadine.io`
-
-```yaml
-# docker-compose.yml (mini PC)
-services:
-  portfolio-api:
-    build: ./api
-    ports:
-      - "3001:3001"
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATA_DIR: /data
-      API_SECRET: ${API_SECRET}
-      ADMIN_SECRET: ${ADMIN_SECRET}
-      ALLOWED_ORIGINS: https://portfolio.muscadine.io
-    volumes:
-      - portfolio-data:/data
-    restart: unless-stopped
-volumes:
-  portfolio-data:
-```
+**Done** in `api-portfolio` repo — SQLite tenants, auth, import/export, Finnhub, net worth cron.
 
 Verify: `curl http://127.0.0.1:3001/api/health` → 200.
 
 ---
 
-## Phase B — Cloudflare Tunnel (~1 hour)
+## Phase B — Cloudflare Tunnel
 
 On the **same** mini PC as the API:
 
 1. Create tunnel in Cloudflare Zero Trust → install `cloudflared`.
-2. Public hostname: `api.portfolio.muscadine.io` → `http://127.0.0.1:3001`.
-3. Test from cellular: `curl https://api.portfolio.muscadine.io/api/health`.
+2. Public hostname: `api-portfolio.muscadine.io` → `http://127.0.0.1:3001`.
+3. Test from cellular: `curl https://api-portfolio.muscadine.io/api/health`.
 4. Backup `/data/portfolio.db` (rsync / Restic).
+5. Enable net worth snapshot timer: `scripts/portfolio-snapshot.timer.example`.
 
 ---
 
 ## Phase C — Vercel frontend
 
-1. ~~Deploy this repo; domain `portfolio.muscadine.io`.~~ **Done** — live on Vercel.
-2. Add BFF: `src/app/api/backend/[...path]/route.ts` → `API_URL=https://api.portfolio.muscadine.io`.
-3. Browser uses `NEXT_PUBLIC_API_URL=/api/backend` (same-origin cookies).
-4. **Do not** set `API_SECRET` on Vercel.
-5. Production build: **no** `PORTFOLIO_SEED_FILE=portfolio-data.ts` — use example seed; hydrate from API.
+1. ~~Deploy this repo; domain `portfolio.muscadine.io`.~~ **Done**
+2. ~~Proxy `/api/*` → home API via `API_URL`.~~ **Done**
+3. Set `API_URL` + `API_SECRET` on Vercel server env.
+4. Confirm production login + export round-trip to mini PC.
 
 | Variable | Where | Example |
 |----------|--------|---------|
-| `API_URL` | Vercel server only | `https://api.portfolio.muscadine.io` |
-| `NEXT_PUBLIC_API_URL` | Vercel | `/api/backend` |
+| `API_URL` | Vercel server only | `https://api-portfolio.muscadine.io` |
+| `API_SECRET` | Vercel server only | match mini PC |
 
 ---
 
 ## Phase D — First run
 
-```bash
-curl -X POST https://api.portfolio.muscadine.io/api/auth/register \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_SECRET" \
-  -d '{"tenant":"workspace","name":"Nick","email":"you@example.com","password":"..."}'
-```
-
-1. Login at `portfolio.muscadine.io/login`.
-2. Import JSON via Settings → SQLite on mini PC.
-3. Confirm from phone on LTE.
+1. Create user via `/admin` or `POST /api/auth/register`.
+2. Login at `portfolio.muscadine.io/login`.
+3. Import JSON or add positions; enable **Auto-snapshot on the 1st** if desired.
+4. Confirm from phone on LTE once tunnel is live.
 
 ---
 
 ## Phase E — Later
 
-- Price cron on mini PC (Finnhub, CoinGecko) — keys in server `.env` only.
-- Quarterly net-worth snapshots API (chart currently uses seed `NET_WORTH_HISTORY`).
-- Split git repos: `portfolio-api` + `portfolio-web` if desired.
+- Price cron on mini PC (scheduled Finnhub refresh).
+- Split repos already done: `portfolio` (UI) + `api-portfolio` (API).
 
 ---
 
@@ -207,26 +169,18 @@ curl -X POST https://api.portfolio.muscadine.io/api/auth/register \
 ## Checklist (whole stack)
 
 - [x] Vercel: deploy repo; `portfolio.muscadine.io` live
-- [x] Login + dashboard on production hostname (Phase 1 mock API / seed)
-- [ ] Namesilo → Cloudflare nameservers; zone Active (if not already)
+- [x] Login + dashboard on production hostname
+- [x] UI proxies to home API when `API_URL` set
+- [x] Net worth history + chart (bars + cost basis)
+- [x] Section groups on Overview and asset pages
+- [ ] Namesilo → Cloudflare nameservers; zone Active
 - [ ] Cloudflare: `portfolio` → Vercel (confirm DNS)
-- [ ] Mini PC: API healthy on `:3001`
-- [ ] `cloudflared`: `api.portfolio` → `127.0.0.1:3001`
+- [ ] Mini PC: API healthy on `:3001` in production
+- [ ] `cloudflared`: `api-portfolio` → `127.0.0.1:3001`
 - [ ] `/api/health` on cellular
-- [ ] Vercel: BFF proxy env when home API is ready; **no** `API_SECRET` on Vercel
-- [ ] Morpho sync on mini PC API (optional: keep on Vercel until then)
+- [ ] Vercel production `API_URL` → tunnel hostname
 - [ ] Backup job for `portfolio.db`
-- [x] `portfolio-data.ts` never committed (gitignored)
-
----
-
-## Alternatives (not default)
-
-| Path | When |
-|------|------|
-| Start9 instead of mini PC | StartOS backups; tunnel → Start9 LAN IP |
-| Direct API (no Vercel proxy) | Stricter privacy; more CORS/cookie work |
-| LAN / VPN only | No public URLs |
+- [ ] Net worth snapshot systemd timer enabled on mini PC
 
 ---
 
@@ -235,3 +189,4 @@ curl -X POST https://api.portfolio.muscadine.io/api/auth/register \
 - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
 - [Vercel custom domains](https://vercel.com/docs/projects/domains)
 - Agent / codebase guide: `docs/CLAUDE.md`
+- Home API guide: `../api-portfolio/docs/CLAUDE.md`

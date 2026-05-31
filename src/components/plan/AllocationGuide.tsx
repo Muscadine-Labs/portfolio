@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { ChevronDown, Link2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,47 +11,46 @@ import { AllocationNodeDrawer } from "@/components/plan/AllocationNodeDrawer";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import {
   childrenPercentSum,
-  dollarAmount,
   getChildNodes,
+  isAmountTarget,
   percentOfIncome,
+  plannedMonthlyAmount,
+  siblingsUsePercentOnly,
 } from "@/lib/allocation-plan";
-import { getLinkedSectionLabel, getSectionTotal } from "@/lib/goal-tracking";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import type { AllocationNode, Asset, CashAccount, Liability, PortfolioSection } from "@/types";
+import type { AllocationNode } from "@/types";
 
 function AllocationRowDetails({
   node,
-  linkLabel,
   incomePct,
   plannedMonthly,
-  linked,
 }: {
   node: AllocationNode;
-  linkLabel: string | null;
   incomePct: number;
   plannedMonthly: number | null;
-  linked: number | null;
 }) {
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <p className="truncate text-sm font-medium">{node.label}</p>
-        {linkLabel && (
-          <Badge variant="outline" className="gap-0.5 text-[10px]">
-            <Link2 className="h-2.5 w-2.5" />
-            {linkLabel}
-          </Badge>
-        )}
-      </div>
+      <p className="truncate text-sm font-medium">{node.label}</p>
       <p className="text-xs text-muted-foreground">
-        {node.percentOfParent}% of parent
-        {node.parentId == null ? " (income)" : ""}
-        {incomePct > 0 && node.parentId != null && (
-          <span> · {incomePct.toFixed(1)}% of income</span>
+        {isAmountTarget(node) ? (
+          <>
+            {formatCurrency(node.monthlyAmount!)}/mo
+            {node.parentId == null ? " (fixed)" : " (fixed under parent)"}
+          </>
+        ) : (
+          <>
+            {node.percentOfParent}% of parent
+            {node.parentId == null ? " (income)" : ""}
+            {incomePct > 0 && node.parentId != null && (
+              <span> · {incomePct.toFixed(1)}% of income</span>
+            )}
+          </>
         )}
-        {plannedMonthly != null && <span> · Plan {formatCurrency(plannedMonthly)}/mo</span>}
-        {linked != null && node.trackPage && <span> · Actual {formatCurrency(linked)}</span>}
+        {plannedMonthly != null && !isAmountTarget(node) && (
+          <span> · Plan {formatCurrency(plannedMonthly)}/mo</span>
+        )}
       </p>
       {node.notes && (
         <p className="truncate text-xs text-muted-foreground/80">{node.notes}</p>
@@ -65,8 +64,6 @@ function AllocationRow({
   nodes,
   monthlyIncome,
   depth,
-  portfolioData,
-  sections,
   collapsedIds,
   onToggleCollapse,
   onEdit,
@@ -77,8 +74,6 @@ function AllocationRow({
   nodes: AllocationNode[];
   monthlyIncome?: number;
   depth: number;
-  portfolioData: { assets: Asset[]; cashAccounts: CashAccount[]; liabilities: Liability[] };
-  sections: PortfolioSection[];
   collapsedIds: Set<string>;
   onToggleCollapse: (id: string) => void;
   onEdit: (node: AllocationNode) => void;
@@ -89,14 +84,11 @@ function AllocationRow({
   const hasChildren = children.length > 0;
   const isCollapsed = hasChildren && collapsedIds.has(node.id);
   const incomePct = percentOfIncome(node, nodes);
-  const plannedMonthly = dollarAmount(monthlyIncome, incomePct);
-  const linked =
-    node.trackPage && node.trackSectionId
-      ? getSectionTotal(node.trackPage, node.trackSectionId, portfolioData)
-      : null;
-  const linkLabel = getLinkedSectionLabel(sections, node);
+  const plannedMonthly = plannedMonthlyAmount(node, nodes, monthlyIncome);
   const childSum = childrenPercentSum(nodes, node.id);
-  const sumOk = children.length === 0 || Math.abs(childSum - 100) < 0.01;
+  const sumOk =
+    siblingsUsePercentOnly(nodes, node.id) &&
+    (children.length === 0 || Math.abs(childSum - 100) < 0.01);
 
   return (
     <>
@@ -133,20 +125,16 @@ function AllocationRow({
           >
             <AllocationRowDetails
               node={node}
-              linkLabel={linkLabel}
               incomePct={incomePct}
               plannedMonthly={plannedMonthly}
-              linked={linked}
             />
           </button>
         ) : (
           <div className="min-w-0 flex-1">
             <AllocationRowDetails
               node={node}
-              linkLabel={linkLabel}
               incomePct={incomePct}
               plannedMonthly={plannedMonthly}
-              linked={linked}
             />
           </div>
         )}
@@ -186,8 +174,6 @@ function AllocationRow({
             nodes={nodes}
             monthlyIncome={monthlyIncome}
             depth={depth + 1}
-            portfolioData={portfolioData}
-            sections={sections}
             collapsedIds={collapsedIds}
             onToggleCollapse={onToggleCollapse}
             onEdit={onEdit}
@@ -208,16 +194,7 @@ export function AllocationGuide() {
     setMonthlyIncome,
     upsertAllocationNode,
     deleteAllocationNode,
-    assets,
-    cashAccounts,
-    liabilities,
-    sections,
   } = usePortfolio();
-
-  const portfolioData = useMemo(
-    () => ({ assets, cashAccounts, liabilities }),
-    [assets, cashAccounts, liabilities]
-  );
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AllocationNode | null>(null);
@@ -238,9 +215,7 @@ export function AllocationGuide() {
   const rootSum = useMemo(() => childrenPercentSum(allocationNodes, null), [allocationNodes]);
   const investRoot = roots.find((r) => /invest/i.test(r.label)) ?? roots[0];
   const investMonthly =
-    investRoot && monthlyIncome
-      ? dollarAmount(monthlyIncome, percentOfIncome(investRoot, allocationNodes))
-      : null;
+    investRoot != null ? plannedMonthlyAmount(investRoot, allocationNodes, monthlyIncome) : null;
 
   const openAdd = (pid: string | null, label?: string) => {
     setEditing(null);
@@ -266,8 +241,7 @@ export function AllocationGuide() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Income split</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Percentages are always relative to the parent bucket. Edit the plan below; changes
-            stay in session (mock data until the API is connected).
+            Set each bucket as a % of its parent or a fixed monthly $. Edit the plan below.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -299,8 +273,7 @@ export function AllocationGuide() {
 
           <div className="flex flex-wrap gap-2">
             {roots.map((root) => {
-              const pct = percentOfIncome(root, allocationNodes);
-              const amt = dollarAmount(monthlyIncome, pct);
+              const amt = plannedMonthlyAmount(root, allocationNodes, monthlyIncome);
               return (
                 <div
                   key={root.id}
@@ -309,13 +282,16 @@ export function AllocationGuide() {
                   <span className="font-medium">{root.label}</span>
                   <span className="text-muted-foreground">
                     {" "}
-                    · {root.percentOfParent}% income
-                    {amt != null && ` · ${formatCurrency(amt)}`}
+                    ·{" "}
+                    {isAmountTarget(root)
+                      ? `${formatCurrency(root.monthlyAmount!)}/mo`
+                      : `${root.percentOfParent}% income`}
+                    {amt != null && !isAmountTarget(root) && ` · ${formatCurrency(amt)}`}
                   </span>
                 </div>
               );
             })}
-            {Math.abs(rootSum - 100) > 0.01 && (
+            {siblingsUsePercentOnly(allocationNodes, null) && Math.abs(rootSum - 100) > 0.01 && (
               <Badge variant="outline" className="text-amber-500">
                 Top level totals {rootSum.toFixed(0)}% (aim for 100%)
               </Badge>
@@ -355,8 +331,6 @@ export function AllocationGuide() {
                   nodes={allocationNodes}
                   monthlyIncome={monthlyIncome}
                   depth={0}
-                  portfolioData={portfolioData}
-                  sections={sections}
                   collapsedIds={collapsedIds}
                   onToggleCollapse={toggleCollapse}
                   onEdit={openEdit}

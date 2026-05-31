@@ -1,15 +1,21 @@
 import { normalizeOverviewChart } from "@/lib/overview-chart";
+import { migrateAndNormalizeSectionGroups } from "@/lib/section-groups";
+import { parseSectionMetadata } from "@/lib/section-metadata";
 import { normalizeThemePreference } from "@/lib/theme-preference";
+import {
+  mergeLegacyConnectedWallets,
+  normalizeWalletMapNodes,
+} from "@/lib/wallet-map";
 import { createEntityId } from "@/lib/sections";
 import {
   EMPTY_ALLOCATION_NODES,
   EMPTY_ASSETS,
   EMPTY_CASH_ACCOUNTS,
-  EMPTY_CONNECTED_WALLETS,
   EMPTY_INCOME_PLAN,
   EMPTY_LIABILITIES,
   EMPTY_NET_WORTH_HISTORY,
   EMPTY_PLANNING_ITEMS,
+  EMPTY_SECTION_GROUPS,
   EMPTY_SECTIONS,
   EMPTY_SPENDING_ITEMS,
   EMPTY_UI_PREFERENCES,
@@ -19,13 +25,14 @@ import type {
   AllocationNode,
   Asset,
   CashAccount,
-  ConnectedWallet,
   IncomePlanConfig,
   Liability,
   OverviewChartLineType,
   PageType,
   PlanningItem,
   PortfolioSection,
+  SectionGroup,
+  SectionGroupPage,
   SpendingItem,
   UiPreferences,
   WalletChain,
@@ -34,6 +41,7 @@ import type {
 
 export interface PortfolioDataPayload {
   sections: PortfolioSection[];
+  sectionGroups?: SectionGroup[];
   assets: Asset[];
   cashAccounts: CashAccount[];
   liabilities: Liability[];
@@ -43,7 +51,6 @@ export interface PortfolioDataPayload {
   incomePlan?: IncomePlanConfig;
   walletMapNodes?: WalletMapNode[];
   uiPreferences?: UiPreferences;
-  connectedWallets?: ConnectedWallet[];
   monthlyIncome?: number;
   netWorthHistory?: import("@/types").NetWorthSnapshot[];
 }
@@ -113,6 +120,27 @@ function optionalString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function parseWalletLinks(raw: unknown): WalletMapNode["links"] | undefined {
+  if (!isRecord(raw)) return undefined;
+  const links = {
+    assetsSectionId: optionalString(raw.assetsSectionId),
+    cashSectionId: optionalString(raw.cashSectionId),
+    liabilitiesSectionId: optionalString(raw.liabilitiesSectionId),
+  };
+  return links.assetsSectionId || links.cashSectionId || links.liabilitiesSectionId
+    ? links
+    : undefined;
+}
+
+function parseWalletNetworks(raw: unknown): WalletChain[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "solana", "other"];
+  const networks = raw.filter(
+    (value): value is WalletChain => typeof value === "string" && chains.includes(value as WalletChain)
+  );
+  return networks.length > 0 ? networks : undefined;
+}
+
 function collectDuplicateIds(ids: string[], label: string, errors: string[]): void {
   const seen = new Set<string>();
   for (const id of ids) {
@@ -124,9 +152,12 @@ function collectDuplicateIds(ids: string[], label: string, errors: string[]): vo
   }
 }
 
+const SECTION_GROUP_PAGES: SectionGroupPage[] = ["assets", "cash", "liabilities"];
+
 export function createDefaultPortfolioData(): PortfolioDataPayload {
   return {
     sections: structuredClone(EMPTY_SECTIONS),
+    sectionGroups: structuredClone(EMPTY_SECTION_GROUPS),
     assets: structuredClone(EMPTY_ASSETS),
     cashAccounts: structuredClone(EMPTY_CASH_ACCOUNTS),
     liabilities: structuredClone(EMPTY_LIABILITIES),
@@ -136,7 +167,6 @@ export function createDefaultPortfolioData(): PortfolioDataPayload {
     incomePlan: structuredClone(EMPTY_INCOME_PLAN),
     walletMapNodes: structuredClone(EMPTY_WALLET_MAP_NODES),
     uiPreferences: structuredClone(EMPTY_UI_PREFERENCES),
-    connectedWallets: structuredClone(EMPTY_CONNECTED_WALLETS),
     netWorthHistory: structuredClone(EMPTY_NET_WORTH_HISTORY),
   };
 }
@@ -156,10 +186,37 @@ function dedupeEntityIds<T extends { id: string }>(items: T[], prefix: string): 
 
 /** Repair duplicate entity ids from legacy imports (e.g. truncated slug collisions). */
 export function normalizePortfolioEntityIds(
-  payload: PortfolioDataPayload
+  payload: PortfolioDataPayload & {
+    connectedWallets?: Array<{
+      id: string;
+      label: string;
+      address: string;
+      networks?: WalletChain[];
+      chain?: WalletChain;
+      notes?: string;
+      links?: WalletMapNode["links"];
+    }>;
+  }
 ): PortfolioDataPayload {
+  const walletMapNodes = normalizeWalletMapNodes(
+    dedupeEntityIds(
+      mergeLegacyConnectedWallets(
+        payload.walletMapNodes ?? [],
+        payload.connectedWallets ?? []
+      ),
+      "wallet"
+    )
+  );
+
+  const migrated = migrateAndNormalizeSectionGroups(
+    payload.sections ?? [],
+    payload.sectionGroups ?? []
+  );
+
   return {
     ...payload,
+    sections: dedupeEntityIds(migrated.sections, "section"),
+    sectionGroups: dedupeEntityIds(migrated.sectionGroups, "group"),
     assets: dedupeEntityIds(payload.assets ?? [], "asset"),
     cashAccounts: dedupeEntityIds(payload.cashAccounts ?? [], "cash"),
     liabilities: dedupeEntityIds(payload.liabilities ?? [], "lia"),
@@ -168,12 +225,7 @@ export function normalizePortfolioEntityIds(
     allocationNodes: payload.allocationNodes
       ? dedupeEntityIds(payload.allocationNodes, "alloc")
       : payload.allocationNodes,
-    walletMapNodes: payload.walletMapNodes
-      ? dedupeEntityIds(payload.walletMapNodes, "wallet")
-      : payload.walletMapNodes,
-    connectedWallets: payload.connectedWallets
-      ? dedupeEntityIds(payload.connectedWallets, "cw")
-      : payload.connectedWallets,
+    walletMapNodes,
   };
 }
 
@@ -200,6 +252,50 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
 
   if (errors.length > 0) {
     return { ok: false, error: errors.join(" ") };
+  }
+
+  const sectionGroups: SectionGroup[] = [];
+  const groupIdsByPage = new Map<SectionGroupPage, Set<string>>();
+
+  if (body.sectionGroups !== undefined && body.sectionGroups !== null) {
+    if (!Array.isArray(body.sectionGroups)) {
+      errors.push('"sectionGroups" must be an array.');
+    } else {
+      for (const [index, raw] of body.sectionGroups.entries()) {
+        if (!isRecord(raw)) {
+          errors.push(`sectionGroups[${index}] must be an object.`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.id)) {
+          errors.push(`sectionGroups[${index}].id is required.`);
+          continue;
+        }
+        if (!SECTION_GROUP_PAGES.includes(raw.page as SectionGroupPage)) {
+          errors.push(`sectionGroups[${index}].page is invalid.`);
+          continue;
+        }
+        const page = raw.page as SectionGroupPage;
+        const idsOnPage = groupIdsByPage.get(page) ?? new Set<string>();
+        if (idsOnPage.has(raw.id)) {
+          errors.push(`Duplicate section group id "${raw.id}" on page "${page}".`);
+          continue;
+        }
+        if (!isNonEmptyString(raw.name)) {
+          errors.push(`sectionGroups[${index}].name is required.`);
+          continue;
+        }
+        const order = requireFiniteNumber(raw.order, `sectionGroups[${index}].order`, errors);
+        if (order === null) continue;
+        idsOnPage.add(raw.id);
+        groupIdsByPage.set(page, idsOnPage);
+        sectionGroups.push({
+          id: raw.id,
+          page,
+          name: raw.name.trim(),
+          order,
+        });
+      }
+    }
   }
 
   const sections: PortfolioSection[] = [];
@@ -236,8 +332,25 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       raw.metadata === undefined
         ? undefined
         : isRecord(raw.metadata)
-          ? { isDefi: raw.metadata.isDefi === true ? true : undefined }
+          ? parseSectionMetadata(raw.metadata)
           : (errors.push(`sections[${index}].metadata must be an object.`), undefined);
+
+    let groupId: string | undefined;
+    if (raw.groupId !== undefined && raw.groupId !== null && raw.groupId !== "") {
+      if (!isNonEmptyString(raw.groupId)) {
+        errors.push(`sections[${index}].groupId must be a string.`);
+        continue;
+      }
+      if (!SECTION_GROUP_PAGES.includes(page as SectionGroupPage)) {
+        errors.push(`sections[${index}].groupId is only valid on assets, cash, or liabilities.`);
+        continue;
+      }
+      if (!groupIdsByPage.get(page as SectionGroupPage)?.has(raw.groupId)) {
+        errors.push(`sections[${index}].groupId references unknown group "${raw.groupId}".`);
+        continue;
+      }
+      groupId = raw.groupId;
+    }
 
     idsOnPage.add(raw.id);
     sectionIdsByPage.set(page, idsOnPage);
@@ -246,6 +359,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       page,
       label: raw.label.trim(),
       order,
+      groupId,
       metadata,
     });
   }
@@ -536,6 +650,22 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           errors.push(`allocationNodes[${index}].label is required.`);
           continue;
         }
+        const targetMode =
+          raw.targetMode === "amount" || raw.targetMode === "percent" ? raw.targetMode : undefined;
+        let monthlyAmount: number | undefined;
+        if (raw.monthlyAmount !== undefined && raw.monthlyAmount !== null) {
+          const parsed = requireFiniteNumber(
+            raw.monthlyAmount,
+            `allocationNodes[${index}].monthlyAmount`,
+            errors
+          );
+          if (parsed === null) continue;
+          monthlyAmount = parsed;
+        }
+        if (targetMode === "amount" && (monthlyAmount == null || monthlyAmount < 0)) {
+          errors.push(`allocationNodes[${index}].monthlyAmount is required when targetMode is "amount".`);
+          continue;
+        }
         const parentId =
           raw.parentId === null ? null : optionalString(raw.parentId) ?? null;
         if (raw.parentId != null && parentId === null) {
@@ -550,6 +680,8 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           percentOfParent,
           order,
           notes: optionalString(raw.notes),
+          targetMode,
+          monthlyAmount: targetMode === "amount" ? monthlyAmount : undefined,
           trackPage: TRACK_PAGES.includes(raw.trackPage as (typeof TRACK_PAGES)[number])
             ? (raw.trackPage as PlanningItem["trackPage"])
             : undefined,
@@ -610,7 +742,13 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           order,
           owner: optionalString(raw.owner),
           walletType: optionalString(raw.walletType) as WalletMapNode["walletType"],
-          identifier: optionalString(raw.identifier),
+          address: optionalString(raw.address) ?? optionalString(raw.identifier),
+          networks:
+            parseWalletNetworks(raw.networks) ??
+            (typeof raw.chain === "string"
+              ? parseWalletNetworks([raw.chain])
+              : undefined),
+          links: parseWalletLinks(raw.links),
           status,
           notes: optionalString(raw.notes),
         });
@@ -692,7 +830,23 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
                 typeof chart?.lineColor === "string" ? chart.lineColor : undefined,
               lineType:
                 lineType && validLineTypes.includes(lineType) ? lineType : undefined,
+              showCostBasisLine:
+                typeof chart?.showCostBasisLine === "boolean"
+                  ? chart.showCostBasisLine
+                  : undefined,
+              costBasisLineColor:
+                typeof chart?.costBasisLineColor === "string"
+                  ? chart.costBasisLineColor
+                  : undefined,
             }),
+            sidebarCompact:
+              typeof body.uiPreferences.sidebarCompact === "boolean"
+                ? body.uiPreferences.sidebarCompact
+                : false,
+            monthlyAutoSnapshot:
+              typeof body.uiPreferences.monthlyAutoSnapshot === "boolean"
+                ? body.uiPreferences.monthlyAutoSnapshot
+                : false,
           };
         }
       }
@@ -703,14 +857,24 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
     uiPreferences = structuredClone(EMPTY_UI_PREFERENCES);
   }
 
-  let connectedWallets: ConnectedWallet[] | undefined;
+  let legacyConnectedWallets:
+    | Array<{
+        id: string;
+        label: string;
+        address: string;
+        networks?: WalletChain[];
+        chain?: WalletChain;
+        notes?: string;
+        links?: WalletMapNode["links"];
+      }>
+    | undefined;
   if (body.connectedWallets !== undefined) {
     if (!Array.isArray(body.connectedWallets)) {
       errors.push('"connectedWallets" must be an array.');
     } else {
-      connectedWallets = [];
+      legacyConnectedWallets = [];
       const walletIds = new Set<string>();
-      const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "other"];
+      const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "solana", "other"];
       for (const [index, raw] of body.connectedWallets.entries()) {
         if (!isRecord(raw)) {
           errors.push(`connectedWallets[${index}] must be an object.`);
@@ -728,18 +892,29 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           errors.push(`connectedWallets[${index}].label and address are required.`);
           continue;
         }
-        const chain = raw.chain as WalletChain;
-        if (!chains.includes(chain)) {
-          errors.push(`connectedWallets[${index}].chain is invalid.`);
+
+        let networks: WalletChain[] | undefined;
+        if (Array.isArray(raw.networks)) {
+          networks = raw.networks.filter(
+            (value): value is WalletChain =>
+              typeof value === "string" && chains.includes(value as WalletChain)
+          );
+        } else if (typeof raw.chain === "string" && chains.includes(raw.chain as WalletChain)) {
+          networks = [raw.chain as WalletChain];
+        }
+
+        if (!networks || networks.length === 0) {
+          errors.push(`connectedWallets[${index}].networks must be a non-empty array.`);
           continue;
         }
+
         walletIds.add(raw.id);
         const links = isRecord(raw.links) ? raw.links : undefined;
-        connectedWallets.push({
+        legacyConnectedWallets.push({
           id: raw.id,
           label: raw.label.trim(),
           address: raw.address.trim(),
-          chain,
+          networks,
           notes: optionalString(raw.notes),
           links: links
             ? {
@@ -783,8 +958,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
 
   return {
     ok: true,
-    data: {
+    data: normalizePortfolioEntityIds({
       sections,
+      sectionGroups,
       assets,
       cashAccounts,
       liabilities,
@@ -794,9 +970,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       incomePlan,
       walletMapNodes,
       uiPreferences,
-      connectedWallets,
+      connectedWallets: legacyConnectedWallets,
       monthlyIncome,
       netWorthHistory,
-    },
+    }),
   };
 }

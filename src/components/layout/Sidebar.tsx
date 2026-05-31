@@ -10,10 +10,14 @@ import {
   Settings,
   Grape,
   ClipboardList,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isNavPageVisible } from "@/lib/ui-preferences";
+import { portfolioNavAccent, type PortfolioAccent } from "@/lib/portfolio-panel";
+import { sidebarWidthClass } from "@/lib/sidebar-layout";
 import { cn } from "@/lib/utils";
 import type { NavPageKey, User } from "@/types";
 
@@ -22,18 +26,27 @@ type MainNavItem = {
   label: string;
   icon: typeof Home;
   navKey?: NavPageKey;
+  accent?: Exclude<PortfolioAccent, "neutral">;
 };
 
 const MAIN_NAV_ITEMS: MainNavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
-  { href: "/assets", label: "Assets", icon: BarChart3, navKey: "assets" },
-  { href: "/cash", label: "Cash", icon: Banknote, navKey: "cash" },
-  { href: "/liabilities", label: "Liabilities", icon: CreditCard, navKey: "liabilities" },
+  { href: "/assets", label: "Assets", icon: BarChart3, navKey: "assets", accent: "assets" },
+  { href: "/cash", label: "Cash", icon: Banknote, navKey: "cash", accent: "cash" },
+  {
+    href: "/liabilities",
+    label: "Liabilities",
+    icon: CreditCard,
+    navKey: "liabilities",
+    accent: "liabilities",
+  },
   { href: "/plan", label: "Plan", icon: ClipboardList, navKey: "plan" },
 ];
 
 interface SidebarProps {
   onNavigate?: () => void;
+  /** Full-width labels — used for mobile drawer. */
+  mobile?: boolean;
 }
 
 function NavLink({
@@ -41,27 +54,39 @@ function NavLink({
   label,
   icon: Icon,
   active,
+  compact,
+  accent,
   onNavigate,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
   active: boolean;
+  compact: boolean;
+  accent?: Exclude<PortfolioAccent, "neutral">;
   onNavigate?: () => void;
 }) {
+  const activeClass =
+    active && accent
+      ? portfolioNavAccent[accent]
+      : active
+        ? "bg-primary/15 text-primary"
+        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground";
+
   return (
     <Link
       href={href}
       onClick={onNavigate}
+      title={compact ? label : undefined}
+      aria-label={compact ? label : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-        active
-          ? "bg-primary/15 text-primary"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        "flex items-center rounded-lg text-sm font-medium transition-colors",
+        compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+        active ? activeClass : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      {label}
+      {!compact ? <span>{label}</span> : null}
     </Link>
   );
 }
@@ -74,9 +99,10 @@ function accountSubtitle(account: User): string {
   return account.tenant;
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
   const pathname = usePathname();
-  const { uiPreferences, account } = usePortfolio();
+  const { uiPreferences, account, setSidebarCompact } = usePortfolio();
+  const compact = !mobile && uiPreferences.sidebarCompact;
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(
     (item) => !item.navKey || isNavPageVisible(uiPreferences, item.navKey)
@@ -85,16 +111,55 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const settingsActive = pathname === "/settings" || pathname.startsWith("/settings/");
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-border/60 bg-sidebar/95 backdrop-blur-xl">
-      <div className="flex h-16 items-center gap-2 border-b border-border/60 px-6">
-        <Grape className="h-7 w-7 text-violet-400" />
-        <div>
-          <p className="text-sm font-semibold tracking-tight">Portfolio</p>
-        </div>
+    <aside
+      className={cn(
+        "flex h-full flex-col border-r border-border/60 bg-sidebar/95 backdrop-blur-xl",
+        sidebarWidthClass(compact)
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-14 shrink-0 items-center border-b border-border/60 sm:h-16",
+          mobile ? "justify-between gap-2 px-4 sm:px-6" : compact ? "justify-center px-2" : "px-4 sm:px-6"
+        )}
+      >
+        {mobile ? (
+          <div className="flex items-center gap-2">
+            <Grape className="h-7 w-7 shrink-0 text-violet-400" aria-hidden />
+            <p className="text-sm font-semibold tracking-tight">Portfolio</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSidebarCompact(!compact)}
+            title={compact ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn(
+              "group flex items-center rounded-lg transition-colors hover:bg-accent/50",
+              compact ? "justify-center p-2" : "gap-2 px-2 py-1.5"
+            )}
+          >
+            <Grape className="h-7 w-7 shrink-0 text-violet-400 transition-transform group-hover:scale-105" />
+            {!compact ? (
+              <span className="text-sm font-semibold tracking-tight">Portfolio</span>
+            ) : null}
+          </button>
+        )}
+        {mobile && onNavigate ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={onNavigate}
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        ) : null}
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {mainNavItems.map(({ href, label, icon }) => {
+      <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 sm:px-3 sm:py-4">
+        {mainNavItems.map(({ href, label, icon, accent }) => {
           const active =
             pathname === href ||
             pathname.startsWith(`${href}/`) ||
@@ -107,31 +172,42 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               href={href}
               label={label}
               icon={icon}
+              accent={accent}
               active={active}
+              compact={compact}
               onNavigate={onNavigate}
             />
           );
         })}
       </nav>
 
-      <div className="border-t border-border/60 px-3 py-3">
+      <div className="border-t border-border/60 px-2 py-3 sm:px-3">
         <NavLink
           href="/settings"
           label="Settings"
           icon={Settings}
           active={settingsActive}
+          compact={compact}
           onNavigate={onNavigate}
         />
-        <div className="mt-3 flex items-center gap-3 rounded-lg bg-accent/30 px-3 py-2.5">
-          <Avatar className="h-9 w-9">
+
+        <div
+          className={cn(
+            "mt-3 flex items-center rounded-lg bg-accent/30",
+            compact ? "justify-center px-2 py-2" : "gap-3 px-3 py-2.5"
+          )}
+        >
+          <Avatar className={cn(compact ? "h-8 w-8" : "h-9 w-9")}>
             <AvatarFallback className="bg-violet-600/30 text-sm font-medium text-violet-200">
               {account.displayName.charAt(0) || "?"}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{account.displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">{accountSubtitle(account)}</p>
-          </div>
+          {!compact ? (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{account.displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{accountSubtitle(account)}</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </aside>

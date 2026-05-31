@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSectionFilterFromUrl } from "@/hooks/use-section-from-url";
+import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
-import { Loader2, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,12 +14,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { AssetDrawer } from "@/components/assets/AssetDrawer";
-import { AssetFilters, type AssetColumnKey } from "@/components/assets/AssetFilters";
+import { type AssetColumnKey, getAssetColumnOptions } from "@/components/assets/AssetFilters";
+import { PortfolioPageToolbar } from "@/components/shared/PortfolioPageToolbar";
+import { PortfolioSectionBlock } from "@/components/shared/PortfolioSectionBlock";
 import { SectionDrawer } from "@/components/sections/SectionDrawer";
-import { SectionHeader, AddSectionButton } from "@/components/sections/SectionHeader";
+import { SectionGroupBlock, UngroupedSectionsBlock } from "@/components/sections/SectionGroupBlock";
+import { SectionGroupDrawer } from "@/components/sections/SectionGroupDrawer";
+import { AddSectionButton } from "@/components/sections/SectionHeader";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import {
   formatCurrency,
@@ -36,9 +38,15 @@ import {
   isWalletAssetSection,
 } from "@/lib/asset-sections";
 import { sumAssetSectionTotals } from "@/lib/section-totals";
+import {
+  buildPageSectionLayout,
+  formatSectionDisplayLabel,
+  sectionFilterMatches,
+} from "@/lib/section-groups";
 import { isFinnhubEligible, type MarketQuotesResponse } from "@/lib/finnhub";
 import { toast } from "sonner";
-import type { Asset, PortfolioSection } from "@/types";
+import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
+import type { Asset, PortfolioSection, SectionGroup } from "@/types";
 
 const DEFAULT_VISIBLE_COLUMNS: AssetColumnKey[] = [
   "symbol",
@@ -118,11 +126,43 @@ function assetFooterLabelColSpan(
   return Math.max(span, 1);
 }
 
+const COLUMN_LABELS: Record<AssetColumnKey, string> = {
+  symbol: "Symbol",
+  name: "Name",
+  price: "Price",
+  qty: "Qty",
+  network: "Network",
+  protocol: "Protocol",
+  costBasis: "Cost",
+  avgCost: "Avg",
+  marketValue: "Mkt val",
+  gainDollars: "Gain $",
+  gainPercent: "Gain %",
+  pctOfAssets: "% port",
+  pctOfClass: "% class",
+};
+
+const RIGHT_ALIGNED = new Set<AssetColumnKey>([
+  "price",
+  "qty",
+  "costBasis",
+  "avgCost",
+  "marketValue",
+  "gainDollars",
+  "gainPercent",
+  "pctOfAssets",
+  "pctOfClass",
+]);
+
 export function AssetTable() {
   const {
     assets,
-    connectedWallets,
+    walletMapNodes,
+    sectionGroups,
     getSections,
+    getSectionGroups,
+    upsertSectionGroup,
+    deleteSectionGroup,
     upsertAsset,
     deleteAsset,
     upsertSection,
@@ -130,9 +170,14 @@ export function AssetTable() {
     applyAssetPrices,
   } = usePortfolio();
   const sections = getSections("assets");
-  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
+  const groups = getSectionGroups("assets");
+  const filterIds = useMemo(
+    () => [...groups.map((group) => `group:${group.id}`), ...sections.map((s) => s.id)],
+    [groups, sections]
+  );
   const { sectionFilter, setSectionFilter, highlightSectionId } =
-    useSectionFilterFromUrl(sectionIds);
+    useSectionFilterFromUrl(filterIds);
+  useScrollToSectionFromUrl();
 
   const [search, setSearch] = useState("");
   const [visibleColumns, setVisibleColumns] = useState<Set<AssetColumnKey>>(
@@ -141,9 +186,12 @@ export function AssetTable() {
 
   const [assetDrawerOpen, setAssetDrawerOpen] = useState(false);
   const [sectionDrawerOpen, setSectionDrawerOpen] = useState(false);
+  const [groupDrawerOpen, setGroupDrawerOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [editingSection, setEditingSection] = useState<PortfolioSection | null>(null);
+  const [editingGroup, setEditingGroup] = useState<SectionGroup | null>(null);
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
+  const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
   const [refreshingPrices, setRefreshingPrices] = useState(false);
 
   const finnhubEligibleCount = useMemo(
@@ -158,34 +206,17 @@ export function AssetTable() {
 
   const showWalletPositionColumns = useMemo(() => {
     if (sectionFilter !== "all") {
+      if (sectionFilter.startsWith("group:")) {
+        const groupId = sectionFilter.slice("group:".length);
+        return sections.some(
+          (section) => section.groupId === groupId && isWalletAssetSection(section)
+        );
+      }
       const section = sections.find((s) => s.id === sectionFilter);
       return section ? isWalletAssetSection(section) : false;
     }
     return walletSectionIds.size > 0;
   }, [sectionFilter, sections, walletSectionIds]);
-
-  const filteredSections = useMemo(() => {
-    if (sectionFilter === "all") return sections;
-    return sections.filter((s) => s.id === sectionFilter);
-  }, [sections, sectionFilter]);
-
-  const { resultCount, assetsBySection } = useMemo(() => {
-    let count = 0;
-    const bySection: Record<string, Asset[]> = {};
-    for (const section of filteredSections) {
-      const rows = assets.filter(
-        (a) => a.sectionId === section.id && matchesSearch(a, search)
-      );
-      bySection[section.id] = rows;
-      count += rows.length;
-    }
-    return { resultCount: count, assetsBySection: bySection };
-  }, [assets, filteredSections, search]);
-
-  const totalPortfolioMV = useMemo(
-    () => assets.reduce((sum, a) => sum + getMarketValue(a), 0),
-    [assets]
-  );
 
   const sectionMVById = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -194,6 +225,64 @@ export function AssetTable() {
     }
     return totals;
   }, [assets]);
+
+  const visibleSections = useMemo(() => {
+    if (sectionFilter === "all") return sections;
+    return sections.filter((section) => sectionFilterMatches(sectionFilter, section));
+  }, [sections, sectionFilter]);
+
+  const pageLayout = useMemo(
+    () => buildPageSectionLayout("assets", sectionGroups, visibleSections, sectionMVById),
+    [sectionGroups, visibleSections, sectionMVById]
+  );
+
+  const { resultCount, assetsBySection } = useMemo(() => {
+    let count = 0;
+    const bySection: Record<string, Asset[]> = {};
+    for (const section of visibleSections) {
+      const rows = assets.filter(
+        (a) => a.sectionId === section.id && matchesSearch(a, search)
+      );
+      bySection[section.id] = rows;
+      count += rows.length;
+    }
+    return { resultCount: count, assetsBySection: bySection };
+  }, [assets, visibleSections, search]);
+
+  const totalPortfolioMV = useMemo(
+    () => assets.reduce((sum, a) => sum + getMarketValue(a), 0),
+    [assets]
+  );
+
+  const sectionNavItems = useMemo(() => {
+    const items = [
+      ...groups.map((group) => {
+        const memberIds = sections
+          .filter((section) => section.groupId === group.id)
+          .map((section) => section.id);
+        return {
+          id: `group:${group.id}`,
+          label: group.name,
+          value: memberIds.reduce((sum, id) => sum + (sectionMVById[id] ?? 0), 0),
+          assetCount: assets.filter((asset) => memberIds.includes(asset.sectionId)).length,
+        };
+      }),
+      ...sections
+        .filter((section) => !section.groupId)
+        .map((section) => ({
+          id: section.id,
+          label: formatSectionDisplayLabel(section),
+          value: sectionMVById[section.id] ?? 0,
+          assetCount: assets.filter((asset) => asset.sectionId === section.id).length,
+        })),
+    ];
+    return items.sort((a, b) => b.value - a.value);
+  }, [groups, sections, sectionMVById, assets]);
+
+  const handleSectionNavSelect = (sectionId: string) => {
+    setSectionFilter(sectionId);
+    scrollToPortfolioSection(sectionId);
+  };
 
   const toggleColumn = (key: AssetColumnKey) => {
     setVisibleColumns((prev) => {
@@ -228,6 +317,223 @@ export function AssetTable() {
   };
 
   const showEmptySections = search.trim() === "" && sectionFilter === "all";
+  const panel = portfolioPanel("assets");
+
+  const renderColumnHeader = (section: PortfolioSection, key: AssetColumnKey) => {
+    if (!showColumn(key, section, visibleColumns)) return null;
+    return (
+      <TableHead
+        key={key}
+        className={cn(panel.headCell, RIGHT_ALIGNED.has(key) && "text-right")}
+      >
+        {COLUMN_LABELS[key]}
+      </TableHead>
+    );
+  };
+
+  const renderAssetRow = (asset: Asset, section: PortfolioSection) => {
+    const col = (key: AssetColumnKey) => showColumn(key, section, visibleColumns);
+    const mv = getMarketValue(asset);
+    const gain = getGain(asset);
+    const avgCost = getAverageCost(asset);
+    const costBasis = getCostBasis(asset);
+
+    return (
+      <TableRow key={asset.id} className={panel.dataRow}>
+        {col("symbol") && (
+          <TableCell className={panel.symbolCell}>{asset.symbol}</TableCell>
+        )}
+        {col("name") && (
+          <TableCell className={cn(panel.mutedCell, "max-w-[160px] truncate")}>
+            {asset.name}
+          </TableCell>
+        )}
+        {col("price") && (
+          <TableCell className={cn(panel.dataCell, "text-right")}>
+            {formatCurrency(asset.price)}
+          </TableCell>
+        )}
+        {col("qty") && (
+          <TableCell className={cn(panel.dataCell, "text-right")}>{asset.quantity}</TableCell>
+        )}
+        {col("network") && (
+          <TableCell className={panel.mutedCell}>{asset.network ?? "—"}</TableCell>
+        )}
+        {col("protocol") && (
+          <TableCell className={panel.mutedCell}>{asset.protocol ?? "—"}</TableCell>
+        )}
+        {col("costBasis") && (
+          <TableCell className={cn(panel.dataCell, "text-right")}>
+            {costBasis != null ? formatCurrency(costBasis) : "—"}
+          </TableCell>
+        )}
+        {col("avgCost") && (
+          <TableCell className={cn(panel.mutedCell, "text-right")}>
+            {avgCost != null ? formatCurrency(avgCost) : "—"}
+          </TableCell>
+        )}
+        {col("marketValue") && (
+          <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
+            {formatCurrency(mv)}
+          </TableCell>
+        )}
+        {col("gainDollars") && (
+          <TableCell className={cn(panel.dataCell, "text-right", getGainColor(gain.dollars))}>
+            {formatCurrency(gain.dollars)}
+          </TableCell>
+        )}
+        {col("gainPercent") && (
+          <TableCell className={cn(panel.dataCell, "text-right", getGainColor(gain.percent))}>
+            {formatPercent(gain.percent)}
+          </TableCell>
+        )}
+        {col("pctOfAssets") && (
+          <TableCell className={cn(panel.mutedCell, "text-right")}>
+            {totalPortfolioMV > 0 ? formatAllocationPercent((mv / totalPortfolioMV) * 100) : "—"}
+          </TableCell>
+        )}
+        {col("pctOfClass") && (
+          <TableCell className={cn(panel.mutedCell, "text-right")}>
+            {(sectionMVById[asset.sectionId] ?? 0) > 0
+              ? formatAllocationPercent((mv / sectionMVById[asset.sectionId]) * 100)
+              : "—"}
+          </TableCell>
+        )}
+        <TableCell className="px-1 py-0">
+          <div className="flex justify-end gap-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={panel.iconBtn}
+              onClick={() => openEditAsset(asset)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(panel.iconBtn, "hover:text-destructive")}
+              onClick={() => deleteAsset(asset.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderAssetSectionBlock = (section: PortfolioSection) => {
+    const sectionAssets = assetsBySection[section.id] ?? [];
+    if (sectionAssets.length === 0 && !showEmptySections) return null;
+
+    const sectionTotals =
+      sectionAssets.length > 0 ? sumAssetSectionTotals(sectionAssets) : null;
+    const linkedWallet = getWalletForSection(section, walletMapNodes);
+    const col = (key: AssetColumnKey) => showColumn(key, section, visibleColumns);
+
+    const stats = sectionTotals
+      ? [
+          { label: "Cost", value: formatSectionTotal(sectionTotals.costBasis) },
+          { label: "Mkt val", value: formatSectionTotal(sectionTotals.marketValue) },
+          {
+            label: "Gain",
+            value: formatSectionTotal(sectionTotals.gainDollars),
+            valueClassName: getGainColor(sectionTotals.gainDollars),
+          },
+          {
+            label: "Gain %",
+            value: formatPercent(sectionTotals.gainPercent),
+            valueClassName: getGainColor(sectionTotals.gainPercent),
+          },
+          ...(linkedWallet
+            ? [{ label: "Wallet", value: formatWalletAddress(linkedWallet.address ?? "") }]
+            : []),
+        ]
+      : [];
+
+    return (
+      <PortfolioSectionBlock
+        key={section.id}
+        sectionId={section.id}
+        label={section.label}
+        subtitle={section.metadata?.account}
+        accent="assets"
+        highlighted={highlightSectionId === section.id}
+        addItemLabel="Add"
+        onAddItem={() => openAddAsset(section.id)}
+        onEditSection={() => {
+          setEditingSection(section);
+          setDefaultGroupId(section.groupId);
+          setSectionDrawerOpen(true);
+        }}
+        onDeleteSection={() => deleteSection(section.id, "assets")}
+        stats={stats}
+        isEmpty={sectionAssets.length === 0}
+        emptyMessage="No assets in this section"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {ASSET_COLUMN_ORDER.map((key) => renderColumnHeader(section, key))}
+              <TableHead className={cn(panel.headCell, "w-14 text-right")} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sectionAssets.map((asset) => renderAssetRow(asset, section))}
+          </TableBody>
+          {sectionTotals ? (
+            <TableFooter>
+              <TableRow className={panel.footerRow}>
+                <TableCell
+                  colSpan={assetFooterLabelColSpan(section, visibleColumns)}
+                  className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                >
+                  Section total
+                </TableCell>
+                {col("costBasis") && (
+                  <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
+                    {formatSectionTotal(sectionTotals.costBasis)}
+                  </TableCell>
+                )}
+                {col("avgCost") && <TableCell className={panel.dataCell} />}
+                {col("marketValue") && (
+                  <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
+                    {formatSectionTotal(sectionTotals.marketValue)}
+                  </TableCell>
+                )}
+                {col("gainDollars") && (
+                  <TableCell
+                    className={cn(
+                      panel.dataCell,
+                      "text-right font-medium",
+                      getGainColor(sectionTotals.gainDollars)
+                    )}
+                  >
+                    {formatSectionTotal(sectionTotals.gainDollars)}
+                  </TableCell>
+                )}
+                {col("gainPercent") && (
+                  <TableCell
+                    className={cn(
+                      panel.dataCell,
+                      "text-right font-medium",
+                      getGainColor(sectionTotals.gainPercent)
+                    )}
+                  >
+                    {formatPercent(sectionTotals.gainPercent)}
+                  </TableCell>
+                )}
+                {col("pctOfAssets") && <TableCell className={panel.dataCell} />}
+                {col("pctOfClass") && <TableCell className={panel.dataCell} />}
+                <TableCell className={panel.dataCell} />
+              </TableRow>
+            </TableFooter>
+          ) : null}
+        </Table>
+      </PortfolioSectionBlock>
+    );
+  };
 
   const refreshPrices = async () => {
     if (finnhubEligibleCount === 0) {
@@ -267,282 +573,90 @@ export function AssetTable() {
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-emerald-500/25 bg-gradient-to-br from-card to-emerald-500/5">
-        <CardHeader>
-          <CardTitle className="text-muted-foreground">Total Assets</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-bold tracking-tight text-emerald-400">
-            <AnimatedNumber value={totalPortfolioMV} />
-          </p>
-        </CardContent>
-      </Card>
-
-      <AssetFilters
+    <div className="space-y-3">
+      <PortfolioPageToolbar
+        accent="assets"
+        totalLabel="Total assets"
+        totalValue={totalPortfolioMV}
+        countLabel="holdings"
+        count={assets.length}
+        resultCount={resultCount}
+        sectionItems={sectionNavItems}
+        activeSectionId={sectionFilter}
+        onSectionSelect={handleSectionNavSelect}
         search={search}
         onSearchChange={setSearch}
-        sectionFilter={sectionFilter}
-        onSectionFilterChange={setSectionFilter}
-        sections={sections}
-        showWalletPositionColumns={showWalletPositionColumns}
+        searchPlaceholder="Symbol, name, protocol…"
+        columnOptions={getAssetColumnOptions(showWalletPositionColumns)}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
-        resultCount={resultCount}
-        totalCount={assets.length}
-        trailingActions={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={refreshingPrices}
-            onClick={() => void refreshPrices()}
-          >
-            {refreshingPrices ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Refresh prices
-          </Button>
-        }
+        refreshingPrices={refreshingPrices}
+        onRefreshPrices={() => void refreshPrices()}
       />
 
-      {sections.length === 0 && (
-        <p className="text-sm text-muted-foreground">No sections yet. Add one below.</p>
+      {sections.length === 0 ? (
+        <p className="px-1 text-sm text-muted-foreground">No sections yet. Add one below.</p>
+      ) : (
+        <div className={panel.sectionStack}>
+          {pageLayout.map((block) => {
+            if (block.kind === "group") {
+              const visibleMembers = block.sections.filter((section) => {
+                const rows = assetsBySection[section.id] ?? [];
+                return rows.length > 0 || showEmptySections;
+              });
+              if (visibleMembers.length === 0) return null;
+
+              return (
+                <SectionGroupBlock
+                  key={block.group.id}
+                  group={block.group}
+                  total={block.total}
+                  accent="assets"
+                  onEditGroup={() => {
+                    setEditingGroup(block.group);
+                    setGroupDrawerOpen(true);
+                  }}
+                  onDeleteGroup={(mode) => deleteSectionGroup(block.group.id, mode)}
+                >
+                  {block.sections.map((section) => renderAssetSectionBlock(section))}
+                </SectionGroupBlock>
+              );
+            }
+
+            return (
+              <UngroupedSectionsBlock key="ungrouped" total={block.total}>
+                {block.sections.map((section) => renderAssetSectionBlock(section))}
+              </UngroupedSectionsBlock>
+            );
+          })}
+        </div>
       )}
 
-      {filteredSections.map((section) => {
-        const sectionAssets = assetsBySection[section.id] ?? [];
-        if (sectionAssets.length === 0 && !showEmptySections) return null;
-
-        const col = (key: AssetColumnKey) => showColumn(key, section, visibleColumns);
-        const sectionTotals =
-          sectionAssets.length > 0 ? sumAssetSectionTotals(sectionAssets) : null;
-        const linkedWallet = getWalletForSection(section, connectedWallets);
-        const sectionSubtitle = linkedWallet
-          ? `${formatWalletAddress(linkedWallet.address)} · multi-chain`
-          : undefined;
-
-        return (
-          <Card
-            key={section.id}
-            id={`section-${section.id}`}
-            className={cn(
-              "border-border/60 bg-card/80",
-              highlightSectionId === section.id && "ring-2 ring-primary/40"
-            )}
-          >
-            <SectionHeader
-              title={section.label}
-              subtitle={sectionSubtitle}
-              onAddItem={() => openAddAsset(section.id)}
-              onEditSection={() => {
-                setEditingSection(section);
-                setSectionDrawerOpen(true);
-              }}
-              onDeleteSection={() => deleteSection(section.id, "assets")}
-              addItemLabel="Add Asset"
-            />
-            <CardContent className="overflow-x-auto p-0 pb-4">
-              {sectionAssets.length === 0 ? (
-                <p className="px-6 pb-4 text-sm text-muted-foreground">
-                  {search.trim()
-                    ? "No assets match your filters"
-                    : "No assets in this section"}
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      {col("symbol") && <TableHead>Symbol</TableHead>}
-                      {col("name") && <TableHead>Name</TableHead>}
-                      {col("price") && (
-                        <TableHead className="text-right">Price</TableHead>
-                      )}
-                      {col("qty") && <TableHead className="text-right">Qty</TableHead>}
-                      {col("network") && <TableHead>Network</TableHead>}
-                      {col("protocol") && <TableHead>Protocol</TableHead>}
-                      {col("costBasis") && (
-                        <TableHead className="text-right">Cost Basis</TableHead>
-                      )}
-                      {col("avgCost") && (
-                        <TableHead className="text-right">Avg Cost / Share</TableHead>
-                      )}
-                      {col("marketValue") && (
-                        <TableHead className="text-right">Market Value</TableHead>
-                      )}
-                      {col("gainDollars") && (
-                        <TableHead className="text-right">Gain $</TableHead>
-                      )}
-                      {col("gainPercent") && (
-                        <TableHead className="text-right">Gain %</TableHead>
-                      )}
-                      {col("pctOfAssets") && (
-                        <TableHead className="text-right">% of Assets</TableHead>
-                      )}
-                      {col("pctOfClass") && (
-                        <TableHead className="text-right">% of Class</TableHead>
-                      )}
-                      <TableHead className="w-20" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sectionAssets.map((asset) => {
-                      const mv = getMarketValue(asset);
-                      const gain = getGain(asset);
-                      const avgCost = getAverageCost(asset);
-                      const costBasis = getCostBasis(asset);
-
-                      return (
-                        <TableRow key={asset.id}>
-                          {col("symbol") && (
-                            <TableCell className="font-medium">{asset.symbol}</TableCell>
-                          )}
-                          {col("name") && (
-                            <TableCell className="max-w-[180px] truncate text-muted-foreground">
-                              {asset.name}
-                            </TableCell>
-                          )}
-                          {col("price") && (
-                            <TableCell className="text-right">
-                              {formatCurrency(asset.price)}
-                            </TableCell>
-                          )}
-                          {col("qty") && (
-                            <TableCell className="text-right">{asset.quantity}</TableCell>
-                          )}
-                          {col("network") && (
-                            <TableCell className="text-muted-foreground">
-                              {asset.network ?? "—"}
-                            </TableCell>
-                          )}
-                          {col("protocol") && (
-                            <TableCell className="text-muted-foreground">
-                              {asset.protocol ?? "—"}
-                            </TableCell>
-                          )}
-                          {col("costBasis") && (
-                            <TableCell className="text-right">
-                              {costBasis != null ? formatCurrency(costBasis) : "—"}
-                            </TableCell>
-                          )}
-                          {col("avgCost") && (
-                            <TableCell className="text-right text-muted-foreground">
-                              {avgCost != null ? formatCurrency(avgCost) : "—"}
-                            </TableCell>
-                          )}
-                          {col("marketValue") && (
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(mv)}
-                            </TableCell>
-                          )}
-                          {col("gainDollars") && (
-                            <TableCell className={`text-right ${getGainColor(gain.dollars)}`}>
-                              {formatCurrency(gain.dollars)}
-                            </TableCell>
-                          )}
-                          {col("gainPercent") && (
-                            <TableCell className={`text-right ${getGainColor(gain.percent)}`}>
-                              {formatPercent(gain.percent)}
-                            </TableCell>
-                          )}
-                          {col("pctOfAssets") && (
-                            <TableCell className="text-right text-muted-foreground">
-                              {totalPortfolioMV > 0
-                                ? formatAllocationPercent((mv / totalPortfolioMV) * 100)
-                                : "—"}
-                            </TableCell>
-                          )}
-                          {col("pctOfClass") && (
-                            <TableCell className="text-right text-muted-foreground">
-                              {(sectionMVById[asset.sectionId] ?? 0) > 0
-                                ? formatAllocationPercent(
-                                    (mv / sectionMVById[asset.sectionId]) * 100
-                                  )
-                                : "—"}
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openEditAsset(asset)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => deleteAsset(asset.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                  {sectionTotals ? (
-                    <TableFooter>
-                      <TableRow className="bg-muted/30 font-semibold hover:bg-muted/30">
-                        <TableCell colSpan={assetFooterLabelColSpan(section, visibleColumns)}>
-                          Section total
-                        </TableCell>
-                        {col("costBasis") && (
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(sectionTotals.costBasis)}
-                          </TableCell>
-                        )}
-                        {col("avgCost") && <TableCell />}
-                        {col("marketValue") && (
-                          <TableCell className="text-right tabular-nums">
-                            {formatCurrency(sectionTotals.marketValue)}
-                          </TableCell>
-                        )}
-                        {col("gainDollars") && (
-                          <TableCell
-                            className={`text-right tabular-nums ${getGainColor(sectionTotals.gainDollars)}`}
-                          >
-                            {formatCurrency(sectionTotals.gainDollars)}
-                          </TableCell>
-                        )}
-                        {col("gainPercent") && (
-                          <TableCell
-                            className={`text-right tabular-nums ${getGainColor(sectionTotals.gainPercent)}`}
-                          >
-                            {formatPercent(sectionTotals.gainPercent)}
-                          </TableCell>
-                        )}
-                        {col("pctOfAssets") && <TableCell />}
-                        {col("pctOfClass") && <TableCell />}
-                        <TableCell />
-                      </TableRow>
-                    </TableFooter>
-                  ) : null}
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
-
-      {resultCount === 0 && sections.length > 0 && (
+      {resultCount === 0 && sections.length > 0 ? (
         <p className="text-center text-sm text-muted-foreground">
-          No assets match your filters. Try clearing search or selecting All sections.
+          No assets match your filters.
         </p>
-      )}
+      ) : null}
 
-      <AddSectionButton
-        onClick={() => {
-          setEditingSection(null);
-          setSectionDrawerOpen(true);
-        }}
-      />
+      <div className="flex flex-wrap gap-2">
+        <AddSectionButton
+          accent="assets"
+          onClick={() => {
+            setEditingSection(null);
+            setDefaultGroupId(undefined);
+            setSectionDrawerOpen(true);
+          }}
+          label="Add section"
+        />
+        <AddSectionButton
+          accent="assets"
+          onClick={() => {
+            setEditingGroup(null);
+            setGroupDrawerOpen(true);
+          }}
+          label="Add group"
+        />
+      </div>
 
       <AssetDrawer
         open={assetDrawerOpen}
@@ -556,8 +670,17 @@ export function AssetTable() {
         onOpenChange={setSectionDrawerOpen}
         section={editingSection}
         page="assets"
+        defaultGroupId={defaultGroupId}
         onSave={saveSection}
         linkWallet
+      />
+      <SectionGroupDrawer
+        open={groupDrawerOpen}
+        onOpenChange={setGroupDrawerOpen}
+        group={editingGroup}
+        page="assets"
+        defaultOrder={groups.length}
+        onSave={upsertSectionGroup}
       />
     </div>
   );

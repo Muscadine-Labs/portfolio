@@ -3,11 +3,10 @@
 import { useMemo } from "react";
 import { ClientOnly } from "@/components/shared/ClientOnly";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { netWorthChartYDomain } from "@/lib/overview-chart";
-import { formatCurrency } from "@/lib/utils";
-import type { NetWorthSnapshot, OverviewChartLineType } from "@/types";
+import { hasNetWorthCostBasisSeries, netWorthChartYDomain } from "@/lib/overview-chart";
+import { cn, formatCurrency, getGainColor } from "@/lib/utils";
+import type { NetWorthSnapshot } from "@/types";
 import {
-  Area,
   Bar,
   CartesianGrid,
   ComposedChart,
@@ -17,10 +16,24 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface OverviewNetWorthChartProps {
   data: NetWorthSnapshot[];
+}
+
+type ChartRow = NetWorthSnapshot & {
+  gain?: number;
+};
+
+function enrichChartData(data: NetWorthSnapshot[]): ChartRow[] {
+  return data.map((row) => ({
+    ...row,
+    gain:
+      row.totalCostBasis != null && row.totalCostBasis > 0
+        ? row.netWorth - row.totalCostBasis
+        : undefined,
+  }));
 }
 
 function NetWorthTooltip({
@@ -29,15 +42,75 @@ function NetWorthTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: { value?: number }[];
+  payload?: { dataKey?: string; value?: number }[];
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
-  const value = Number(payload[0]?.value ?? 0);
+
+  let netWorth: number | undefined;
+  let totalCostBasis: number | undefined;
+
+  for (const entry of payload) {
+    if (entry.dataKey === "netWorth") netWorth = Number(entry.value ?? 0);
+    if (entry.dataKey === "totalCostBasis") totalCostBasis = Number(entry.value ?? 0);
+  }
+
+  const gain =
+    netWorth != null && totalCostBasis != null ? netWorth - totalCostBasis : undefined;
+
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-popover-foreground shadow-md">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold tabular-nums">{formatCurrency(value)}</p>
+    <div className="min-w-[11rem] rounded border border-border/80 bg-popover px-3 py-2 font-mono shadow-md">
+      <p className="mb-2 border-b border-border/50 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+      {netWorth != null ? (
+        <div className="flex justify-between gap-6 text-xs">
+          <span className="text-muted-foreground">Net worth</span>
+          <span className="font-semibold tabular-nums">{formatCurrency(netWorth)}</span>
+        </div>
+      ) : null}
+      {totalCostBasis != null ? (
+        <div className="mt-1 flex justify-between gap-6 text-xs">
+          <span className="text-muted-foreground">Cost basis</span>
+          <span className="tabular-nums">{formatCurrency(totalCostBasis)}</span>
+        </div>
+      ) : null}
+      {gain != null ? (
+        <div className="mt-1 flex justify-between gap-6 text-xs">
+          <span className="text-muted-foreground">Gain</span>
+          <span className={cn("font-medium tabular-nums", getGainColor(gain))}>
+            {formatCurrency(gain)}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ChartLegend({
+  barColor,
+  costBasisColor,
+  showCostBasis,
+}: {
+  barColor: string;
+  costBasisColor: string;
+  showCostBasis: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-4 px-2 pb-1 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-3 w-2 rounded-sm" style={{ backgroundColor: barColor }} />
+        Net worth
+      </span>
+      {showCostBasis ? (
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block h-0 w-5 border-t-2"
+            style={{ borderColor: costBasisColor }}
+          />
+          Cost basis
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -45,91 +118,112 @@ function NetWorthTooltip({
 export function OverviewNetWorthChart({ data }: OverviewNetWorthChartProps) {
   const { uiPreferences } = usePortfolio();
   const chart = uiPreferences.overviewChart;
+  const chartData = useMemo(() => enrichChartData(data), [data]);
   const yDomain = useMemo(() => netWorthChartYDomain(data), [data]);
+  const showCostBasis =
+    chart.showCostBasisLine && hasNetWorthCostBasisSeries(data);
+  const barSize = chartData.length > 12 ? 44 : chartData.length > 8 ? 52 : 64;
 
   return (
-    <Card className="border-border/60 bg-card/80">
-      <CardHeader className="text-center">
-        <CardTitle className="text-lg font-semibold">Net Worth</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Card className="overflow-hidden border-border/60 bg-card/80">
+      <CardContent className="p-0">
         <ClientOnly
           fallback={
-            <div className="h-[400px] w-full min-w-0 animate-pulse rounded-md bg-muted/30" />
+            <div className="h-[380px] w-full animate-pulse bg-muted/20" />
           }
         >
-          {!chart.showBar && !chart.showLine ? (
-            <p className="flex h-[400px] items-center justify-center text-sm text-muted-foreground">
-              Enable bar or line chart in Settings → Display.
+          {data.length === 0 ? (
+            <p className="flex h-[380px] items-center justify-center px-4 text-center text-sm text-muted-foreground">
+              No history yet. Add periods in Settings → Data or enable monthly auto-snapshot.
             </p>
           ) : (
-            <div className="w-full min-w-0">
-              <ResponsiveContainer width="100%" height={400}>
-                <ComposedChart data={data} margin={{ top: 28, right: 16, left: 8, bottom: 4 }}>
-                  <defs>
-                    <linearGradient id="nwBarGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={chart.barColor} stopOpacity={0.95} />
-                      <stop offset="100%" stopColor={chart.barColor} stopOpacity={0.35} />
-                    </linearGradient>
-                    <linearGradient id="nwAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={chart.lineColor} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={chart.lineColor} stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border/70"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="period"
-                    tick={{ fontSize: 11 }}
-                    className="fill-muted-foreground"
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                    minTickGap={28}
-                  />
-                  <YAxis
-                    domain={yDomain}
-                    tickFormatter={(v) => `$${(Number(v) / 1000).toFixed(0)}k`}
-                    tick={{ fontSize: 11 }}
-                    className="fill-muted-foreground"
-                    axisLine={false}
-                    tickLine={false}
-                    width={56}
-                  />
-                  <Tooltip content={<NetWorthTooltip />} cursor={{ fill: "var(--accent)", opacity: 0.15 }} />
-                  {chart.showLine ? (
-                    <Area
-                      type={chart.lineType as OverviewChartLineType}
-                      dataKey="netWorth"
-                      fill="url(#nwAreaGradient)"
-                      stroke="none"
-                      isAnimationActive={false}
+            <>
+              <ChartLegend
+                barColor={chart.barColor}
+                costBasisColor={chart.costBasisLineColor}
+                showCostBasis={showCostBasis}
+              />
+              <div className="border-t border-border/40 bg-muted/[0.08] px-2 pb-3 pt-1">
+                <ResponsiveContainer width="100%" height={340}>
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                    barCategoryGap="8%"
+                  >
+                    <CartesianGrid
+                      strokeDasharray="1 4"
+                      stroke="currentColor"
+                      className="text-border/40"
+                      vertical={false}
                     />
-                  ) : null}
-                  {chart.showBar ? (
+                    <XAxis
+                      dataKey="period"
+                      tick={{
+                        fontSize: 10,
+                        fontFamily: "ui-monospace, monospace",
+                      }}
+                      className="fill-muted-foreground"
+                      axisLine={{ stroke: "var(--border)", strokeOpacity: 0.5 }}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                      minTickGap={28}
+                      dy={8}
+                    />
+                    <YAxis
+                      domain={yDomain}
+                      tickFormatter={(v) => {
+                        const n = Number(v);
+                        if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+                        return `$${Math.round(n / 1000)}k`;
+                      }}
+                      tick={{
+                        fontSize: 10,
+                        fontFamily: "ui-monospace, monospace",
+                      }}
+                      className="fill-muted-foreground"
+                      axisLine={false}
+                      tickLine={false}
+                      width={48}
+                    />
+                    <Tooltip
+                      content={<NetWorthTooltip />}
+                      cursor={{ fill: "var(--foreground)", opacity: 0.04 }}
+                    />
+
                     <Bar
                       dataKey="netWorth"
-                      fill="url(#nwBarGradient)"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
+                      fill={chart.barColor}
+                      fillOpacity={0.88}
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={barSize}
+                      isAnimationActive={false}
                     />
-                  ) : null}
-                  {chart.showLine ? (
-                    <Line
-                      type={chart.lineType as OverviewChartLineType}
-                      dataKey="netWorth"
-                      stroke={chart.lineColor}
-                      strokeWidth={2.5}
-                      dot={{ r: 3, fill: chart.lineColor, strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--background)" }}
-                    />
-                  ) : null}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+
+                    {showCostBasis ? (
+                      <Line
+                        type="monotone"
+                        dataKey="totalCostBasis"
+                        stroke={chart.costBasisLineColor}
+                        strokeWidth={2}
+                        dot={{
+                          r: 3,
+                          fill: "var(--background)",
+                          stroke: chart.costBasisLineColor,
+                          strokeWidth: 2,
+                        }}
+                        activeDot={{
+                          r: 4,
+                          stroke: "var(--background)",
+                          strokeWidth: 2,
+                          fill: chart.costBasisLineColor,
+                        }}
+                        isAnimationActive={false}
+                      />
+                    ) : null}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </>
           )}
         </ClientOnly>
       </CardContent>

@@ -1,4 +1,4 @@
-import type { ConnectedWallet, PortfolioSection } from "@/types";
+import type { PortfolioSection, WalletMapNode } from "@/types";
 
 /** Asset section tied to a connected wallet (one section = one wallet, many networks). */
 export function isWalletAssetSection(section: PortfolioSection): boolean {
@@ -18,8 +18,8 @@ export function isLegacyCryptoBucket(section: PortfolioSection): boolean {
 
 export function getWalletForSection(
   section: PortfolioSection,
-  wallets: ConnectedWallet[]
-): ConnectedWallet | undefined {
+  wallets: WalletMapNode[]
+): WalletMapNode | undefined {
   const walletId = section.metadata?.walletId;
   if (!walletId) return undefined;
   return wallets.find((w) => w.id === walletId);

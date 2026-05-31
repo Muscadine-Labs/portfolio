@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# private portfolio seed moved to api.portfolio repo (seed/portfolio-data.ts)
+# private portfolio seed moved to api-portfolio repo (seed/portfolio-data.ts)
 
 # env — only .env is used locally; .env.example is committed
 .env

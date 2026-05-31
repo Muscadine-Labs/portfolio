@@ -4,10 +4,7 @@ import { NavPageGuard } from "@/components/layout/NavPageGuard";
 
 export default function PlanPage() {
   return (
-    <TenantPage
-      title="Plan"
-      description="Income guide, monthly budget, and financial goals"
-    >
+    <TenantPage title="Plan" compact>
       <NavPageGuard page="plan">
         <PlanContent />
       </NavPageGuard>

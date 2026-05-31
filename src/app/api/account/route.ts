@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const tenant =
     headersList.get("x-tenant")?.toLowerCase() ??
     process.env.DEV_TENANT?.toLowerCase() ??
-    "nick";
+    "workspace";
 
   let body: {
     username?: string;

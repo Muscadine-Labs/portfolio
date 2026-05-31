@@ -268,7 +268,7 @@ export function LiabilityDrawer({
               )}
               <div className="space-y-2">
                 <Label>Address</Label>
-                <Input {...register("address")} placeholder="e.g. wallet.base.eth" />
+                <Input {...register("address")} placeholder="Optional reference" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

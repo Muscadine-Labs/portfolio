@@ -1,13 +1,18 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNavProvider, useMobileNav } from "@/components/layout/MobileNavContext";
-import { PortfolioProvider } from "@/components/providers/PortfolioProvider";
+import { PortfolioProvider, usePortfolio } from "@/components/providers/PortfolioProvider";
 import { PortfolioAgreementProvider } from "@/contexts/PortfolioAgreementContext";
 import { PortfolioAgreementModal } from "@/components/legal/PortfolioAgreementModal";
 import { ThemePreferenceSync } from "@/components/shared/ThemePreferenceSync";
 import type { PortfolioImportResult } from "@/lib/portfolio-data";
+import {
+  mainOffsetClass,
+  SIDEBAR_WIDTH_COMPACT,
+  SIDEBAR_WIDTH_EXPANDED,
+} from "@/lib/sidebar-layout";
 import type { User } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -19,29 +24,36 @@ interface DashboardShellProps {
 
 function ShellInner({ children }: { children: ReactNode }) {
   const { open, setOpen } = useMobileNav();
+  const { uiPreferences } = usePortfolio();
+  const compact = uiPreferences.sidebarCompact;
+
+  const shellStyle = {
+    "--sidebar-width": compact ? SIDEBAR_WIDTH_COMPACT : SIDEBAR_WIDTH_EXPANDED,
+  } as CSSProperties;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={shellStyle}>
       <div
         className={cn(
           "fixed inset-0 z-50 md:hidden",
           open ? "pointer-events-auto" : "pointer-events-none"
         )}
+        aria-hidden={!open}
       >
         <div
           className={cn(
-            "absolute inset-0 bg-black/60 transition-opacity",
+            "absolute inset-0 bg-black/60 transition-opacity duration-300",
             open ? "opacity-100" : "opacity-0"
           )}
           onClick={() => setOpen(false)}
         />
         <div
           className={cn(
-            "absolute left-0 top-0 h-full w-64 transition-transform duration-300",
+            "absolute left-0 top-0 h-full w-64 max-w-[85vw] transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          <Sidebar onNavigate={() => setOpen(false)} />
+          <Sidebar mobile onNavigate={() => setOpen(false)} />
         </div>
       </div>
 
@@ -49,7 +61,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         <Sidebar />
       </div>
 
-      <div className="md:pl-64">
+      <div className={cn("min-w-0 transition-[padding] duration-200", mainOffsetClass(compact))}>
         <ThemePreferenceSync />
         {children}
       </div>

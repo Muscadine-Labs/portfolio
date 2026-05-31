@@ -1,6 +1,6 @@
 # Portfolio
 
-**Live:** [portfolio.muscadine.io](https://portfolio.muscadine.io) (Vercel). The UI and Phase 1 API routes run on Vercel; persistent storage on your mini PC (`api.portfolio.muscadine.io`) is still on the roadmap — see `docs/PLAN.md`.
+**Live:** [portfolio.muscadine.io](https://portfolio.muscadine.io) (Vercel). The UI and Phase 1 API routes run on Vercel; persistent storage on your mini PC (`api-portfolio.muscadine.io`) is still on the roadmap — see `docs/PLAN.md`.
 
 Personal finance dashboard at `portfolio.muscadine.io`. “Workspace” in Settings is an internal ID, not a DNS hostname.
 
@@ -24,7 +24,7 @@ npm run dev
 |------|------|
 | [portfolio.muscadine.io](https://portfolio.muscadine.io) | Production (login, dashboard, all routes) |
 | `localhost:3000` | Local dev |
-| `api.portfolio.muscadine.io` | Planned home API (mini PC + tunnel — not required for the live UI yet) |
+| `api-portfolio.muscadine.io` | Planned home API (mini PC + tunnel — not required for the live UI yet) |
 
 Copy `.env.example` to `.env.local`. Set `DEV_TENANT` to match your seed user slug and `PORTFOLIO_SEED_FILE=portfolio-data.ts` after copying `portfolio-data.example.ts` → `portfolio-data.ts`.
 
@@ -68,5 +68,5 @@ One hostname (`portfolio.muscadine.io`). Middleware sets `x-tenant` from `DEV_TE
 | Component | Status |
 |-----------|--------|
 | UI on Vercel | **Live** — https://portfolio.muscadine.io |
-| Mini PC API + SQLite | Planned — `api.portfolio.muscadine.io` |
+| Mini PC API + SQLite | Planned — `api-portfolio.muscadine.io` |
 | Vercel production data | Demo seed (`portfolio-data.example.ts`) + in-memory store; edits may reset on cold start until the home API is connected |

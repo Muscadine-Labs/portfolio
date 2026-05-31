@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,30 +17,34 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
-import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import type { AllocationNode, GoalTrackPage } from "@/types";
+import type { AllocationNode } from "@/types";
 
-const TRACK_PAGES: { value: GoalTrackPage; label: string }[] = [
-  { value: "assets", label: "Assets" },
-  { value: "cash", label: "Cash" },
-  { value: "liabilities", label: "Liabilities" },
-];
+function parseOptionalNumber(value: unknown): number | undefined {
+  if (value === "" || value == null) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function parseNumber(value: unknown, fallback = 0): number {
+  if (value === "" || value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 const schema = z
   .object({
     label: z.string().min(1, "Label is required"),
+    targetMode: z.enum(["percent", "amount"]),
     percentOfParent: z.number().min(0).max(100),
+    monthlyAmount: z.number().min(0).optional(),
     notes: z.string().optional(),
-    trackMode: z.enum(["none", "linked"]),
-    trackPage: z.enum(["assets", "cash", "liabilities"]).optional(),
-    trackSectionId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.trackMode === "linked" && (!data.trackPage || !data.trackSectionId)) {
+    if (data.targetMode === "amount" && data.monthlyAmount == null) {
       ctx.addIssue({
         code: "custom",
-        message: "Choose a portfolio section",
-        path: ["trackSectionId"],
+        message: "Enter a monthly dollar amount",
+        path: ["monthlyAmount"],
       });
     }
   });
@@ -67,55 +70,42 @@ export function AllocationNodeDrawer({
   siblingCount,
   onSave,
 }: AllocationNodeDrawerProps) {
-  const { getSections } = usePortfolio();
-  const assetSections = getSections("assets");
-  const cashSections = getSections("cash");
-  const liabilitySections = getSections("liabilities");
-
   const { register, control, handleSubmit, reset, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { label: "", percentOfParent: 0, notes: "", trackMode: "none" },
+    defaultValues: {
+      label: "",
+      targetMode: "percent",
+      percentOfParent: 0,
+      monthlyAmount: undefined,
+      notes: "",
+    },
   });
 
-  const trackMode = useWatch({ control, name: "trackMode" });
-  const trackPage = useWatch({ control, name: "trackPage" });
-  const trackSectionId = useWatch({ control, name: "trackSectionId" });
-
-  const linkableSections = useMemo(() => {
-    if (!trackPage) return [];
-    if (trackPage === "assets") return assetSections;
-    if (trackPage === "cash") return cashSections;
-    return liabilitySections;
-  }, [trackPage, assetSections, cashSections, liabilitySections]);
+  const targetMode = useWatch({ control, name: "targetMode" });
 
   useDrawerFormReset(
     open,
     reset,
-    () => {
-      const linked = Boolean(node?.trackPage && node?.trackSectionId);
-      return {
-        label: node?.label ?? "",
-        percentOfParent: node?.percentOfParent ?? 0,
-        notes: node?.notes ?? "",
-        trackMode: linked ? ("linked" as const) : ("none" as const),
-        trackPage: node?.trackPage,
-        trackSectionId: node?.trackSectionId,
-      };
-    },
+    () => ({
+      label: node?.label ?? "",
+      targetMode: node?.targetMode === "amount" ? ("amount" as const) : ("percent" as const),
+      percentOfParent: node?.percentOfParent ?? 0,
+      monthlyAmount: node?.monthlyAmount,
+      notes: node?.notes ?? "",
+    }),
     [node?.id, parentId]
   );
 
   const onSubmit = (values: FormValues) => {
-    const linked = values.trackMode === "linked";
     onSave({
       id: node?.id ?? createEntityId("alloc"),
       parentId: node?.parentId ?? parentId,
       label: values.label,
-      percentOfParent: values.percentOfParent,
+      percentOfParent: values.targetMode === "percent" ? values.percentOfParent : 0,
+      targetMode: values.targetMode,
+      monthlyAmount: values.targetMode === "amount" ? values.monthlyAmount : undefined,
       order: node?.order ?? siblingCount,
       notes: values.notes || undefined,
-      trackPage: linked ? values.trackPage : undefined,
-      trackSectionId: linked ? values.trackSectionId : undefined,
     });
     onOpenChange(false);
   };
@@ -134,69 +124,41 @@ export function AllocationNodeDrawer({
             <Input id="alloc-label" {...register("label")} placeholder="e.g. Brokerage" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="alloc-pct">% of {parentLabel ?? "income"}</Label>
-            <Input
-              id="alloc-pct"
-              type="number"
-              step="any"
-              {...register("percentOfParent", { valueAsNumber: true })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Sibling buckets under the same parent should add to 100%.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="alloc-track-mode">Compare to portfolio (optional)</Label>
+            <Label htmlFor="alloc-target-mode">Target type</Label>
             <NativeSelect
-              id="alloc-track-mode"
-              value={trackMode}
-              onValueChange={(v) => {
-                setValue("trackMode", v as FormValues["trackMode"]);
-                if (v === "none") {
-                  setValue("trackPage", undefined);
-                  setValue("trackSectionId", undefined);
-                } else if (!trackPage) {
-                  setValue("trackPage", "assets");
-                }
-              }}
+              id="alloc-target-mode"
+              value={targetMode}
+              onValueChange={(v) => setValue("targetMode", v as FormValues["targetMode"])}
               options={[
-                { value: "none", label: "Plan only (% of income)" },
-                { value: "linked", label: "Link to assets / cash / liabilities section" },
+                { value: "percent", label: `% of ${parentLabel ?? "income"}` },
+                { value: "amount", label: "Fixed monthly amount ($)" },
               ]}
             />
           </div>
-
-          {trackMode === "linked" && (
-            <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3">
-              <div className="space-y-2">
-                <Label htmlFor="alloc-track-page">Portfolio area</Label>
-                <NativeSelect
-                  id="alloc-track-page"
-                  value={trackPage ?? ""}
-                  onValueChange={(v) => {
-                    setValue("trackPage", v as GoalTrackPage);
-                    setValue("trackSectionId", undefined);
-                  }}
-                  options={TRACK_PAGES}
-                  placeholder="Choose area"
-                />
-              </div>
-              {trackPage && (
-                <div className="space-y-2">
-                  <Label htmlFor="alloc-track-section">Section</Label>
-                  <NativeSelect
-                    id="alloc-track-section"
-                    value={trackSectionId ?? ""}
-                    onValueChange={(v) => setValue("trackSectionId", v || undefined)}
-                    options={linkableSections.map((s) => ({ value: s.id, label: s.label }))}
-                    placeholder={
-                      linkableSections.length === 0 ? "No sections" : "Choose section"
-                    }
-                    disabled={linkableSections.length === 0}
-                  />
-                </div>
-              )}
+          {targetMode === "percent" ? (
+            <div className="space-y-2">
+              <Label htmlFor="alloc-pct">% of {parentLabel ?? "income"}</Label>
+              <Input
+                id="alloc-pct"
+                type="number"
+                step="any"
+                {...register("percentOfParent", { setValueAs: (v) => parseNumber(v, 0) })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Sibling buckets under the same parent should add to 100%.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="alloc-amount">Monthly amount ($)</Label>
+              <Input
+                id="alloc-amount"
+                type="number"
+                step="any"
+                min={0}
+                placeholder="e.g. 2000"
+                {...register("monthlyAmount", { setValueAs: parseOptionalNumber })}
+              />
             </div>
           )}
 

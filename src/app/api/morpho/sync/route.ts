@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchMorphoPositions } from "@/lib/morpho";
 import { morphoChainIdForWallet } from "@/lib/wallet-address";
+import type { WalletChain } from "@/types";
 
 export async function POST(request: Request) {
   let body: {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
 
   const address = body.address?.trim();
   const walletId = body.walletId?.trim() || "wallet";
-  const chain = (body.chain ?? "base") as "ethereum" | "base" | "bitcoin" | "other";
+  const chain = (body.chain ?? "base") as WalletChain;
   const morphoChainId = morphoChainIdForWallet(chain);
 
   if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {

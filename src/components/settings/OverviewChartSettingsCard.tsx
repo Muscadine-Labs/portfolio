@@ -2,9 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { OVERVIEW_LINE_TYPES } from "@/lib/overview-chart";
 import { cn } from "@/lib/utils";
 
 export function OverviewChartSettingsCard() {
@@ -16,38 +14,29 @@ export function OverviewChartSettingsCard() {
       <CardHeader>
         <CardTitle className="text-base">Overview chart</CardTitle>
         <CardDescription>
-          Customize the net worth chart on the dashboard — series, colors, and line style.
+          Net worth history as bars with an optional cost basis benchmark line — the standard
+          wealth chart layout.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="rounded border-border"
-              checked={chart.showBar}
-              onChange={(e) => setOverviewChartPreferences({ showBar: e.target.checked })}
-            />
-            Bar chart
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="rounded border-border"
-              checked={chart.showLine}
-              onChange={(e) => setOverviewChartPreferences({ showLine: e.target.checked })}
-            />
-            Line chart
-          </label>
-        </div>
-
-        {!chart.showBar && !chart.showLine ? (
-          <p className="text-xs text-amber-500/90">Enable at least one series to show the chart.</p>
-        ) : null}
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 rounded border-border"
+            checked={chart.showCostBasisLine}
+            onChange={(e) => setOverviewChartPreferences({ showCostBasisLine: e.target.checked })}
+          />
+          <span>
+            <span className="font-medium">Show cost basis line</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Overlays invested capital on the same scale as net worth bars.
+            </span>
+          </span>
+        </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="chart-bar-color">Bar color</Label>
+            <Label htmlFor="chart-bar-color">Net worth bar color</Label>
             <div className="flex items-center gap-2">
               <input
                 id="chart-bar-color"
@@ -60,33 +49,23 @@ export function OverviewChartSettingsCard() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="chart-line-color">Line color</Label>
+            <Label htmlFor="chart-cost-basis-color">Cost basis line color</Label>
             <div className="flex items-center gap-2">
               <input
-                id="chart-line-color"
+                id="chart-cost-basis-color"
                 type="color"
-                value={chart.lineColor}
-                onChange={(e) => setOverviewChartPreferences({ lineColor: e.target.value })}
+                value={chart.costBasisLineColor}
+                onChange={(e) =>
+                  setOverviewChartPreferences({ costBasisLineColor: e.target.value })
+                }
                 className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+                disabled={!chart.showCostBasisLine}
               />
-              <span className="font-mono text-xs text-muted-foreground">{chart.lineColor}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {chart.costBasisLineColor}
+              </span>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="chart-line-type">Line interpolation</Label>
-          <NativeSelect
-            id="chart-line-type"
-            value={chart.lineType}
-            onValueChange={(v) =>
-              setOverviewChartPreferences({
-                lineType: v as typeof chart.lineType,
-              })
-            }
-            options={OVERVIEW_LINE_TYPES.map((o) => ({ value: o.value, label: o.label }))}
-            disabled={!chart.showLine}
-          />
         </div>
 
         <div
@@ -94,7 +73,8 @@ export function OverviewChartSettingsCard() {
             "rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
           )}
         >
-          Preview uses your saved colors. Open Overview to see the full chart with live data.
+          Layout is fixed: bars = net worth at each period, line = cost basis. Edit values in
+          Settings → Data.
         </div>
       </CardContent>
     </Card>

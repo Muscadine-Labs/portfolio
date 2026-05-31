@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { AppearanceSettingsCard } from "@/components/settings/AppearanceSettingsCard";
-import { ConnectedWalletsSettingsCard } from "@/components/settings/ConnectedWalletsSettingsCard";
 import { DataImportExportCard } from "@/components/settings/DataImportExportCard";
+import { NetWorthHistorySettingsCard } from "@/components/settings/NetWorthHistorySettingsCard";
 import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
 import { OverviewChartSettingsCard } from "@/components/settings/OverviewChartSettingsCard";
 import { SettingsFooter } from "@/components/settings/SettingsFooter";
@@ -35,7 +35,7 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
   return (
     <div className="mx-auto max-w-5xl pb-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
-        <div className="lg:sticky lg:top-24 lg:self-start">
+        <div className="lg:sticky lg:top-20 lg:self-start xl:top-24">
           <SettingsNav active={activeSection} onChange={setActiveSection} />
         </div>
 
@@ -55,13 +55,6 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
             </section>
           )}
 
-          {activeSection === "wallets" && (
-            <section aria-labelledby="settings-wallets">
-              <SettingsPanelHeader sectionId="wallets" />
-              <ConnectedWalletsSettingsCard />
-            </section>
-          )}
-
           {activeSection === "navigation" && (
             <section aria-labelledby="settings-navigation">
               <SettingsPanelHeader sectionId="navigation" />
@@ -70,13 +63,15 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
           )}
 
           {activeSection === "data" && (
-            <section aria-labelledby="settings-data">
+            <section aria-labelledby="settings-data" className="space-y-4">
               <SettingsPanelHeader sectionId="data" />
+              <NetWorthHistorySettingsCard />
               <DataImportExportCard />
+              <SettingsFooter />
             </section>
           )}
 
-          <SettingsFooter />
+          {activeSection !== "data" ? <SettingsFooter /> : null}
         </div>
       </div>
     </div>

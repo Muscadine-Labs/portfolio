@@ -1,6 +1,7 @@
 import { computeTotalCash, computeTotalInvestments, computeTotalLiabilities } from "@/lib/mock-data";
+import { formatSectionDisplayLabel } from "@/lib/section-groups";
 import { getCostBasis, getMarketValue } from "@/lib/utils";
-import type { Asset, CashAccount, Liability, PortfolioSection } from "@/types";
+import type { Asset, CashAccount, Liability, PortfolioSection, SectionGroup } from "@/types";
 
 export type OverviewRow = {
   sectionId: string;
@@ -8,6 +9,9 @@ export type OverviewRow = {
   value: number;
   color: string;
   href: string;
+  /** When set, this row rolls up multiple sections on Overview only. */
+  isGroup?: boolean;
+  children?: OverviewRow[];
 };
 
 export type OverviewSnapshot = {
@@ -42,20 +46,91 @@ function sectionColor(index: number): string {
   return SECTION_PALETTE[index % SECTION_PALETTE.length];
 }
 
-function buildSectionRows(
+function sectionRow(
+  section: PortfolioSection,
+  value: number,
+  pageHref: string,
+  colorIndex: number
+): OverviewRow {
+  return {
+    sectionId: section.id,
+    label: formatSectionDisplayLabel(section),
+    value,
+    color: sectionColor(colorIndex),
+    href: `${pageHref}?section=${encodeURIComponent(section.id)}`,
+  };
+}
+
+function sortOverviewRowsByValue(rows: OverviewRow[]): OverviewRow[] {
+  return [...rows]
+    .sort((a, b) => b.value - a.value)
+    .map((row, index) => ({
+      ...row,
+      color: sectionColor(index),
+      children: row.children
+        ? [...row.children]
+            .sort((a, b) => b.value - a.value)
+            .map((child, childIndex) => ({
+              ...child,
+              color: sectionColor(index + childIndex + 1),
+            }))
+        : undefined,
+    }));
+}
+
+function buildGroupedSectionRows(
   sections: PortfolioSection[],
+  groups: SectionGroup[],
   valuesBySectionId: Map<string, number>,
   pageHref: string
 ): OverviewRow[] {
-  return [...sections]
-    .sort((a, b) => a.order - b.order)
-    .map((section, index) => ({
-      sectionId: section.id,
-      label: section.label,
-      value: valuesBySectionId.get(section.id) ?? 0,
-      color: sectionColor(index),
-      href: `${pageHref}?section=${encodeURIComponent(section.id)}`,
-    }));
+  const sorted = [...sections].sort((a, b) => a.order - b.order);
+  const groupById = new Map(groups.map((group) => [group.id, group]));
+  const rows: OverviewRow[] = [];
+  const processedGroups = new Set<string>();
+  let colorIndex = 0;
+
+  for (const section of sorted) {
+    const group = section.groupId ? groupById.get(section.groupId) : undefined;
+    const value = valuesBySectionId.get(section.id) ?? 0;
+
+    if (group) {
+      if (processedGroups.has(group.id)) continue;
+      processedGroups.add(group.id);
+
+      const members = sorted.filter((member) => member.groupId === group.id);
+      const children = members
+        .map((member, index) =>
+          sectionRow(
+            member,
+            valuesBySectionId.get(member.id) ?? 0,
+            pageHref,
+            colorIndex + index
+          )
+        )
+        .filter((child) => child.value > 0);
+
+      const total = children.reduce((sum, child) => sum + child.value, 0);
+      if (total <= 0) continue;
+
+      rows.push({
+        sectionId: `group:${group.id}`,
+        label: group.name,
+        value: total,
+        color: sectionColor(colorIndex++),
+        href: `${pageHref}?section=${encodeURIComponent(`group:${group.id}`)}`,
+        isGroup: true,
+        children,
+      });
+      continue;
+    }
+
+    if (value > 0) {
+      rows.push(sectionRow(section, value, pageHref, colorIndex++));
+    }
+  }
+
+  return sortOverviewRowsByValue(rows);
 }
 
 function sumBySectionId<T extends { sectionId: string }>(
@@ -75,15 +150,30 @@ export function computeOverviewSnapshot(
   liabilities: Liability[],
   assetSections: PortfolioSection[],
   cashSections: PortfolioSection[],
-  liabilitySections: PortfolioSection[]
+  liabilitySections: PortfolioSection[],
+  sectionGroups: SectionGroup[] = []
 ): OverviewSnapshot {
   const assetTotals = sumBySectionId(assets, getMarketValue);
   const cashTotals = sumBySectionId(cashAccounts, (c) => c.balance);
   const liabilityTotals = sumBySectionId(liabilities, (l) => l.balance);
 
-  const assetRows = buildSectionRows(assetSections, assetTotals, "/assets");
-  const cashRows = buildSectionRows(cashSections, cashTotals, "/cash");
-  const liabilityRows = buildSectionRows(liabilitySections, liabilityTotals, "/liabilities");
+  const assetGroups = sectionGroups.filter((group) => group.page === "assets");
+  const cashGroups = sectionGroups.filter((group) => group.page === "cash");
+  const liabilityGroups = sectionGroups.filter((group) => group.page === "liabilities");
+
+  const assetRows = buildGroupedSectionRows(
+    assetSections,
+    assetGroups,
+    assetTotals,
+    "/assets"
+  );
+  const cashRows = buildGroupedSectionRows(cashSections, cashGroups, cashTotals, "/cash");
+  const liabilityRows = buildGroupedSectionRows(
+    liabilitySections,
+    liabilityGroups,
+    liabilityTotals,
+    "/liabilities"
+  );
 
   const totalAssets = computeTotalInvestments(assets);
   const totalCash = computeTotalCash(cashAccounts);
@@ -95,9 +185,9 @@ export function computeOverviewSnapshot(
   const netGainPercent = totalCostBasis > 0 ? (netGain / totalCostBasis) * 100 : 0;
 
   return {
-    assets: assetRows.filter((r) => r.value > 0),
-    liabilities: liabilityRows.filter((r) => r.value > 0),
-    cash: cashRows.filter((r) => r.value > 0),
+    assets: assetRows,
+    liabilities: liabilityRows,
+    cash: cashRows,
     totalAssets,
     totalLiabilities,
     totalCash,

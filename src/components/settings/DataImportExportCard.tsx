@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { usePortfolio, buildPortfolioPayload } from "@/components/providers/PortfolioProvider";
 import type { PortfolioDataPayload } from "@/lib/portfolio-data";
 import { exportPortfolioToXlsx } from "@/lib/xlsx-portfolio";
+import { cn } from "@/lib/utils";
 
 function downloadPortfolioJson(data: PortfolioDataPayload, filename: string) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -21,7 +22,7 @@ function downloadPortfolioJson(data: PortfolioDataPayload, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function DataImportExportCard() {
+export function DataImportExportCard({ embedded = false }: { embedded?: boolean }) {
   const portfolio = usePortfolio();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exportingJson, setExportingJson] = useState(false);
@@ -37,6 +38,7 @@ export function DataImportExportCard() {
         body: JSON.stringify(
           buildPortfolioPayload({
             sections: portfolio.sections,
+            sectionGroups: portfolio.sectionGroups,
             assets: portfolio.assets,
             cashAccounts: portfolio.cashAccounts,
             liabilities: portfolio.liabilities,
@@ -46,7 +48,6 @@ export function DataImportExportCard() {
             incomePlan: portfolio.incomePlan,
             walletMapNodes: portfolio.walletMapNodes,
             uiPreferences: portfolio.uiPreferences,
-            connectedWallets: portfolio.connectedWallets,
             monthlyIncome: portfolio.monthlyIncome,
             netWorthHistory: portfolio.netWorthHistory,
           })
@@ -77,6 +78,7 @@ export function DataImportExportCard() {
       exportPortfolioToXlsx(
         buildPortfolioPayload({
           sections: portfolio.sections,
+          sectionGroups: portfolio.sectionGroups,
           assets: portfolio.assets,
           cashAccounts: portfolio.cashAccounts,
           liabilities: portfolio.liabilities,
@@ -86,7 +88,6 @@ export function DataImportExportCard() {
           incomePlan: portfolio.incomePlan,
           walletMapNodes: portfolio.walletMapNodes,
           uiPreferences: portfolio.uiPreferences,
-          connectedWallets: portfolio.connectedWallets,
           monthlyIncome: portfolio.monthlyIncome,
           netWorthHistory: portfolio.netWorthHistory,
         })
@@ -153,15 +154,17 @@ export function DataImportExportCard() {
   };
 
   return (
-    <Card className="border-border/60 bg-card/80">
-      <CardHeader>
-        <CardTitle className="text-base">Import / export</CardTitle>
-        <CardDescription>
-          Excel: Overview, Assets, Cash, Liabilities, Plan. JSON uses the API with full
-          validation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-wrap gap-3">
+    <Card className={cn("border-border/60 bg-card/80 flex flex-col min-h-0", embedded && "border-0 bg-transparent shadow-none")}>
+      {!embedded ? (
+        <CardHeader className="shrink-0">
+          <CardTitle className="text-base">Import / export</CardTitle>
+          <CardDescription>
+            Excel: Overview, Assets, Cash, Liabilities, Plan. JSON uses the API with full
+            validation.
+          </CardDescription>
+        </CardHeader>
+      ) : null}
+      <CardContent className={cn("flex flex-wrap gap-3", embedded && "px-0 pb-0 pt-0")}>
         <Button variant="default" disabled={exportingExcel} onClick={handleExportExcel}>
           <Download className="mr-2 h-4 w-4" />
           {exportingExcel ? "Exporting…" : "Export to Excel"}

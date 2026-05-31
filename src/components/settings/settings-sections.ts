@@ -3,14 +3,12 @@ import {
   LayoutDashboard,
   Navigation,
   User,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
 export const SETTINGS_SECTION_IDS = [
   "account",
   "display",
-  "wallets",
   "navigation",
   "data",
 ] as const;
@@ -34,14 +32,8 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "display",
     label: "Display",
-    description: "Theme and overview chart",
+    description: "Theme, sidebar, and chart",
     icon: LayoutDashboard,
-  },
-  {
-    id: "wallets",
-    label: "Wallets & DeFi",
-    description: "Addresses and Morpho sync",
-    icon: Wallet,
   },
   {
     id: "navigation",
@@ -52,7 +44,7 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "data",
     label: "Data",
-    description: "Import and export",
+    description: "Net worth history, import, and export",
     icon: Database,
   },
 ];

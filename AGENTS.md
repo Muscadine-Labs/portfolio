@@ -1,6 +1,6 @@
 # Agent instructions
 
-**Version 0.3.0**
+**Version 0.6.0**
 
 For deployment, security, and detailed conventions, read **`docs/`** first:
 
@@ -12,7 +12,7 @@ For deployment, security, and detailed conventions, read **`docs/`** first:
 
 Personal finance dashboard (Next.js 16): net worth, assets, cash, liabilities, plan, settings.
 
-**Deployed:** https://portfolio.muscadine.io (Vercel). **Next:** mini PC API + SQLite at `api.portfolio.muscadine.io`.
+**Deployed:** https://portfolio.muscadine.io (Vercel). **Next:** mini PC API + SQLite at `api-portfolio.muscadine.io`.
 
 ---
 
@@ -67,7 +67,7 @@ App URL: **`portfolio.muscadine.io`** (or `localhost:3000`). **No per-user DNS s
 1. **Boot:** `PortfolioProvider` loads initial state from `@portfolio/seed` (your `portfolio-data.ts` or the example).
 2. **Edits:** React state in the browser; optional persist via `POST /api/import` / `GET /api/export` (JSON) into `portfolio-data-store` (in-memory per tenant).
 3. **Morpho sync:** `POST /api/morpho/sync` — sends **public EVM address + chain** to Morpho; merges vault v1/v2 + markets into linked sections.
-4. **Later:** UI proxies to `api.portfolio.muscadine.io` on the mini PC; SQLite becomes source of truth.
+4. **Later:** UI proxies to `api-portfolio.muscadine.io` on the mini PC; SQLite becomes source of truth.
 
 `src/lib/goal-tracking.ts` is **calculation only** (goal % from section totals) — not where portfolio rows live.
 

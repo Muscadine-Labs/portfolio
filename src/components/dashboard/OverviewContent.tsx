@@ -10,7 +10,7 @@ import { isNavPageVisible } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 export function OverviewContent() {
-  const { assets, cashAccounts, liabilities, getSections, uiPreferences, netWorthHistory } =
+  const { assets, cashAccounts, liabilities, getSections, sectionGroups, uiPreferences, netWorthHistory } =
     usePortfolio();
 
   const snapshot = useMemo(
@@ -21,9 +21,10 @@ export function OverviewContent() {
         liabilities,
         getSections("assets"),
         getSections("cash"),
-        getSections("liabilities")
+        getSections("liabilities"),
+        sectionGroups
       ),
-    [assets, cashAccounts, liabilities, getSections]
+    [assets, cashAccounts, liabilities, getSections, sectionGroups]
   );
 
   const panels = useMemo(() => {
@@ -36,6 +37,7 @@ export function OverviewContent() {
         totalLabel: "Total Assets",
         href: "/assets",
         valueHeader: "Asset Value",
+        accent: "assets" as const,
       },
       {
         key: "liabilities" as const,
@@ -45,6 +47,7 @@ export function OverviewContent() {
         totalLabel: "Total Liabilities",
         href: "/liabilities",
         valueHeader: "Liabilities",
+        accent: "liabilities" as const,
       },
       {
         key: "cash" as const,
@@ -54,6 +57,7 @@ export function OverviewContent() {
         totalLabel: "Total Cash",
         href: "/cash",
         valueHeader: "Cash Value",
+        accent: "cash" as const,
       },
     ];
 
@@ -73,7 +77,7 @@ export function OverviewContent() {
         : "lg:grid-cols-1";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {panels.length > 0 ? (
         <div className={cn("grid items-start gap-4", gridClass)}>
           {panels.map((panel) => (
@@ -84,8 +88,9 @@ export function OverviewContent() {
               total={panel.total}
               totalLabel={panel.totalLabel}
               href={panel.href}
-              nameHeader="Section"
+              nameHeader="Category"
               valueHeader={panel.valueHeader}
+              accent={panel.accent}
             />
           ))}
         </div>

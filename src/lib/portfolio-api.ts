@@ -8,12 +8,12 @@ import {
   EMPTY_ALLOCATION_NODES,
   EMPTY_ASSETS,
   EMPTY_CASH_ACCOUNTS,
-  EMPTY_CONNECTED_WALLETS,
   EMPTY_INCOME_PLAN,
   EMPTY_LIABILITIES,
   EMPTY_NET_WORTH_HISTORY,
   EMPTY_PLANNING_ITEMS,
   EMPTY_SECTIONS,
+  EMPTY_SECTION_GROUPS,
   EMPTY_SPENDING_ITEMS,
   EMPTY_UI_PREFERENCES,
   EMPTY_WALLET_MAP_NODES,
@@ -22,6 +22,7 @@ import {
 export function createEmptyPortfolioData(): PortfolioDataPayload {
   return {
     sections: structuredClone(EMPTY_SECTIONS),
+    sectionGroups: structuredClone(EMPTY_SECTION_GROUPS),
     assets: structuredClone(EMPTY_ASSETS),
     cashAccounts: structuredClone(EMPTY_CASH_ACCOUNTS),
     liabilities: structuredClone(EMPTY_LIABILITIES),
@@ -31,7 +32,6 @@ export function createEmptyPortfolioData(): PortfolioDataPayload {
     incomePlan: structuredClone(EMPTY_INCOME_PLAN),
     walletMapNodes: structuredClone(EMPTY_WALLET_MAP_NODES),
     uiPreferences: structuredClone(EMPTY_UI_PREFERENCES),
-    connectedWallets: structuredClone(EMPTY_CONNECTED_WALLETS),
     netWorthHistory: structuredClone(EMPTY_NET_WORTH_HISTORY),
   };
 }

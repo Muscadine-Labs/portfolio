@@ -11,15 +11,16 @@ import {
   type ReactNode,
 } from "react";
 import { getSectionsForPage, createSectionId } from "@/lib/sections";
+import { createSectionGroupId, getSectionGroupsForPage } from "@/lib/section-groups";
 import {
   EMPTY_ALLOCATION_NODES,
   EMPTY_ASSETS,
   EMPTY_CASH_ACCOUNTS,
-  EMPTY_CONNECTED_WALLETS,
   EMPTY_INCOME_PLAN,
   EMPTY_LIABILITIES,
   EMPTY_NET_WORTH_HISTORY,
   EMPTY_PLANNING_ITEMS,
+  EMPTY_SECTION_GROUPS,
   EMPTY_SECTIONS,
   EMPTY_SPENDING_ITEMS,
   EMPTY_UI_PREFERENCES,
@@ -28,6 +29,8 @@ import {
 import type { MorphoSyncResult } from "@/lib/morpho";
 import { isMorphoManagedId } from "@/lib/morpho";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
+import { sortNetWorthHistory } from "@/lib/net-worth-history";
+import { normalizeUiPreferences, writeSidebarCompactToStorage } from "@/lib/sidebar-preference";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
 import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
@@ -36,7 +39,6 @@ import type {
   AllocationNode,
   Asset,
   CashAccount,
-  ConnectedWallet,
   IncomePlanConfig,
   Liability,
   NetWorthSnapshot,
@@ -44,6 +46,8 @@ import type {
   PageType,
   PlanningItem,
   PortfolioSection,
+  SectionGroup,
+  SectionGroupPage,
   SpendingItem,
   ThemePreference,
   UiPreferences,
@@ -55,6 +59,7 @@ import type { NavPageKey } from "@/types";
 
 interface PortfolioContextValue {
   sections: PortfolioSection[];
+  sectionGroups: SectionGroup[];
   assets: Asset[];
   cashAccounts: CashAccount[];
   liabilities: Liability[];
@@ -65,9 +70,17 @@ interface PortfolioContextValue {
   setIncomePlanDescription: (description: string) => void;
   walletMapNodes: WalletMapNode[];
   netWorthHistory: NetWorthSnapshot[];
+  setNetWorthHistory: (history: NetWorthSnapshot[]) => void;
+  upsertNetWorthSnapshotAt: (index: number, patch: Partial<NetWorthSnapshot>) => void;
+  addNetWorthSnapshot: (snapshot?: Partial<NetWorthSnapshot>) => void;
+  deleteNetWorthSnapshot: (index: number) => void;
   monthlyIncome?: number;
   setMonthlyIncome: (value: number | undefined) => void;
   getSections: (page: PageType) => PortfolioSection[];
+  getSectionGroups: (page: SectionGroupPage) => SectionGroup[];
+  upsertSectionGroup: (group: SectionGroup) => void;
+  deleteSectionGroup: (groupId: string, mode: "ungroup" | "deleteAll") => void;
+  addSectionGroup: (page: SectionGroupPage, name: string) => SectionGroup;
   upsertSection: (section: PortfolioSection) => void;
   deleteSection: (sectionId: string, page: PageType) => void;
   addSection: (page: PageType, label: string, metadata?: PortfolioSection["metadata"]) => PortfolioSection;
@@ -89,10 +102,9 @@ interface PortfolioContextValue {
   setNavPageVisible: (page: NavPageKey, visible: boolean) => void;
   setPlanTabVisible: (tab: PlanTabId, visible: boolean) => void;
   setOverviewChartPreferences: (patch: Partial<OverviewChartPreferences>) => void;
+  setMonthlyAutoSnapshot: (enabled: boolean) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
-  connectedWallets: ConnectedWallet[];
-  upsertConnectedWallet: (wallet: ConnectedWallet) => void;
-  deleteConnectedWallet: (id: string) => void;
+  setSidebarCompact: (compact: boolean) => void;
   applyMorphoSync: (walletId: string, result: MorphoSyncResult) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
@@ -104,6 +116,7 @@ const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
 function buildPortfolioPayload(state: {
   sections: PortfolioSection[];
+  sectionGroups: SectionGroup[];
   assets: Asset[];
   cashAccounts: CashAccount[];
   liabilities: Liability[];
@@ -113,12 +126,12 @@ function buildPortfolioPayload(state: {
   incomePlan: IncomePlanConfig;
   walletMapNodes: WalletMapNode[];
   uiPreferences: UiPreferences;
-  connectedWallets: ConnectedWallet[];
   monthlyIncome?: number;
   netWorthHistory: NetWorthSnapshot[];
 }): PortfolioDataPayload {
   return {
     sections: state.sections,
+    sectionGroups: state.sectionGroups,
     assets: state.assets,
     cashAccounts: state.cashAccounts,
     liabilities: state.liabilities,
@@ -128,7 +141,6 @@ function buildPortfolioPayload(state: {
     incomePlan: state.incomePlan,
     walletMapNodes: state.walletMapNodes,
     uiPreferences: state.uiPreferences,
-    connectedWallets: state.connectedWallets,
     monthlyIncome: state.monthlyIncome,
     netWorthHistory: state.netWorthHistory,
   };
@@ -137,6 +149,7 @@ function buildPortfolioPayload(state: {
 function toNormalizedPortfolio(data: PortfolioImportResult): PortfolioDataPayload {
   return normalizePortfolioEntityIds({
     sections: data.sections ?? EMPTY_SECTIONS,
+    sectionGroups: data.sectionGroups ?? EMPTY_SECTION_GROUPS,
     assets: data.assets ?? EMPTY_ASSETS,
     cashAccounts: data.cashAccounts ?? EMPTY_CASH_ACCOUNTS,
     liabilities: data.liabilities ?? EMPTY_LIABILITIES,
@@ -146,7 +159,9 @@ function toNormalizedPortfolio(data: PortfolioImportResult): PortfolioDataPayloa
     incomePlan: data.incomePlan ?? EMPTY_INCOME_PLAN,
     walletMapNodes: data.walletMapNodes ?? EMPTY_WALLET_MAP_NODES,
     uiPreferences: data.uiPreferences ?? EMPTY_UI_PREFERENCES,
-    connectedWallets: data.connectedWallets ?? EMPTY_CONNECTED_WALLETS,
+    connectedWallets: (data as PortfolioImportResult & { connectedWallets?: unknown }).connectedWallets as
+      | Parameters<typeof normalizePortfolioEntityIds>[0]["connectedWallets"]
+      | undefined,
     monthlyIncome: data.monthlyIncome,
     netWorthHistory: data.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY,
   });
@@ -154,8 +169,10 @@ function toNormalizedPortfolio(data: PortfolioImportResult): PortfolioDataPayloa
 
 function hydrateFromPayload(
   data: PortfolioImportResult,
+  tenant: string,
   setters: {
     setSections: (v: PortfolioSection[]) => void;
+    setSectionGroups: (v: SectionGroup[]) => void;
     setAssets: (v: Asset[]) => void;
     setCashAccounts: (v: CashAccount[]) => void;
     setLiabilities: (v: Liability[]) => void;
@@ -165,13 +182,13 @@ function hydrateFromPayload(
     setIncomePlan: (v: IncomePlanConfig) => void;
     setWalletMapNodes: (v: WalletMapNode[]) => void;
     setUiPreferences: (v: UiPreferences) => void;
-    setConnectedWallets: (v: ConnectedWallet[]) => void;
     setMonthlyIncome: (v: number | undefined) => void;
     setNetWorthHistory: (v: NetWorthSnapshot[]) => void;
   }
 ) {
   const normalized = toNormalizedPortfolio(data);
   setters.setSections(normalized.sections);
+  setters.setSectionGroups(normalized.sectionGroups ?? EMPTY_SECTION_GROUPS);
   setters.setAssets(normalized.assets);
   setters.setCashAccounts(normalized.cashAccounts);
   setters.setLiabilities(normalized.liabilities);
@@ -181,12 +198,8 @@ function hydrateFromPayload(
   if (normalized.incomePlan) setters.setIncomePlan(normalized.incomePlan);
   if (normalized.walletMapNodes) setters.setWalletMapNodes(normalized.walletMapNodes);
   if (normalized.uiPreferences) {
-    setters.setUiPreferences({
-      ...normalized.uiPreferences,
-      theme: normalizeThemePreference(normalized.uiPreferences.theme),
-    });
+    setters.setUiPreferences(normalizeUiPreferences(normalized.uiPreferences, tenant));
   }
-  if (normalized.connectedWallets) setters.setConnectedWallets(normalized.connectedWallets);
   if (normalized.monthlyIncome !== undefined) setters.setMonthlyIncome(normalized.monthlyIncome);
   if (normalized.netWorthHistory) setters.setNetWorthHistory(normalized.netWorthHistory);
 }
@@ -205,6 +218,9 @@ export function PortfolioProvider({
 }) {
   const [boot] = useState(() => toNormalizedPortfolio(initialPortfolio));
   const [sections, setSections] = useState<PortfolioSection[]>(boot.sections);
+  const [sectionGroups, setSectionGroups] = useState<SectionGroup[]>(
+    boot.sectionGroups ?? EMPTY_SECTION_GROUPS
+  );
   const [assets, setAssets] = useState<Asset[]>(boot.assets);
   const [cashAccounts, setCashAccounts] = useState<CashAccount[]>(boot.cashAccounts);
   const [liabilities, setLiabilities] = useState<Liability[]>(boot.liabilities);
@@ -223,12 +239,8 @@ export function PortfolioProvider({
   const [netWorthHistory, setNetWorthHistory] = useState<NetWorthSnapshot[]>(
     boot.netWorthHistory ?? EMPTY_NET_WORTH_HISTORY
   );
-  const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() => ({
-    ...(boot.uiPreferences ?? EMPTY_UI_PREFERENCES),
-    theme: normalizeThemePreference(boot.uiPreferences?.theme),
-  }));
-  const [connectedWallets, setConnectedWallets] = useState<ConnectedWallet[]>(
-    boot.connectedWallets ?? EMPTY_CONNECTED_WALLETS
+  const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
+    normalizeUiPreferences(boot.uiPreferences, initialAccount.tenant)
   );
   const [account, setAccount] = useState<User>(initialAccount);
 
@@ -263,6 +275,43 @@ export function PortfolioProvider({
     []
   );
 
+  const setMonthlyAutoSnapshot = useCallback((enabled: boolean) => {
+    setUiPreferences((prev) => ({ ...prev, monthlyAutoSnapshot: enabled }));
+  }, []);
+
+  const setNetWorthHistorySorted = useCallback((history: NetWorthSnapshot[]) => {
+    setNetWorthHistory(sortNetWorthHistory(history));
+  }, []);
+
+  const upsertNetWorthSnapshotAt = useCallback(
+    (index: number, patch: Partial<NetWorthSnapshot>) => {
+      setNetWorthHistory((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        const next = [...prev];
+        next[index] = { ...next[index], ...patch };
+        return sortNetWorthHistory(next);
+      });
+    },
+    []
+  );
+
+  const addNetWorthSnapshot = useCallback((snapshot?: Partial<NetWorthSnapshot>) => {
+    setNetWorthHistory((prev) =>
+      sortNetWorthHistory([
+        ...prev,
+        {
+          period: snapshot?.period ?? "",
+          netWorth: snapshot?.netWorth ?? 0,
+          totalCostBasis: snapshot?.totalCostBasis,
+        },
+      ])
+    );
+  }, []);
+
+  const deleteNetWorthSnapshot = useCallback((index: number) => {
+    setNetWorthHistory((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const setThemePreference = useCallback((theme: ThemePreference) => {
     setUiPreferences((prev) => ({
       ...prev,
@@ -270,28 +319,13 @@ export function PortfolioProvider({
     }));
   }, []);
 
-  const upsertConnectedWallet = useCallback((wallet: ConnectedWallet) => {
-    setConnectedWallets((prev) => {
-      const idx = prev.findIndex((w) => w.id === wallet.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = wallet;
-        return next;
-      }
-      return [...prev, wallet];
-    });
-  }, []);
-
-  const deleteConnectedWallet = useCallback((id: string) => {
-    setConnectedWallets((prev) => prev.filter((w) => w.id !== id));
-    setSections((prev) =>
-      prev.map((s) =>
-        s.metadata?.walletId === id
-          ? { ...s, metadata: { ...s.metadata, walletId: undefined } }
-          : s
-      )
-    );
-  }, []);
+  const setSidebarCompact = useCallback(
+    (compact: boolean) => {
+      writeSidebarCompactToStorage(account.tenant, compact);
+      setUiPreferences((prev) => ({ ...prev, sidebarCompact: compact }));
+    },
+    [account.tenant]
+  );
 
   const applyMorphoSync = useCallback((walletId: string, result: MorphoSyncResult) => {
     setAssets((prev) => [
@@ -329,6 +363,75 @@ export function PortfolioProvider({
   const getSections = useCallback(
     (page: PageType) => getSectionsForPage(sections, page),
     [sections]
+  );
+
+  const getSectionGroups = useCallback(
+    (page: SectionGroupPage) => getSectionGroupsForPage(sectionGroups, page),
+    [sectionGroups]
+  );
+
+  const upsertSectionGroup = useCallback((group: SectionGroup) => {
+    setSectionGroups((prev) => {
+      const idx = prev.findIndex((g) => g.id === group.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = group;
+        return next;
+      }
+      return [...prev, group];
+    });
+  }, []);
+
+  const addSectionGroup = useCallback(
+    (page: SectionGroupPage, name: string) => {
+      const trimmed = name.trim();
+      const group: SectionGroup = {
+        id: createSectionGroupId(page),
+        page,
+        name: trimmed,
+        order: getSectionGroupsForPage(sectionGroups, page).length,
+      };
+      setSectionGroups((prev) => [...prev, group]);
+      return group;
+    },
+    [sectionGroups]
+  );
+
+  const deleteSectionGroup = useCallback(
+    (groupId: string, mode: "ungroup" | "deleteAll") => {
+      const group = sectionGroups.find((g) => g.id === groupId);
+      if (!group) return;
+      const memberIds = sections
+        .filter((section) => section.groupId === groupId)
+        .map((section) => section.id);
+
+      if (mode === "ungroup") {
+        setSections((prev) =>
+          prev.map((section) =>
+            section.groupId === groupId ? { ...section, groupId: undefined } : section
+          )
+        );
+      } else {
+        setSections((prev) => prev.filter((section) => section.groupId !== groupId));
+        switch (group.page) {
+          case "assets":
+            setAssets((prev) => prev.filter((asset) => !memberIds.includes(asset.sectionId)));
+            break;
+          case "cash":
+            setCashAccounts((prev) =>
+              prev.filter((account) => !memberIds.includes(account.sectionId))
+            );
+            break;
+          case "liabilities":
+            setLiabilities((prev) =>
+              prev.filter((liability) => !memberIds.includes(liability.sectionId))
+            );
+            break;
+        }
+      }
+      setSectionGroups((prev) => prev.filter((g) => g.id !== groupId));
+    },
+    [sectionGroups, sections]
   );
 
   const upsertSection = useCallback((section: PortfolioSection) => {
@@ -506,11 +609,19 @@ export function PortfolioProvider({
       collect(id);
       return prev.filter((n) => !remove.has(n.id));
     });
+    setSections((prev) =>
+      prev.map((s) =>
+        s.metadata?.walletId === id
+          ? { ...s, metadata: { ...s.metadata, walletId: undefined } }
+          : s
+      )
+    );
   }, []);
 
   const replacePortfolioData = useCallback((data: PortfolioImportResult) => {
-    hydrateFromPayload(data, {
+    hydrateFromPayload(data, account.tenant, {
       setSections,
+      setSectionGroups,
       setAssets,
       setCashAccounts,
       setLiabilities,
@@ -520,11 +631,10 @@ export function PortfolioProvider({
       setIncomePlan,
       setWalletMapNodes,
       setUiPreferences,
-      setConnectedWallets,
       setMonthlyIncome,
       setNetWorthHistory,
     });
-  }, []);
+  }, [account.tenant]);
 
   useEffect(() => {
     if (skipPersistRef.current) {
@@ -534,6 +644,7 @@ export function PortfolioProvider({
 
     const payload = buildPortfolioPayload({
       sections,
+      sectionGroups,
       assets,
       cashAccounts,
       liabilities,
@@ -543,7 +654,6 @@ export function PortfolioProvider({
       incomePlan,
       walletMapNodes,
       uiPreferences,
-      connectedWallets,
       monthlyIncome,
       netWorthHistory,
     });
@@ -564,6 +674,7 @@ export function PortfolioProvider({
     };
   }, [
     sections,
+    sectionGroups,
     assets,
     cashAccounts,
     liabilities,
@@ -573,7 +684,6 @@ export function PortfolioProvider({
     incomePlan,
     walletMapNodes,
     uiPreferences,
-    connectedWallets,
     monthlyIncome,
     netWorthHistory,
   ]);
@@ -581,6 +691,7 @@ export function PortfolioProvider({
   const value = useMemo(
     () => ({
       sections,
+      sectionGroups,
       assets,
       cashAccounts,
       liabilities,
@@ -591,9 +702,17 @@ export function PortfolioProvider({
       setIncomePlanDescription,
       walletMapNodes,
       netWorthHistory,
+      setNetWorthHistory: setNetWorthHistorySorted,
+      upsertNetWorthSnapshotAt,
+      addNetWorthSnapshot,
+      deleteNetWorthSnapshot,
       monthlyIncome,
       setMonthlyIncome,
       getSections,
+      getSectionGroups,
+      upsertSectionGroup,
+      deleteSectionGroup,
+      addSectionGroup,
       upsertSection,
       deleteSection,
       addSection,
@@ -615,10 +734,9 @@ export function PortfolioProvider({
       setNavPageVisible,
       setPlanTabVisible,
       setOverviewChartPreferences,
+      setMonthlyAutoSnapshot,
       setThemePreference,
-      connectedWallets,
-      upsertConnectedWallet,
-      deleteConnectedWallet,
+      setSidebarCompact,
       applyMorphoSync,
       applyAssetPrices,
       replacePortfolioData,
@@ -627,6 +745,7 @@ export function PortfolioProvider({
     }),
     [
       sections,
+      sectionGroups,
       assets,
       cashAccounts,
       liabilities,
@@ -637,8 +756,16 @@ export function PortfolioProvider({
       setIncomePlanDescription,
       walletMapNodes,
       netWorthHistory,
+      setNetWorthHistorySorted,
+      upsertNetWorthSnapshotAt,
+      addNetWorthSnapshot,
+      deleteNetWorthSnapshot,
       monthlyIncome,
       getSections,
+      getSectionGroups,
+      upsertSectionGroup,
+      deleteSectionGroup,
+      addSectionGroup,
       upsertSection,
       deleteSection,
       addSection,
@@ -660,10 +787,9 @@ export function PortfolioProvider({
       setNavPageVisible,
       setPlanTabVisible,
       setOverviewChartPreferences,
+      setMonthlyAutoSnapshot,
       setThemePreference,
-      connectedWallets,
-      upsertConnectedWallet,
-      deleteConnectedWallet,
+      setSidebarCompact,
       applyMorphoSync,
       applyAssetPrices,
       replacePortfolioData,

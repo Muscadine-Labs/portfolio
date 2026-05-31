@@ -36,25 +36,11 @@ export interface OverviewChartPreferences {
   barColor: string;
   lineColor: string;
   lineType: OverviewChartLineType;
+  showCostBasisLine: boolean;
+  costBasisLineColor: string;
 }
 
-export type WalletChain = "ethereum" | "base" | "bitcoin" | "other";
-
-/** On-chain wallet registered in Settings (address only — no keys). */
-export interface ConnectedWallet {
-  id: string;
-  label: string;
-  address: string;
-  /** Address type and default chain for Morpho sync — not how assets are grouped. */
-  chain: WalletChain;
-  notes?: string;
-  /** Target sections when running Morpho sync */
-  links?: {
-    assetsSectionId?: string;
-    cashSectionId?: string;
-    liabilitiesSectionId?: string;
-  };
-}
+export type WalletChain = "ethereum" | "base" | "bitcoin" | "solana" | "other";
 
 import type { ThemePreference } from "@/lib/theme-preference";
 
@@ -77,6 +63,20 @@ export interface UiPreferences {
     goals: boolean;
   };
   overviewChart: OverviewChartPreferences;
+  /** Icon-only sidebar on desktop — persisted per user. */
+  sidebarCompact: boolean;
+  /** When enabled, the home API records net worth on the 1st of each month. */
+  monthlyAutoSnapshot: boolean;
+}
+
+export type SectionGroupPage = "assets" | "cash" | "liabilities";
+
+/** Named roll-up bucket (Overview + grouped Assets/Cash/Liabilities pages). */
+export interface SectionGroup {
+  id: string;
+  page: SectionGroupPage;
+  name: string;
+  order: number;
 }
 
 export interface SectionMetadata {
@@ -87,6 +87,10 @@ export interface SectionMetadata {
    * Crypto is grouped by wallet; `network` on each asset is the chain for that position.
    */
   walletId?: string;
+  /** Custodian or provider, e.g. Fidelity, Coinbase */
+  account?: string;
+  /** @deprecated Migrated to sectionGroups + groupId */
+  overviewGroup?: string;
 }
 
 export interface PortfolioSection {
@@ -94,6 +98,8 @@ export interface PortfolioSection {
   page: PageType;
   label: string;
   order: number;
+  /** SectionGroup.id on the same page */
+  groupId?: string;
   metadata?: SectionMetadata;
 }
 
@@ -181,6 +187,10 @@ export interface AllocationNode {
   percentOfParent: number;
   order: number;
   notes?: string;
+  /** Percent of parent/income (default) or fixed monthly dollar amount. */
+  targetMode?: "percent" | "amount";
+  /** Fixed $/mo when targetMode is "amount". */
+  monthlyAmount?: number;
   /** Compare plan $/mo to live total in this portfolio section. */
   trackPage?: GoalTrackPage;
   trackSectionId?: string;
@@ -197,17 +207,27 @@ export type WalletType =
   | "dev"
   | "other";
 
-/** BIP-85 / Start9 wallet hierarchy (reference map — no secrets stored here). */
+/** BIP-85 / Start9 wallet hierarchy plus on-chain addresses (no secrets stored here). */
 export interface WalletMapNode {
   id: string;
   parentId: string | null;
   label: string;
   order: number;
-  /** Person or role (e.g. Nick, Chris, Jack). */
+  /** Optional role label for imports (deprecated in UI — avoid real names). */
   owner?: string;
   walletType?: WalletType;
-  /** ENS, shortened address, or descriptor shown in the tree */
+  /** On-chain address for sync and portfolio linking. */
+  address?: string;
+  /** @deprecated Migrated to `address` on load. */
   identifier?: string;
+  /** Chains this address is used on (e.g. Ethereum + Base for the same EVM address). */
+  networks?: WalletChain[];
+  /** Target sections when running Morpho sync. */
+  links?: {
+    assetsSectionId?: string;
+    cashSectionId?: string;
+    liabilitiesSectionId?: string;
+  };
   /** active = in use; planned = reserved slot not yet created */
   status: "active" | "planned";
   notes?: string;
@@ -218,6 +238,8 @@ export interface NetWorthSnapshot {
   netWorth: number;
   totalAssets?: number;
   totalLiabilities?: number;
+  /** Sum of asset cost basis at snapshot time (investments only). */
+  totalCostBasis?: number;
 }
 
 export interface AssetAllocation {

@@ -3,10 +3,7 @@ import { OverviewContent } from "@/components/dashboard/OverviewContent";
 
 export default function DashboardPage() {
   return (
-    <TenantPage
-      title="Overview"
-      description="Net worth snapshot across assets, cash, and liabilities"
-    >
+    <TenantPage title="Overview" compact>
       <OverviewContent />
     </TenantPage>
   );

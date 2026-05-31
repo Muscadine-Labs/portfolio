@@ -5,9 +5,9 @@ import { AssetTable } from "@/components/assets/AssetTable";
 
 export default function AssetsPage() {
   return (
-    <TenantPage title="Assets" description="Stocks, crypto, real estate, and more">
+    <TenantPage title="Assets" compact>
       <NavPageGuard page="assets">
-        <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-muted/30" />}>
+        <Suspense fallback={<div className="h-24 animate-pulse rounded-md bg-muted/40" />}>
           <AssetTable />
         </Suspense>
       </NavPageGuard>

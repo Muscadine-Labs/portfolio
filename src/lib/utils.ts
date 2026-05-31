@@ -9,9 +9,9 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(
   value: number,
-  options?: { compact?: boolean; maximumFractionDigits?: number }
+  options?: { compact?: boolean; maximumFractionDigits?: number; minimumFractionDigits?: number }
 ): string {
-  const { compact = false, maximumFractionDigits = 2 } = options ?? {};
+  const { compact = false, maximumFractionDigits = 2, minimumFractionDigits } = options ?? {};
   if (compact && Math.abs(value) >= 1_000_000) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -20,11 +20,16 @@ export function formatCurrency(
       maximumFractionDigits: 1,
     }).format(value);
   }
+  const maxDigits = Math.max(0, Math.min(20, maximumFractionDigits));
+  const minDigits = Math.max(
+    0,
+    Math.min(maxDigits, minimumFractionDigits ?? Math.min(2, maxDigits))
+  );
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits,
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits,
   }).format(value);
 }
 

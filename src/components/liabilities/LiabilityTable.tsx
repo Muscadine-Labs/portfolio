@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSectionFilterFromUrl, useScrollToSectionFromUrl } from "@/hooks/use-section-from-url";
+import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
 import {
@@ -14,11 +14,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LiabilityDrawer } from "@/components/liabilities/LiabilityDrawer";
 import { SectionDrawer } from "@/components/sections/SectionDrawer";
-import { SectionHeader, AddSectionButton } from "@/components/sections/SectionHeader";
-import { RecordFilters, toggleColumnInSet } from "@/components/shared/RecordFilters";
+import { SectionGroupBlock, UngroupedSectionsBlock } from "@/components/sections/SectionGroupBlock";
+import { SectionGroupDrawer } from "@/components/sections/SectionGroupDrawer";
+import { AddSectionButton } from "@/components/sections/SectionHeader";
+import { toggleColumnInSet } from "@/components/shared/ColumnPickerPopover";
+import { PortfolioPageToolbar, type PortfolioSectionNavItem } from "@/components/shared/PortfolioPageToolbar";
+import { PortfolioSectionBlock } from "@/components/shared/PortfolioSectionBlock";
 import {
   DEFAULT_LIABILITY_COLUMNS,
   LIABILITY_COLUMN_OPTIONS,
@@ -29,8 +32,15 @@ import { computeTotalLiabilities } from "@/lib/mock-data";
 import { sumLiabilitySectionTotals } from "@/lib/section-totals";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import { LtvBar } from "@/components/liabilities/LtvBar";
-import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
-import type { Liability, PortfolioSection } from "@/types";
+import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
+import {
+  buildPageSectionLayout,
+  formatSectionDisplayLabel,
+  sectionFilterMatches,
+} from "@/lib/section-groups";
+import type { Liability, PortfolioSection, SectionGroup } from "@/types";
+
+const debtCell = "text-red-500/90 dark:text-red-400/85";
 
 function matchesSearch(liability: Liability, query: string): boolean {
   if (!query.trim()) return true;
@@ -82,16 +92,24 @@ function liabilityFooterLabelColSpan(col: (key: LiabilityColumnKey) => boolean):
 export function LiabilityTable() {
   const {
     liabilities,
+    sectionGroups,
     getSections,
+    getSectionGroups,
+    upsertSectionGroup,
+    deleteSectionGroup,
     upsertLiability,
     deleteLiability,
     upsertSection,
     deleteSection,
   } = usePortfolio();
   const sections = getSections("liabilities");
-  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections]);
+  const groups = getSectionGroups("liabilities");
+  const filterIds = useMemo(
+    () => [...groups.map((group) => `group:${group.id}`), ...sections.map((s) => s.id)],
+    [groups, sections]
+  );
   const { sectionFilter, setSectionFilter, highlightSectionId } =
-    useSectionFilterFromUrl(sectionIds);
+    useSectionFilterFromUrl(filterIds);
   useScrollToSectionFromUrl();
 
   const [search, setSearch] = useState("");
@@ -101,19 +119,37 @@ export function LiabilityTable() {
 
   const [liabilityDrawerOpen, setLiabilityDrawerOpen] = useState(false);
   const [sectionDrawerOpen, setSectionDrawerOpen] = useState(false);
+  const [groupDrawerOpen, setGroupDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Liability | null>(null);
   const [editingSection, setEditingSection] = useState<PortfolioSection | null>(null);
+  const [editingGroup, setEditingGroup] = useState<SectionGroup | null>(null);
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
+  const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
 
-  const filteredSections = useMemo(() => {
+  const panel = portfolioPanel("liabilities");
+
+  const sectionDebtById = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const item of liabilities) {
+      totals[item.sectionId] = (totals[item.sectionId] ?? 0) + item.balance;
+    }
+    return totals;
+  }, [liabilities]);
+
+  const visibleSections = useMemo(() => {
     if (sectionFilter === "all") return sections;
-    return sections.filter((s) => s.id === sectionFilter);
+    return sections.filter((section) => sectionFilterMatches(sectionFilter, section));
   }, [sections, sectionFilter]);
+
+  const pageLayout = useMemo(
+    () => buildPageSectionLayout("liabilities", sectionGroups, visibleSections, sectionDebtById),
+    [sectionGroups, visibleSections, sectionDebtById]
+  );
 
   const { resultCount, itemsBySection } = useMemo(() => {
     let count = 0;
     const bySection: Record<string, Liability[]> = {};
-    for (const section of filteredSections) {
+    for (const section of visibleSections) {
       const rows = liabilities.filter(
         (l) => l.sectionId === section.id && matchesSearch(l, search)
       );
@@ -121,10 +157,35 @@ export function LiabilityTable() {
       count += rows.length;
     }
     return { resultCount: count, itemsBySection: bySection };
-  }, [liabilities, filteredSections, search]);
+  }, [liabilities, visibleSections, search]);
 
   const total = computeTotalLiabilities(liabilities);
   const showEmptySections = search.trim() === "" && sectionFilter === "all";
+
+  const sectionNavItems: PortfolioSectionNavItem[] = useMemo(() => {
+    const items = [
+      ...groups.map((group) => {
+        const memberIds = sections
+          .filter((section) => section.groupId === group.id)
+          .map((section) => section.id);
+        return {
+          id: `group:${group.id}`,
+          label: group.name,
+          value: memberIds.reduce((sum, id) => sum + (sectionDebtById[id] ?? 0), 0),
+          assetCount: liabilities.filter((item) => memberIds.includes(item.sectionId)).length,
+        };
+      }),
+      ...sections
+        .filter((section) => !section.groupId)
+        .map((section) => ({
+          id: section.id,
+          label: formatSectionDisplayLabel(section),
+          value: sectionDebtById[section.id] ?? 0,
+          assetCount: liabilities.filter((item) => item.sectionId === section.id).length,
+        })),
+    ];
+    return items.sort((a, b) => b.value - a.value);
+  }, [groups, sections, sectionDebtById, liabilities]);
 
   const saveSection = (section: PortfolioSection) => {
     if (editingSection) {
@@ -136,242 +197,294 @@ export function LiabilityTable() {
 
   const col = (key: LiabilityColumnKey) => visibleColumns.has(key);
 
-  return (
-    <div className="space-y-6">
-      <Card className="border-destructive/20 bg-gradient-to-br from-card to-destructive/5">
-        <CardHeader>
-          <CardTitle className="text-muted-foreground">Total Liabilities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-bold tracking-tight text-red-400">
-            <AnimatedNumber value={total} />
-          </p>
-        </CardContent>
-      </Card>
+  const handleSectionNavSelect = (sectionId: string) => {
+    setSectionFilter(sectionId);
+    scrollToPortfolioSection(sectionId);
+  };
 
-      <RecordFilters
+  const renderLiabilitySectionBlock = (section: PortfolioSection) => {
+    const items = itemsBySection[section.id] ?? [];
+    const isDefi = section.metadata?.isDefi ?? false;
+    if (items.length === 0 && !showEmptySections) return null;
+    const sectionTotals = items.length > 0 ? sumLiabilitySectionTotals(items) : null;
+    const stats = sectionTotals
+      ? [
+          {
+            label: "Debt",
+            value: formatSectionTotal(sectionTotals.totalDebt),
+            valueClassName: debtCell,
+          },
+          { label: "Collateral", value: formatSectionTotal(sectionTotals.collateral) },
+          { label: "Interest", value: formatSectionTotal(sectionTotals.interestAccrued) },
+        ]
+      : [];
+
+    return (
+      <PortfolioSectionBlock
+        key={section.id}
+        sectionId={section.id}
+        label={section.label}
+        subtitle={section.metadata?.account}
+        accent="liabilities"
+        highlighted={highlightSectionId === section.id}
+        addItemLabel="Add"
+        onAddItem={() => {
+          setEditing(null);
+          setDefaultSectionId(section.id);
+          setLiabilityDrawerOpen(true);
+        }}
+        onEditSection={() => {
+          setEditingSection(section);
+          setDefaultGroupId(section.groupId);
+          setSectionDrawerOpen(true);
+        }}
+        onDeleteSection={() => deleteSection(section.id, "liabilities")}
+        stats={stats}
+        isEmpty={items.length === 0}
+        emptyMessage="No liabilities in this section"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {col("name") && <TableHead className={panel.headCell}>Name</TableHead>}
+              {col("totalDebt") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>Debt</TableHead>
+              )}
+              {col("initialBalance") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>Initial</TableHead>
+              )}
+              {col("interestAccrued") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>Interest</TableHead>
+              )}
+              {col("apy") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>APY</TableHead>
+              )}
+              {col("address") && <TableHead className={panel.headCell}>Address</TableHead>}
+              {col("collateral") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>Collateral</TableHead>
+              )}
+              {col("lltv") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>LLTV</TableHead>
+              )}
+              {col("ltv") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>LTV</TableHead>
+              )}
+              {col("liquidationPrice") && (
+                <TableHead className={cn(panel.headCell, "text-right")}>Liq. price</TableHead>
+              )}
+              <TableHead className={cn(panel.headCell, "w-14 text-right")} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((l) => (
+              <TableRow key={l.id} className={panel.dataRow}>
+                {col("name") && <TableCell className={panel.symbolCell}>{l.name}</TableCell>}
+                {col("totalDebt") && (
+                  <TableCell className={cn(panel.dataCell, "text-right", debtCell)}>
+                    {formatCurrency(l.balance)}
+                  </TableCell>
+                )}
+                {col("initialBalance") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {fmtMoney(l.initialBalance)}
+                  </TableCell>
+                )}
+                {col("interestAccrued") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {fmtMoney(l.interestAccrued)}
+                  </TableCell>
+                )}
+                {col("apy") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.apy)}</TableCell>
+                )}
+                {col("address") && (
+                  <TableCell
+                    className={cn(
+                      panel.mutedCell,
+                      "max-w-[140px] truncate font-mono text-[11px]"
+                    )}
+                  >
+                    {l.address ?? "—"}
+                  </TableCell>
+                )}
+                {col("collateral") && (
+                  <TableCell className={cn(panel.dataCell, "text-right")}>
+                    {fmtMoney(l.collateral)}
+                  </TableCell>
+                )}
+                {col("lltv") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.lltv)}</TableCell>
+                )}
+                {col("ltv") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.ltv)}</TableCell>
+                )}
+                {col("liquidationPrice") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {fmtMoney(l.liquidationPrice)}
+                  </TableCell>
+                )}
+                <TableCell>
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={panel.iconBtn}
+                      onClick={() => {
+                        setEditing(l);
+                        setDefaultSectionId(l.sectionId);
+                        setLiabilityDrawerOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(panel.iconBtn, "hover:text-destructive")}
+                      onClick={() => deleteLiability(l.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          {sectionTotals ? (
+            <TableFooter>
+              <TableRow className={panel.footerRow}>
+                <TableCell
+                  colSpan={liabilityFooterLabelColSpan(col)}
+                  className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+                >
+                  Section total
+                </TableCell>
+                {col("totalDebt") && (
+                  <TableCell className={cn(panel.dataCell, "text-right font-medium", debtCell)}>
+                    {formatSectionTotal(sectionTotals.totalDebt)}
+                  </TableCell>
+                )}
+                {col("initialBalance") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {formatSectionTotal(sectionTotals.initialBalance)}
+                  </TableCell>
+                )}
+                {col("interestAccrued") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {formatSectionTotal(sectionTotals.interestAccrued)}
+                  </TableCell>
+                )}
+                {col("apy") && <TableCell />}
+                {col("address") && <TableCell />}
+                {col("collateral") && (
+                  <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
+                    {formatSectionTotal(sectionTotals.collateral)}
+                  </TableCell>
+                )}
+                {col("lltv") && <TableCell />}
+                {col("ltv") && (
+                  <TableCell className={cn(panel.mutedCell, "text-right")}>
+                    {sectionTotals.collateral > 0
+                      ? formatPercent((sectionTotals.totalDebt / sectionTotals.collateral) * 100)
+                      : "—"}
+                  </TableCell>
+                )}
+                {col("liquidationPrice") && <TableCell />}
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          ) : null}
+        </Table>
+
+        {isDefi &&
+          col("ltv") &&
+          items.map(
+            (l) =>
+              l.ltv != null && (
+                <div key={`ltv-${l.id}`} className="mt-2 border-t border-border/40 px-3 py-2">
+                  <p className="mb-1.5 text-xs font-medium">{l.name}</p>
+                  <LtvBar ltv={l.ltv} />
+                </div>
+              )
+          )}
+      </PortfolioSectionBlock>
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <PortfolioPageToolbar
+        accent="liabilities"
+        totalLabel="Total liabilities"
+        totalValue={total}
+        countLabel="liabilities"
+        count={liabilities.length}
+        resultCount={resultCount}
+        sectionItems={sectionNavItems}
+        activeSectionId={sectionFilter}
+        onSectionSelect={handleSectionNavSelect}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Name or address…"
-        sectionFilter={sectionFilter}
-        onSectionFilterChange={setSectionFilter}
-        sections={sections}
         columnOptions={LIABILITY_COLUMN_OPTIONS}
         visibleColumns={visibleColumns}
-        onToggleColumn={(key) => setVisibleColumns((p) => toggleColumnInSet(p, key))}
-        resultCount={resultCount}
-        totalCount={liabilities.length}
-        entityLabel="liabilities"
+        onToggleColumn={(key) =>
+          setVisibleColumns((prev) => toggleColumnInSet(prev, key))
+        }
       />
 
-      {filteredSections.map((section) => {
-        const items = itemsBySection[section.id] ?? [];
-        const isDefi = section.metadata?.isDefi ?? false;
-        if (items.length === 0 && !showEmptySections) return null;
-        const sectionTotals =
-          items.length > 0 ? sumLiabilitySectionTotals(items) : null;
+      <div className={panel.sectionStack}>
+        {pageLayout.map((block) => {
+          if (block.kind === "group") {
+            const visibleMembers = block.sections.filter((section) => {
+              const rows = itemsBySection[section.id] ?? [];
+              return rows.length > 0 || showEmptySections;
+            });
+            if (visibleMembers.length === 0) return null;
 
-        return (
-          <Card
-            key={section.id}
-            id={`section-${section.id}`}
-            className={cn(
-              "border-border/60 bg-card/80",
-              highlightSectionId === section.id && "ring-2 ring-primary/40"
-            )}
-          >
-            <SectionHeader
-              title={section.label}
-              onAddItem={() => {
-                setEditing(null);
-                setDefaultSectionId(section.id);
-                setLiabilityDrawerOpen(true);
-              }}
-              onEditSection={() => {
-                setEditingSection(section);
-                setSectionDrawerOpen(true);
-              }}
-              onDeleteSection={() => deleteSection(section.id, "liabilities")}
-              addItemLabel="Add Liability"
-            />
-            <CardContent className="overflow-x-auto p-0 pb-4">
-              {items.length === 0 ? (
-                <p className="px-6 pb-4 text-sm text-muted-foreground">No liabilities in this section</p>
-              ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {col("name") && <TableHead>Name</TableHead>}
-                        {col("totalDebt") && (
-                          <TableHead className="text-right">Total debt</TableHead>
-                        )}
-                        {col("initialBalance") && (
-                          <TableHead className="text-right">Initial balance</TableHead>
-                        )}
-                        {col("interestAccrued") && (
-                          <TableHead className="text-right">Interest accrued</TableHead>
-                        )}
-                        {col("apy") && <TableHead className="text-right">APY %</TableHead>}
-                        {col("address") && <TableHead>Address</TableHead>}
-                        {col("collateral") && (
-                          <TableHead className="text-right">Collateral</TableHead>
-                        )}
-                        {col("lltv") && <TableHead className="text-right">LLTV %</TableHead>}
-                        {col("ltv") && <TableHead className="text-right">LTV %</TableHead>}
-                        {col("liquidationPrice") && (
-                          <TableHead className="text-right">Liq. price</TableHead>
-                        )}
-                        <TableHead className="w-20" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((l) => (
-                        <TableRow key={l.id}>
-                          {col("name") && (
-                            <TableCell className="font-medium">{l.name}</TableCell>
-                          )}
-                          {col("totalDebt") && (
-                            <TableCell className="text-right tabular-nums text-red-400">
-                              {formatCurrency(l.balance)}
-                            </TableCell>
-                          )}
-                          {col("initialBalance") && (
-                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                              {fmtMoney(l.initialBalance)}
-                            </TableCell>
-                          )}
-                          {col("interestAccrued") && (
-                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                              {fmtMoney(l.interestAccrued)}
-                            </TableCell>
-                          )}
-                          {col("apy") && (
-                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                              {fmtPct(l.apy)}
-                            </TableCell>
-                          )}
-                          {col("address") && (
-                            <TableCell className="max-w-[140px] truncate font-mono text-xs text-muted-foreground">
-                              {l.address ?? "—"}
-                            </TableCell>
-                          )}
-                          {col("collateral") && (
-                            <TableCell className="text-right tabular-nums">
-                              {fmtMoney(l.collateral)}
-                            </TableCell>
-                          )}
-                          {col("lltv") && (
-                            <TableCell className="text-right tabular-nums">
-                              {fmtPct(l.lltv)}
-                            </TableCell>
-                          )}
-                          {col("ltv") && (
-                            <TableCell className="text-right tabular-nums">
-                              {fmtPct(l.ltv)}
-                            </TableCell>
-                          )}
-                          {col("liquidationPrice") && (
-                            <TableCell className="text-right tabular-nums">
-                              {fmtMoney(l.liquidationPrice)}
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                  setEditing(l);
-                                  setDefaultSectionId(l.sectionId);
-                                  setLiabilityDrawerOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => deleteLiability(l.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                    {sectionTotals ? (
-                      <TableFooter>
-                        <TableRow className="bg-muted/30 font-semibold hover:bg-muted/30">
-                          <TableCell colSpan={liabilityFooterLabelColSpan(col)}>
-                            Section total
-                          </TableCell>
-                          {col("totalDebt") && (
-                            <TableCell className="text-right tabular-nums text-red-400">
-                              {formatCurrency(sectionTotals.totalDebt)}
-                            </TableCell>
-                          )}
-                          {col("initialBalance") && (
-                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                              {fmtMoney(sectionTotals.initialBalance)}
-                            </TableCell>
-                          )}
-                          {col("interestAccrued") && (
-                            <TableCell className="text-right tabular-nums text-muted-foreground">
-                              {fmtMoney(sectionTotals.interestAccrued)}
-                            </TableCell>
-                          )}
-                          {col("apy") && <TableCell />}
-                          {col("address") && <TableCell />}
-                          {col("collateral") && (
-                            <TableCell className="text-right tabular-nums">
-                              {fmtMoney(sectionTotals.collateral)}
-                            </TableCell>
-                          )}
-                          {col("lltv") && <TableCell />}
-                          {col("ltv") && (
-                            <TableCell className="text-right tabular-nums">
-                              {sectionTotals.collateral > 0
-                                ? formatPercent(
-                                    (sectionTotals.totalDebt / sectionTotals.collateral) *
-                                      100
-                                  )
-                                : "—"}
-                            </TableCell>
-                          )}
-                          {col("liquidationPrice") && <TableCell />}
-                          <TableCell />
-                        </TableRow>
-                      </TableFooter>
-                    ) : null}
-                  </Table>
-                  {isDefi &&
-                    col("ltv") &&
-                    items.map(
-                      (l) =>
-                        l.ltv != null && (
-                          <div key={`ltv-${l.id}`} className="mt-4 px-4">
-                            <p className="mb-2 text-sm font-medium">{l.name}</p>
-                            <LtvBar ltv={l.ltv} />
-                          </div>
-                        )
-                    )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+            return (
+              <SectionGroupBlock
+                key={block.group.id}
+                group={block.group}
+                total={block.total}
+                accent="liabilities"
+                onEditGroup={() => {
+                  setEditingGroup(block.group);
+                  setGroupDrawerOpen(true);
+                }}
+                onDeleteGroup={(mode) => deleteSectionGroup(block.group.id, mode)}
+              >
+                {block.sections.map((section) => renderLiabilitySectionBlock(section))}
+              </SectionGroupBlock>
+            );
+          }
 
-      <AddSectionButton
-        onClick={() => {
-          setEditingSection(null);
-          setSectionDrawerOpen(true);
-        }}
-      />
+          return (
+            <UngroupedSectionsBlock key="ungrouped" total={block.total}>
+              {block.sections.map((section) => renderLiabilitySectionBlock(section))}
+            </UngroupedSectionsBlock>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <AddSectionButton
+          accent="liabilities"
+          onClick={() => {
+            setEditingSection(null);
+            setDefaultGroupId(undefined);
+            setSectionDrawerOpen(true);
+          }}
+        />
+        <AddSectionButton
+          accent="liabilities"
+          onClick={() => {
+            setEditingGroup(null);
+            setGroupDrawerOpen(true);
+          }}
+          label="Add group"
+        />
+      </div>
 
       <LiabilityDrawer
         open={liabilityDrawerOpen}
@@ -385,9 +498,18 @@ export function LiabilityTable() {
         onOpenChange={setSectionDrawerOpen}
         section={editingSection}
         page="liabilities"
+        defaultGroupId={defaultGroupId}
         onSave={saveSection}
         showDefiToggle
         linkWallet
+      />
+      <SectionGroupDrawer
+        open={groupDrawerOpen}
+        onOpenChange={setGroupDrawerOpen}
+        group={editingGroup}
+        page="liabilities"
+        defaultOrder={groups.length}
+        onSave={upsertSectionGroup}
       />
     </div>
   );

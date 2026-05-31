@@ -18,10 +18,18 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createSectionId } from "@/lib/sections";
-import type { PageType, PortfolioSection } from "@/types";
+import { formatWalletAddress } from "@/lib/asset-sections";
+import { isSectionGroupPage } from "@/lib/section-groups";
+import type { PageType, PortfolioSection, SectionGroupPage } from "@/types";
+
+const NEW_GROUP_VALUE = "__new__";
+const NO_GROUP_VALUE = "";
 
 const sectionSchema = z.object({
   label: z.string().min(1, "Section name is required"),
+  account: z.string().optional(),
+  groupSelection: z.string().optional(),
+  newGroupName: z.string().optional(),
   isDefi: z.boolean().optional(),
   walletId: z.string().optional(),
 });
@@ -33,9 +41,9 @@ interface SectionDrawerProps {
   onOpenChange: (open: boolean) => void;
   section?: PortfolioSection | null;
   page: PageType;
+  defaultGroupId?: string;
   onSave: (section: PortfolioSection) => void;
   showDefiToggle?: boolean;
-  /** Assets, cash, or liabilities — allow linking a connected wallet */
   linkWallet?: boolean;
 }
 
@@ -44,17 +52,29 @@ export function SectionDrawer({
   onOpenChange,
   section,
   page,
+  defaultGroupId,
   onSave,
   showDefiToggle = false,
   linkWallet = false,
 }: SectionDrawerProps) {
-  const { connectedWallets } = usePortfolio();
+  const { walletMapNodes, getSectionGroups, addSectionGroup } = usePortfolio();
+  const supportsGroups = isSectionGroupPage(page);
+  const pageGroups = supportsGroups ? getSectionGroups(page as SectionGroupPage) : [];
+
   const { register, handleSubmit, reset, setValue, control } = useForm<SectionFormValues>({
     resolver: zodResolver(sectionSchema),
-    defaultValues: { label: "", isDefi: false, walletId: "" },
+    defaultValues: {
+      label: "",
+      account: "",
+      groupSelection: NO_GROUP_VALUE,
+      newGroupName: "",
+      isDefi: false,
+      walletId: "",
+    },
   });
 
   const walletId = useWatch({ control, name: "walletId" });
+  const groupSelection = useWatch({ control, name: "groupSelection" });
 
   useDrawerFormReset(
     open,
@@ -63,13 +83,23 @@ export function SectionDrawer({
       if (section) {
         return {
           label: section.label,
+          account: section.metadata?.account ?? "",
+          groupSelection: section.groupId ?? NO_GROUP_VALUE,
+          newGroupName: "",
           isDefi: section.metadata?.isDefi ?? false,
           walletId: section.metadata?.walletId ?? "",
         };
       }
-      return { label: "", isDefi: false, walletId: "" };
+      return {
+        label: "",
+        account: "",
+        groupSelection: defaultGroupId ?? NO_GROUP_VALUE,
+        newGroupName: "",
+        isDefi: false,
+        walletId: "",
+      };
     },
-    [section?.id]
+    [section?.id, defaultGroupId]
   );
 
   const onSubmit = (values: SectionFormValues) => {
@@ -79,13 +109,33 @@ export function SectionDrawer({
       if (values.walletId) metadata.walletId = values.walletId;
       else delete metadata.walletId;
     }
+    const account = values.account?.trim();
+    if (account) metadata.account = account;
+    else delete metadata.account;
+
+    let groupId: string | undefined;
+    if (supportsGroups) {
+      if (values.groupSelection === NEW_GROUP_VALUE) {
+        const newName = values.newGroupName?.trim();
+        if (newName) {
+          groupId = addSectionGroup(page as SectionGroupPage, newName).id;
+        }
+      } else if (values.groupSelection) {
+        groupId = values.groupSelection;
+      }
+    }
+
     const hasMeta =
-      metadata.isDefi === true || (metadata.walletId != null && metadata.walletId !== "");
+      metadata.isDefi === true ||
+      (metadata.walletId != null && metadata.walletId !== "") ||
+      (metadata.account != null && metadata.account !== "");
+
     onSave({
       id: section?.id ?? createSectionId(page),
       page,
-      label: values.label,
+      label: values.label.trim(),
       order: section?.order ?? 999,
+      groupId,
       metadata: hasMeta ? metadata : undefined,
     });
     onOpenChange(false);
@@ -93,10 +143,18 @@ export function SectionDrawer({
 
   const walletOptions = [
     { value: "", label: "No linked wallet" },
-    ...connectedWallets.map((w) => ({
+    ...walletMapNodes.map((w) => ({
       value: w.id,
-      label: `${w.label} (${w.address.slice(0, 6)}…${w.address.slice(-4)})`,
+      label: w.address
+        ? `${w.label} (${formatWalletAddress(w.address)})`
+        : w.label,
     })),
+  ];
+
+  const groupOptions = [
+    { value: NO_GROUP_VALUE, label: "No group" },
+    ...pageGroups.map((group) => ({ value: group.id, label: group.name })),
+    { value: NEW_GROUP_VALUE, label: "Create new group…" },
   ];
 
   return (
@@ -106,11 +164,36 @@ export function SectionDrawer({
           <DrawerTitle>{section ? "Edit Section" : "Add Section"}</DrawerTitle>
         </DrawerHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
+          {supportsGroups ? (
+            <div className="space-y-2">
+              <Label htmlFor="section-group">Group</Label>
+              <NativeSelect
+                id="section-group"
+                value={groupSelection ?? NO_GROUP_VALUE}
+                onValueChange={(v) => setValue("groupSelection", v)}
+                options={groupOptions}
+              />
+              {groupSelection === NEW_GROUP_VALUE ? (
+                <Input
+                  {...register("newGroupName")}
+                  placeholder="New group name, e.g. Retirement"
+                />
+              ) : null}
+            </div>
+          ) : null}
           <div className="space-y-2">
-            <Label htmlFor="section-label">Section Name</Label>
-            <Input id="section-label" {...register("label")} placeholder="e.g. Brokerage" />
+            <Label htmlFor="section-label">Section name</Label>
+            <Input id="section-label" {...register("label")} placeholder="e.g. ROTH, Checking" />
           </div>
-          {linkWallet && connectedWallets.length > 0 ? (
+          <div className="space-y-2">
+            <Label htmlFor="section-account">Account / provider</Label>
+            <Input
+              id="section-account"
+              {...register("account")}
+              placeholder="Optional — e.g. Fidelity, Coinbase"
+            />
+          </div>
+          {linkWallet && walletMapNodes.length > 0 ? (
             <div className="space-y-2">
               <Label htmlFor="section-wallet">Connected wallet</Label>
               <NativeSelect
@@ -125,7 +208,7 @@ export function SectionDrawer({
               </p>
             </div>
           ) : null}
-          {showDefiToggle && (
+          {showDefiToggle ? (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -134,7 +217,7 @@ export function SectionDrawer({
               />
               DeFi section (show collateral / LTV columns)
             </label>
-          )}
+          ) : null}
           <DrawerFooter className="px-0">
             <Button type="submit">{section ? "Save" : "Create Section"}</Button>
             <DrawerClose asChild>

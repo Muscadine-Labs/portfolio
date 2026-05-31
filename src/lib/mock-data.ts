@@ -1,5 +1,5 @@
 /**
- * Compute helpers only — portfolio rows come from the home API (api.portfolio).
+ * Compute helpers only — portfolio rows come from the home API (api-portfolio).
  */
 import type { CashAccount, Liability } from "@/types";
 import { getMarketValue } from "@/lib/utils";
