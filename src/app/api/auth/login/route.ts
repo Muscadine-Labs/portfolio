@@ -7,11 +7,13 @@ import {
   sessionCookieOptions,
   validateCredentials,
 } from "@/lib/auth";
-import { proxyToHomeApi } from "@/lib/home-api";
+import { proxyToHomeApi, getHomeApiBaseUrl } from "@/lib/home-api";
 
 export async function POST(request: Request) {
-  const proxied = await proxyToHomeApi(request, "/api/auth/login");
-  if (proxied) return proxied;
+  if (getHomeApiBaseUrl()) {
+    const proxied = await proxyToHomeApi(request, "/api/auth/login");
+    return proxied ?? Response.json({ error: "Home API unreachable" }, { status: 502 });
+  }
 
   const headersList = await headers();
   const tenant =

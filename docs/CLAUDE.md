@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v0.6.0** — Section groups, net worth history editing, WS-style overview chart (bars + cost basis line), portfolio page toolbar, scroll/layout fixes.
+**Release v0.7.0** — Login proxy fix for Vercel, API secret rotation, overview chart improvements.
 
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 

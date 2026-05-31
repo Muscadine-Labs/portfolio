@@ -60,21 +60,73 @@ function chartValuePoints(data: NetWorthSnapshot[]): number[] {
   return values;
 }
 
-/** Y-axis bounds so net-worth moves are visible (not flattened against zero). */
+/** Round step to 1 / 2 / 2.5 / 5 / 10 × power of ten. */
+function niceStep(roughStep: number): number {
+  if (!Number.isFinite(roughStep) || roughStep <= 0) return 10_000;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalized = roughStep / magnitude;
+  let nice = 10;
+  if (normalized <= 1) nice = 1;
+  else if (normalized <= 2) nice = 2;
+  else if (normalized <= 2.5) nice = 2.5;
+  else if (normalized <= 5) nice = 5;
+  return nice * magnitude;
+}
+
+export function formatNetWorthAxisTick(value: number): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (n >= 1_000_000) {
+    const millions = n / 1_000_000;
+    return millions % 1 === 0 ? `$${millions}M` : `$${millions.toFixed(1)}M`;
+  }
+  if (n >= 10_000) return `$${Math.round(n / 1000)}k`;
+  if (n >= 1_000) {
+    const thousands = n / 1000;
+    return thousands % 1 === 0 ? `$${thousands}k` : `$${thousands.toFixed(1)}k`;
+  }
+  return `$${n}`;
+}
+
+/** Y-axis domain + evenly spaced “nice” dollar ticks (~4–6 lines). */
+export function netWorthChartScale(
+  data: NetWorthSnapshot[],
+  targetTicks = 5
+): { domain: [number, number]; ticks: number[] } {
+  if (data.length === 0) {
+    return { domain: [0, 100_000], ticks: [0, 25_000, 50_000, 75_000, 100_000] };
+  }
+
+  const values = chartValuePoints(data);
+  if (values.length === 0) {
+    return { domain: [0, 100_000], ticks: [0, 25_000, 50_000, 75_000, 100_000] };
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || Math.max(max * 0.12, 10_000);
+  const pad = span * 0.06;
+  const paddedMin = Math.max(0, min - pad);
+  const paddedMax = max + pad;
+  const step = niceStep((paddedMax - paddedMin) / Math.max(2, targetTicks - 1));
+  const yMin = Math.floor(paddedMin / step) * step;
+  const yMax = Math.ceil(paddedMax / step) * step;
+
+  const ticks: number[] = [];
+  for (let value = yMin; value <= yMax + step * 0.001; value += step) {
+    ticks.push(Math.round(value));
+  }
+
+  return { domain: [yMin, yMax], ticks };
+}
+
+/** @deprecated Use netWorthChartScale — kept for callers that only need domain. */
 export function netWorthChartYDomain(
   data: NetWorthSnapshot[],
   paddingRatio = 0.08
 ): [number, number] {
-  if (data.length === 0) return [0, 100_000];
-  const values = chartValuePoints(data);
-  if (values.length === 0) return [0, 100_000];
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || max * 0.12;
-  const pad = range * paddingRatio;
-  const yMin = Math.floor((min - pad) / 5000) * 5000;
-  const yMax = Math.ceil((max + pad) / 5000) * 5000;
-  return [Math.max(0, yMin), yMax];
+  void paddingRatio;
+  return netWorthChartScale(data).domain;
 }
 
 export function hasNetWorthCostBasisSeries(data: NetWorthSnapshot[]): boolean {
