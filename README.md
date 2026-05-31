@@ -67,8 +67,9 @@ src/
 ├── lib/              # Portfolio logic, validation, auth, proxy
 ├── types/
 └── proxy.ts          # Session gate (middleware)
-docs/CLAUDE.md        # Agent guide
+CLAUDE.md             # Agent guide
 SECURITY.md           # Privacy and trust boundaries
+LICENSE               # MIT
 ```
 
 ---
@@ -88,7 +89,7 @@ Single hostname (`portfolio.muscadine.io`). Middleware redirects unauthenticated
 
 ---
 
-## Deployment status (v0.7.0)
+## Deployment status (v0.7.1)
 
 | Component | Status |
 |-----------|--------|
@@ -100,4 +101,4 @@ Single hostname (`portfolio.muscadine.io`). Middleware redirects unauthenticated
 | DB backup job | Not configured |
 | Net worth snapshot timer | Optional — see api-portfolio `scripts/` |
 
-See `SECURITY.md` for privacy boundaries and `docs/CLAUDE.md` for codebase conventions.
+See `SECURITY.md`, `CLAUDE.md`, and `LICENSE` for privacy, agent conventions, and license.

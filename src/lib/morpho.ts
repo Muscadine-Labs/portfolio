@@ -41,9 +41,9 @@ export interface MorphoSyncResult {
 }
 
 export interface MorphoSectionTargets {
-  assetsSectionId: string;
-  cashSectionId: string;
-  liabilitiesSectionId: string;
+  assetsSectionId?: string;
+  cashSectionId?: string;
+  liabilitiesSectionId?: string;
 }
 
 const MORPHO_API = "https://api.morpho.org/graphql";
@@ -155,7 +155,7 @@ export async function fetchMorphoPositions(
 
   for (const row of user.vaultV2Positions ?? []) {
     const usd = row.assetsUsd ?? 0;
-    if (usd < 0.01) continue;
+    if (usd < 0.01 || !targets.assetsSectionId) continue;
     const name = row.vault.name || "Morpho Vault V2";
     const symbol = row.vault.symbol?.trim() || "VAULT";
     assets.push({
@@ -172,7 +172,7 @@ export async function fetchMorphoPositions(
 
   for (const row of user.vaultPositions ?? []) {
     const usd = row.state?.assetsUsd ?? 0;
-    if (usd < 0.01) continue;
+    if (usd < 0.01 || !targets.assetsSectionId) continue;
     const name = row.vault.name || "Morpho Vault";
     const symbol = row.vault.symbol?.trim() || "VAULT";
     assets.push({
@@ -194,7 +194,7 @@ export async function fetchMorphoPositions(
     const borrowUsd = row.state.borrowAssetsUsd ?? 0;
     const supplyUsd = row.state.supplyAssetsUsd ?? 0;
 
-    if (collateralUsd >= 0.01) {
+    if (collateralUsd >= 0.01 && targets.assetsSectionId) {
       const collateralSymbol = row.market.collateralAsset?.symbol ?? "Collateral";
       assets.push({
         id: `morpho-${walletId}-col-${key}`,
@@ -208,7 +208,7 @@ export async function fetchMorphoPositions(
       });
     }
 
-    if (borrowUsd >= 0.01) {
+    if (borrowUsd >= 0.01 && targets.liabilitiesSectionId) {
       const ltv = collateralUsd > 0 ? (borrowUsd / collateralUsd) * 100 : undefined;
       liabilities.push({
         id: `morpho-${walletId}-borrow-${key}`,
@@ -224,7 +224,7 @@ export async function fetchMorphoPositions(
       });
     }
 
-    if (supplyUsd >= 0.01) {
+    if (supplyUsd >= 0.01 && targets.cashSectionId) {
       const loanSymbol = row.market.loanAsset?.symbol ?? "Supply";
       cashAccounts.push({
         id: `morpho-${walletId}-supply-${key}`,

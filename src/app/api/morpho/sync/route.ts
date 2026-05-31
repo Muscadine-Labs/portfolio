@@ -35,23 +35,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const assetsSectionId = body.assetsSectionId?.trim();
-  const cashSectionId = body.cashSectionId?.trim();
-  const liabilitiesSectionId = body.liabilitiesSectionId?.trim();
+  const targets = {
+    assetsSectionId: body.assetsSectionId?.trim() || undefined,
+    cashSectionId: body.cashSectionId?.trim() || undefined,
+    liabilitiesSectionId: body.liabilitiesSectionId?.trim() || undefined,
+  };
 
-  if (!assetsSectionId || !cashSectionId || !liabilitiesSectionId) {
+  if (!targets.assetsSectionId && !targets.cashSectionId && !targets.liabilitiesSectionId) {
     return NextResponse.json(
-      { error: "assetsSectionId, cashSectionId, and liabilitiesSectionId are required." },
+      { error: "Link at least one portfolio section (assets, cash, or liabilities) before syncing." },
       { status: 400 }
     );
   }
 
   try {
-    const result = await fetchMorphoPositions(address, morphoChainId, walletId, {
-      assetsSectionId,
-      cashSectionId,
-      liabilitiesSectionId,
-    });
+    const result = await fetchMorphoPositions(address, morphoChainId, walletId, targets);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Morpho sync failed";

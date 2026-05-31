@@ -14,6 +14,11 @@ import {
   getMorphoWalletNetworks,
   walletNetworkLabel,
 } from "@/lib/wallet-address";
+import {
+  hasMorphoSectionTarget,
+  resolveWalletSectionTargets,
+  sectionLabelForTarget,
+} from "@/lib/wallet-section-links";
 import { getWalletChildren, isOnChainWallet } from "@/lib/wallet-map";
 import { walletTypeLabel } from "@/lib/wallet-types";
 import { cn } from "@/lib/utils";
@@ -22,6 +27,7 @@ import type { WalletMapNode } from "@/types";
 function WalletRow({
   node,
   nodes,
+  sections,
   depth,
   syncingKey,
   onEdit,
@@ -31,6 +37,7 @@ function WalletRow({
 }: {
   node: WalletMapNode;
   nodes: WalletMapNode[];
+  sections: ReturnType<typeof usePortfolio>["sections"];
   depth: number;
   syncingKey: string | null;
   onEdit: (node: WalletMapNode) => void;
@@ -42,6 +49,18 @@ function WalletRow({
   const isPlanned = node.status === "planned";
   const typeLabel = walletTypeLabel(node.walletType);
   const morphoNetworks = getMorphoWalletNetworks(node.networks ?? []);
+  const sectionTargets = resolveWalletSectionTargets(node, sections);
+  const linkedLabels = [
+    sectionTargets.assetsSectionId
+      ? `Assets · ${sectionLabelForTarget(sections, sectionTargets.assetsSectionId)}`
+      : null,
+    sectionTargets.cashSectionId
+      ? `Cash · ${sectionLabelForTarget(sections, sectionTargets.cashSectionId)}`
+      : null,
+    sectionTargets.liabilitiesSectionId
+      ? `Liabilities · ${sectionLabelForTarget(sections, sectionTargets.liabilitiesSectionId)}`
+      : null,
+  ].filter(Boolean);
 
   return (
     <>
@@ -85,6 +104,11 @@ function WalletRow({
             ) : null}
             {node.notes ? (
               <p className="mt-0.5 text-xs text-muted-foreground/90">{node.notes}</p>
+            ) : null}
+            {linkedLabels.length > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Linked: {linkedLabels.join(" · ")}
+              </p>
             ) : null}
           </div>
           <div className="flex shrink-0 gap-0.5">
@@ -143,6 +167,7 @@ function WalletRow({
           key={child.id}
           node={child}
           nodes={nodes}
+          sections={sections}
           depth={depth + 1}
           syncingKey={syncingKey}
           onEdit={onEdit}
@@ -187,22 +212,13 @@ export function WalletMapGuide() {
   const syncMorpho = async (node: WalletMapNode, network: "ethereum" | "base") => {
     if (!node.address) return;
 
-    const assetsSectionId =
-      node.links?.assetsSectionId ??
-      sections.find((section) => section.page === "assets" && section.metadata?.walletId === node.id)
-        ?.id;
-    const cashSectionId =
-      node.links?.cashSectionId ??
-      sections.find((section) => section.page === "cash" && section.metadata?.walletId === node.id)
-        ?.id;
-    const liabilitiesSectionId =
-      node.links?.liabilitiesSectionId ??
-      sections.find(
-        (section) => section.page === "liabilities" && section.metadata?.walletId === node.id
-      )?.id;
+    const targets = resolveWalletSectionTargets(node, sections);
 
-    if (!assetsSectionId || !cashSectionId || !liabilitiesSectionId) {
-      toast.error("Set all three section targets on this wallet before syncing");
+    if (!hasMorphoSectionTarget(targets)) {
+      toast.error("Link at least one section", {
+        description:
+          "Choose an assets, cash, or liabilities section on this wallet (or from the section editor).",
+      });
       return;
     }
 
@@ -216,9 +232,7 @@ export function WalletMapGuide() {
           address: node.address,
           chain: network,
           walletId: node.id,
-          assetsSectionId,
-          cashSectionId,
-          liabilitiesSectionId,
+          ...targets,
         }),
       });
       const data = (await res.json()) as MorphoSyncResult & { error?: string };
@@ -226,7 +240,7 @@ export function WalletMapGuide() {
         toast.error("Morpho sync failed", { description: data.error });
         return;
       }
-      applyMorphoSync(node.id, data);
+      applyMorphoSync(node.id, data, targets);
       const count =
         data.assets.length + data.liabilities.length + data.cashAccounts.length;
       toast.success("Morpho sync complete", {
@@ -268,6 +282,7 @@ export function WalletMapGuide() {
                 key={root.id}
                 node={root}
                 nodes={walletMapNodes}
+                sections={sections}
                 depth={0}
                 syncingKey={syncingKey}
                 onEdit={openEdit}

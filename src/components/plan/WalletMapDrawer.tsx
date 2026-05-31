@@ -195,7 +195,8 @@ export function WalletMapDrawer({
             {node ? "Edit wallet" : parentLabel ? `Add under ${parentLabel}` : "Add root wallet"}
           </DrawerTitle>
           <DrawerDescription>
-            Plan your wallet tree and, when active, link an on-chain address and portfolio sections.
+            Plan your wallet tree. Optionally link portfolio sections — Morpho positions route to
+            whichever sections you connect (one or more of assets, cash, liabilities).
           </DrawerDescription>
         </DrawerHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-4 pb-4">
@@ -251,14 +252,19 @@ export function WalletMapDrawer({
               selected.
             </p>
           </div>
-          {address.trim() && status === "active" ? (
+          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+            <p className="text-xs font-medium text-foreground">Portfolio sections (optional)</p>
+            <p className="text-xs text-muted-foreground">
+              Link this wallet to specific sections. The section will show this wallet on its end
+              too. Morpho sync only needs the sections you care about — not all three.
+            </p>
             <div className="grid gap-2 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label className="text-xs">Assets section</Label>
                 <NativeSelect
                   value={assetsSectionId}
                   onValueChange={(value) => setValue("assetsSectionId", value)}
-                  options={[{ value: "", label: "—" }, ...assetSectionOptions]}
+                  options={[{ value: "", label: "— None —" }, ...assetSectionOptions]}
                   placeholder="Select…"
                 />
               </div>
@@ -267,7 +273,7 @@ export function WalletMapDrawer({
                 <NativeSelect
                   value={cashSectionId}
                   onValueChange={(value) => setValue("cashSectionId", value)}
-                  options={[{ value: "", label: "—" }, ...cashSectionOptions]}
+                  options={[{ value: "", label: "— None —" }, ...cashSectionOptions]}
                   placeholder="Select…"
                 />
               </div>
@@ -276,12 +282,12 @@ export function WalletMapDrawer({
                 <NativeSelect
                   value={liabilitiesSectionId}
                   onValueChange={(value) => setValue("liabilitiesSectionId", value)}
-                  options={[{ value: "", label: "—" }, ...liabilitySectionOptions]}
+                  options={[{ value: "", label: "— None —" }, ...liabilitySectionOptions]}
                   placeholder="Select…"
                 />
               </div>
             </div>
-          ) : null}
+          </div>
           <div className="space-y-2">
             <Label htmlFor="wallet-notes">Notes (optional)</Label>
             <Input

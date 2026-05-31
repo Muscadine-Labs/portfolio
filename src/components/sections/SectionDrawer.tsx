@@ -193,18 +193,25 @@ export function SectionDrawer({
               placeholder="Optional — e.g. Fidelity, Coinbase"
             />
           </div>
-          {linkWallet && walletMapNodes.length > 0 ? (
+          {linkWallet ? (
             <div className="space-y-2">
               <Label htmlFor="section-wallet">Connected wallet</Label>
-              <NativeSelect
-                id="section-wallet"
-                value={walletId ?? ""}
-                onValueChange={(v) => setValue("walletId", v)}
-                options={walletOptions}
-              />
+              {walletMapNodes.length > 0 ? (
+                <NativeSelect
+                  id="section-wallet"
+                  value={walletId ?? ""}
+                  onValueChange={(v) => setValue("walletId", v)}
+                  options={walletOptions}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No wallets yet — create one under Plan → Wallets, then link it here.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
-                Link this section to a wallet from Settings. Use Morpho sync to pull vaults and
-                markets into the linked sections.
+                Links this section to a wallet. Morpho vaults and markets sync into linked sections
+                when you run sync from Plan → Wallets. You only need to link the pages you use
+                (assets, cash, and/or liabilities).
               </p>
             </div>
           ) : null}
