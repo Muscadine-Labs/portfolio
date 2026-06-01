@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Grape, LogIn } from "lucide-react";
+import { Grape, LogIn, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: "", password: "" },
@@ -82,6 +83,26 @@ export default function LoginPage() {
     }
   };
 
+  const startDemo = async () => {
+    setDemoLoading(true);
+    try {
+      const res = await fetch("/api/auth/demo", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        toast.error("Could not start demo");
+        return;
+      }
+      toast.message("Demo mode", {
+        description: "Sample portfolio — changes are not saved.",
+      });
+      router.replace("/dashboard");
+      router.refresh();
+    } catch {
+      toast.error("Could not start demo");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="landing-gradient flex min-h-screen flex-col items-center justify-center px-4">
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -90,7 +111,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Sign in with your username and password
+          Sign in with your username and password, or explore the demo
         </p>
       </div>
 
@@ -99,7 +120,7 @@ export default function LoginPage() {
           <CardTitle>Sign in</CardTitle>
           <CardDescription>Enter your credentials to continue</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
@@ -130,11 +151,37 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || demoLoading}>
               <LogIn className="mr-2 h-4 w-4" />
               {loading ? "Signing in…" : "Sign In"}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/60" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            disabled={loading || demoLoading}
+            onClick={() => void startDemo()}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            {demoLoading ? "Loading demo…" : "Demo"}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            <Link href="/contact" className="text-violet-400 hover:text-violet-300">
+              Forgot password or sign up?
+            </Link>
+          </p>
         </CardContent>
       </Card>
 

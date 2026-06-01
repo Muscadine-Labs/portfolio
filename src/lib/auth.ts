@@ -150,5 +150,6 @@ export function clearAuthCookieHeaders(): string[] {
     `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
     `${TENANT_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
     `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
+    `portfolio_demo=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`,
   ];
 }

@@ -6,10 +6,13 @@ import {
 import { getTenantCredentials } from "@/lib/account-credentials-store";
 import { getHomeApiBaseUrl } from "@/lib/home-api";
 import { isAuthRequiredForTenant } from "@/lib/auth";
+import { getDemoAccount, getDemoPortfolioData } from "@/lib/demo-data";
+import { DEMO_TENANT, isDemoSessionFromHeaders } from "@/lib/demo";
 import type { User } from "@/types";
 import type { PortfolioDataPayload } from "@/lib/portfolio-data";
 
 export async function getTenantSlug(): Promise<string> {
+  if (await isDemoSessionFromHeaders()) return DEMO_TENANT;
   const headersList = await headers();
   return headersList.get("x-tenant") ?? process.env.DEV_TENANT ?? "workspace";
 }
@@ -20,6 +23,9 @@ export async function getTenantUser(): Promise<User> {
 
 /** Account form seeds; credentials sync to home API on save. */
 export async function getInitialAccount(): Promise<User> {
+  if (await isDemoSessionFromHeaders()) {
+    return getDemoAccount();
+  }
   if (getHomeApiBaseUrl()) {
     return getInitialAccountFromApi();
   }
@@ -37,6 +43,9 @@ export async function getInitialAccount(): Promise<User> {
 }
 
 export async function getInitialPortfolio(): Promise<PortfolioDataPayload> {
+  if (await isDemoSessionFromHeaders()) {
+    return getDemoPortfolioData();
+  }
   if (getHomeApiBaseUrl()) {
     return getInitialPortfolioFromApi();
   }
@@ -45,6 +54,13 @@ export async function getInitialPortfolio(): Promise<PortfolioDataPayload> {
 }
 
 export async function isTenantAuthRequired(): Promise<boolean> {
+  if (await isDemoSessionFromHeaders()) return false;
   const tenant = await getTenantSlug();
   return isAuthRequiredForTenant(tenant);
+}
+
+/** True when reset / credential flows apply (not demo-only). */
+export async function isTenantCredentialManagementEnabled(): Promise<boolean> {
+  if (await isDemoSessionFromHeaders()) return false;
+  return Boolean(getHomeApiBaseUrl()) || isAuthRequiredForTenant(await getTenantSlug());
 }

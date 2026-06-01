@@ -13,6 +13,7 @@ import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import type { User } from "@/types";
 
 interface AccountSettingsCardProps {
+  /** When false, hide credential reset (demo / no home API). */
   authEnabled: boolean;
 }
 
@@ -98,25 +99,33 @@ export function AccountSettingsCard({ authEnabled }: AccountSettingsCardProps) {
             className="bg-muted/20"
           />
           <p className="text-xs text-muted-foreground">
-            Change username or password on the{" "}
-            <Link href="/reset" className="text-primary hover:underline">
-              reset page
-            </Link>
-            .
+            {authEnabled ? (
+              <>
+                Change username or password on the{" "}
+                <Link href="/reset" className="text-primary hover:underline">
+                  reset page
+                </Link>
+                .
+              </>
+            ) : (
+              "Demo mode — sign out to return to the login screen."
+            )}
           </p>
         </div>
 
         <div className="border-t border-border/40 pt-4">
-          <Link href="/reset" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Reset sign-in
-          </Link>
+          {authEnabled ? (
+            <Link href="/reset" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Reset sign-in
+            </Link>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-3 pt-2">
           <Button onClick={() => void handleSave()} disabled={saving}>
             {saving ? "Saving…" : "Save account"}
           </Button>
-          {authEnabled ? <SignOutButton /> : null}
+          <SignOutButton />
         </div>
       </CardContent>
     </Card>

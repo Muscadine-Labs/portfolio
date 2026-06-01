@@ -637,6 +637,7 @@ export function PortfolioProvider({
   }, [account.tenant]);
 
   const persistPortfolio = useCallback((payload: PortfolioDataPayload, options?: { keepalive?: boolean }) => {
+    if (account.tenant === "demo") return Promise.resolve();
     const body = JSON.stringify(payload);
     const request = fetch("/api/export", {
       method: "POST",
@@ -657,7 +658,7 @@ export function PortfolioProvider({
 
     persistInFlightRef.current = request.then(() => undefined);
     return request;
-  }, []);
+  }, [account.tenant]);
 
   useEffect(() => {
     if (skipPersistRef.current) {

@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.2** — Admin login fix (Vercel proxy body buffering + login role fallback). **v1.0.1** — npm audit + Excel export. **v1.0.0** — first production release.
+**Release v1.0.3** — Demo mode (mock portfolio, contact page), auth/sign-out fixes, dependency updates. **v1.0.2** — Admin login fix (Vercel proxy). **v1.0.1** — npm audit + Excel export.
 
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 

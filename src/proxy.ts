@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   ADMIN_SESSION_COOKIE,
-  isAuthRequiredForTenant,
   readTenantFromCookie,
   SESSION_COOKIE,
   verifyAdminSessionToken,
@@ -10,8 +9,9 @@ import {
 } from "@/lib/auth";
 import { getHomeApiBaseUrl } from "@/lib/home-api";
 import { isAppHostname } from "@/lib/site";
+import { DEMO_COOKIE, DEMO_TENANT } from "@/lib/demo";
 
-const PUBLIC_PATHS = ["/login", "/terms", "/privacy", "/legal"];
+const PUBLIC_PATHS = ["/login", "/contact", "/terms", "/privacy", "/legal"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -29,10 +29,6 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const cookieHeader = request.headers.get("cookie");
   const tenantFromCookie = readTenantFromCookie(cookieHeader);
-  const tenant =
-    tenantFromCookie ??
-    process.env.DEV_TENANT?.trim().toLowerCase() ??
-    "workspace";
 
   if (tenantFromCookie) {
     requestHeaders.set("x-tenant", tenantFromCookie);
@@ -40,6 +36,11 @@ export async function proxy(request: NextRequest) {
 
   const adminSession = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   const isAdmin = await verifyAdminSessionToken(adminSession);
+  const isDemo = request.cookies.get(DEMO_COOKIE)?.value === "1";
+
+  if (isDemo) {
+    requestHeaders.set("x-tenant", DEMO_TENANT);
+  }
 
   if (pathname.startsWith("/admin")) {
     if (!isAdmin && pathname !== "/admin/login") {
@@ -58,29 +59,30 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  const authRequired = getHomeApiBaseUrl() ? true : isAuthRequiredForTenant(tenant);
+  const hasHomeApi = Boolean(getHomeApiBaseUrl());
   const session = request.cookies.get(SESSION_COOKIE)?.value;
-  const authenticated =
+  const sessionValid =
     Boolean(tenantFromCookie) &&
     (await verifySessionToken(session, tenantFromCookie));
 
-  if (authRequired) {
-    if (
-      !authenticated &&
-      !isPublicPath(pathname) &&
-      !pathname.startsWith("/api/auth") &&
-      !pathname.startsWith("/api/admin")
-    ) {
-      const loginUrl = new URL("/login", request.url);
-      if (pathname !== "/") {
-        loginUrl.searchParams.set("from", pathname);
-      }
-      return NextResponse.redirect(loginUrl);
-    }
+  /** Without home API, only demo mode grants access (ignore stale session cookies). */
+  const authenticated = isDemo || (hasHomeApi && sessionValid);
 
-    if (authenticated && pathname === "/login") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (
+    !authenticated &&
+    !isPublicPath(pathname) &&
+    !pathname.startsWith("/api/auth") &&
+    !pathname.startsWith("/api/admin")
+  ) {
+    const loginUrl = new URL("/login", request.url);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("from", pathname);
     }
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (authenticated && pathname === "/login") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   if (pathname === "/analytics") {
@@ -90,7 +92,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname === "/") {
-    if (authRequired && !authenticated) {
+    if (!authenticated) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     return NextResponse.redirect(new URL("/dashboard", request.url), {

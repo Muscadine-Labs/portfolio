@@ -1,9 +1,9 @@
 import { TenantPage } from "@/components/layout/TenantPage";
 import { SettingsContent } from "@/components/settings/SettingsContent";
-import { isTenantAuthRequired } from "@/lib/tenant";
+import { isTenantCredentialManagementEnabled } from "@/lib/tenant";
 
 export default async function SettingsPage() {
-  const authEnabled = await isTenantAuthRequired();
+  const authEnabled = await isTenantCredentialManagementEnabled();
 
   return (
     <TenantPage title="Settings" description="Manage account, display, wallets, and data">
