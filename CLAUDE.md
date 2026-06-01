@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.0** — First production release: Morpho/wallet linking removed, crypto network/exchange columns, plan save fixes, wallets tab last.
+**Release v1.0.2** — Admin login fix (Vercel proxy body buffering + login role fallback). **v1.0.1** — npm audit + Excel export. **v1.0.0** — first production release.
 
 Context for AI assistants working in the **portfolio** repo (Vercel UI).
 
@@ -21,7 +21,7 @@ Personal finance dashboard at **portfolio.muscadine.io** (Vercel). All user data
 | `portfolio.muscadine.io` | This repo — UI only |
 | `api-portfolio.muscadine.io` | Home API via Cloudflare Tunnel → mini PC `:3001` |
 
-**No per-user subdomains.** Login username = internal tenant slug (e.g. `nick`). Session cookies scope data.
+**No per-user subdomains.** Login username = internal tenant slug (e.g. `nick`). Admin username (e.g. `admin`) → `/admin`.
 
 ---
 
@@ -30,7 +30,7 @@ Personal finance dashboard at **portfolio.muscadine.io** (Vercel). All user data
 ```
 Browser → portfolio.muscadine.io (Vercel)
             ├─ /login, /admin, /dashboard/*  (UI)
-            └─ /api/*  → proxy/rewrite → api-portfolio.muscadine.io
+            └─ /api/*  → route handlers proxy → api-portfolio.muscadine.io
                                               └─ SQLite on mini PC
 ```
 
@@ -45,12 +45,14 @@ Browser → portfolio.muscadine.io (Vercel)
 
 ## Auth (production)
 
-- **`/login`** — username + password → home API `/api/auth/login`
+- **`/login`** — username + password → proxied `POST /api/auth/login`
 - **User session** — httpOnly cookies `portfolio_session` + `portfolio_tenant` (~30 days)
 - **Admin session** — httpOnly `portfolio_admin` → **`/admin`** user management
 - **`/reset`** — account password change (proxied to home API)
-- **`src/proxy.ts`** — redirects unauthenticated users to `/login`
-- **`API_SECRET`** on Vercel server env — must match home API (session HMAC)
+- **`src/proxy.ts`** — auth gate; admin routes require `portfolio_admin` cookie verified locally
+- **`API_SECRET`** on Vercel server env — must **exactly** match home API (session HMAC). Base64 trailing `=` matters; a mismatch breaks admin and user session verification on the UI even when login returns 200.
+
+**Admin login flow:** home API sets `portfolio_admin` and returns `{ role: "admin" }`. Login page redirects to `/admin`. If JSON body is missing, login falls back to `GET /api/auth/status`. `proxyToHomeApi()` must buffer the upstream body (not stream) so Vercel route handlers return JSON.
 
 ---
 
@@ -65,7 +67,7 @@ cp .env.example .env
 | Variable | Purpose |
 |----------|---------|
 | `API_URL` | Home API base (`http://127.0.0.1:3001` local; `https://api-portfolio.muscadine.io` production) |
-| `API_SECRET` | Session signing — server only, match api-portfolio |
+| `API_SECRET` | Session signing — server only, byte-for-byte match with api-portfolio |
 | `NEXT_PUBLIC_APP_HOST` | Canonical hostname |
 
 **Finnhub** keys live only on the home API. Do **not** add `.env.local`.
@@ -77,15 +79,16 @@ cp .env.example .env
 ## Key paths
 
 ```
-src/app/login/              Sign-in page
+src/app/login/              Sign-in page (admin role redirect)
 src/app/admin/              Admin portal
 src/components/providers/PortfolioProvider.tsx  Client state + auto-save to API
-src/lib/home-api.ts         proxyToHomeApi() for route handlers
+src/lib/home-api.ts         proxyToHomeApi() — buffers body + forwards Set-Cookie
 src/lib/portfolio-api.ts    SSR fetch to home API (forwards cookies)
 src/lib/auth.ts             Session verification (matches API HMAC)
 src/lib/portfolio-data.ts   Import validation (keep in sync with api-portfolio)
 src/proxy.ts                Auth gate + x-tenant from cookie
 next.config.ts              Rewrites /api/* → API_URL when set
+TODO.md                     Planned UI/UX upgrades (Monarch-inspired roadmap)
 ```
 
 **No seed data in production.** Portfolio payload comes from home API `GET /api/me`.
@@ -106,8 +109,8 @@ next.config.ts              Rewrites /api/* → API_URL when set
 1. **Minimize diff** — match existing patterns.
 2. **No user data in git** — SQLite lives in api-portfolio `data/`.
 3. **No secrets in committed files** — only `.env.example` placeholders.
-4. **`API_SECRET` on Vercel** — server env only, never `NEXT_PUBLIC_*`.
-5. Read `README.md`, `SECURITY.md`, and `CLAUDE.md` (this file).
+4. **`API_SECRET` on Vercel** — server env only, never `NEXT_PUBLIC_*`; must match api-portfolio exactly.
+5. Read `README.md`, `SECURITY.md`, `TODO.md`, and `CLAUDE.md` (this file).
 
 ---
 

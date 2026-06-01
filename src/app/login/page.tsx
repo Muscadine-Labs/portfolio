@@ -57,7 +57,14 @@ export default function LoginPage() {
         return;
       }
 
-      if (body.role === "admin") {
+      let role = body.role;
+      if (!role) {
+        const statusRes = await fetch("/api/auth/status", { credentials: "include" });
+        const statusBody = (await statusRes.json().catch(() => ({}))) as { role?: string };
+        role = statusBody.role;
+      }
+
+      if (role === "admin") {
         router.replace("/admin");
         router.refresh();
         return;

@@ -8,10 +8,12 @@ export function getHomeApiBaseUrl(): string | null {
 }
 
 /** Rebuild response so Set-Cookie and status pass through Next.js route handlers. */
-function toProxyResponse(upstream: Response): Response {
+async function toProxyResponse(upstream: Response): Promise<Response> {
+  const body = await upstream.arrayBuffer();
   const headers = new Headers();
   upstream.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "set-cookie") return;
+    const lower = key.toLowerCase();
+    if (lower === "set-cookie" || lower === "content-length") return;
     headers.set(key, value);
   });
 
@@ -23,7 +25,7 @@ function toProxyResponse(upstream: Response): Response {
     headers.append("set-cookie", cookie);
   }
 
-  return new Response(upstream.body, {
+  return new Response(body, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers,
@@ -58,7 +60,7 @@ export async function proxyToHomeApi(
     }
 
     const upstream = await fetch(target, init);
-    return toProxyResponse(upstream);
+    return await toProxyResponse(upstream);
   } catch (error) {
     console.error("proxyToHomeApi failed", path, error);
     return Response.json({ error: "Home API unreachable" }, { status: 502 });
