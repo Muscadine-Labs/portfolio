@@ -14,6 +14,10 @@ export type MarketQuotesResponse = {
   skipped?: string[];
   notFound?: string[];
   apiCalls?: number;
+  finnhubCalls?: number;
+  yfinanceSymbols?: number;
+  sourcesByAsset?: Record<string, "finnhub" | "yfinance">;
+  providers?: { finnhub?: boolean; yfinance?: boolean };
   uniqueSymbols?: string[];
   message?: string;
   error?: string;

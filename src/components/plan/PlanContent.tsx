@@ -2,11 +2,10 @@
 
 import { Suspense, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, KeyRound, PiggyBank, Target } from "lucide-react";
+import { BookOpen, PiggyBank, Target } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AllocationGuide } from "@/components/plan/AllocationGuide";
-import { WalletMapGuide } from "@/components/plan/WalletMapGuide";
 import { PlanningContent } from "@/components/planning/PlanningContent";
 import { SpendingContent } from "@/components/spending/SpendingContent";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
@@ -24,7 +23,6 @@ const TAB_CONFIG: Record<
   { label: string; icon: typeof BookOpen; content: React.ReactNode }
 > = {
   income: { label: "Income", icon: BookOpen, content: <AllocationGuide /> },
-  wallets: { label: "Wallets", icon: KeyRound, content: <WalletMapGuide /> },
   budget: { label: "Budget", icon: PiggyBank, content: <SpendingContent /> },
   goals: { label: "Goals", icon: Target, content: <PlanningContent /> },
 };
@@ -41,6 +39,12 @@ function PlanTabsInner() {
 
   const tabParam = searchParams.get("tab");
   const requestedTab = resolvePlanTabFromUrl(tabParam);
+
+  useEffect(() => {
+    if (tabParam === "wallets") {
+      router.replace("/wallets", { scroll: false });
+    }
+  }, [tabParam, router]);
 
   const activeTab: PlanTabId | null = useMemo(() => {
     if (visibleTabs.length === 0) return null;
@@ -69,8 +73,8 @@ function PlanTabsInner() {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
         <p className="text-sm text-muted-foreground">
-          No Plan tabs are enabled. Turn on Income, Wallets, Budget, or Goals in Settings, or hide
-          Plan from the sidebar.
+          No Plan tabs are enabled. Turn on Income, Budget, or Goals in Settings, or hide Plan
+          from the sidebar.
         </p>
         <Link
           href="/settings"

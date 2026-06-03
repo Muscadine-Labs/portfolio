@@ -20,7 +20,13 @@ export type PageType =
   | "planning"
   | "spending";
 
-export type NavPageKey = "assets" | "cash" | "liabilities" | "plan";
+export type NavPageKey =
+  | "overview"
+  | "assets"
+  | "cash"
+  | "liabilities"
+  | "wallets"
+  | "plan";
 
 export type OverviewWidgetId = "insights" | "chart" | "allocation" | "breakdown";
 
@@ -61,9 +67,13 @@ export interface UiPreferences {
   /** `system` = Auto (match OS). Stored in seed / import; synced to next-themes in the app. */
   theme: ThemePreference;
   navPages: {
+    /** Overview dashboard (/dashboard). */
+    overview: boolean;
     assets: boolean;
     cash: boolean;
     liabilities: boolean;
+    /** Wallet map — own sidebar page (not under Plan). */
+    wallets: boolean;
     plan: boolean;
   };
   planTabs: {
@@ -77,8 +87,10 @@ export interface UiPreferences {
   overviewWidgets: OverviewWidgetsPreferences;
   /** Icon-only sidebar on desktop — persisted per user. */
   sidebarCompact: boolean;
-  /** When enabled, the home API records net worth on the 1st of each month. */
+  /** When enabled, the home API records net worth on the 1st (monthly or quarter start). */
   monthlyAutoSnapshot: boolean;
+  /** Period labels for capture + auto-snapshot: month (`06-2026`) or quarter (`Q2-2026`). */
+  netWorthSnapshotCadence: "month" | "quarter";
 }
 
 export type SectionGroupPage = "assets" | "cash" | "liabilities";

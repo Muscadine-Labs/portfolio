@@ -1,17 +1,64 @@
 import type { NetWorthSnapshot } from "@/types";
 
-/** Sortable month key, e.g. `2026-01`. */
-export function monthPeriodKey(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
+export type NetWorthSnapshotCadence = "month" | "quarter";
+
+/** Round currency values to two decimal places. */
+export function roundMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
 }
 
-/** Human-readable label, e.g. `Jan '26`. */
-export function formatMonthPeriodLabel(date = new Date()): string {
-  const month = date.toLocaleDateString("en-US", { month: "short" });
-  const year = String(date.getFullYear()).slice(-2);
-  return `${month} '${year}`;
+export function normalizeNetWorthSnapshot(snapshot: NetWorthSnapshot): NetWorthSnapshot {
+  return {
+    ...snapshot,
+    netWorth: roundMoney(snapshot.netWorth),
+    totalCostBasis:
+      snapshot.totalCostBasis != null
+        ? roundMoney(snapshot.totalCostBasis)
+        : undefined,
+  };
+}
+
+export function normalizeNetWorthHistory(
+  history: NetWorthSnapshot[]
+): NetWorthSnapshot[] {
+  return sortNetWorthHistory(history.map(normalizeNetWorthSnapshot));
+}
+
+/** Canonical month period, e.g. `06-2026` (MM-YYYY). */
+export function monthPeriodKey(date = new Date()): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month}-${year}`;
+}
+
+/** Canonical quarter period, e.g. `Q2-2026`. */
+export function quarterPeriodKey(date = new Date()): string {
+  const quarter = Math.floor(date.getMonth() / 3) + 1;
+  return `Q${quarter}-${date.getFullYear()}`;
+}
+
+export function capturePeriodKey(
+  date = new Date(),
+  cadence: NetWorthSnapshotCadence = "month"
+): string {
+  return cadence === "quarter" ? quarterPeriodKey(date) : monthPeriodKey(date);
+}
+
+export function normalizeNetWorthSnapshotCadence(
+  value: unknown
+): NetWorthSnapshotCadence {
+  return value === "quarter" ? "quarter" : "month";
+}
+
+/** Whether auto-snapshot should run on this calendar day (timer runs on the 1st). */
+export function shouldRunAutoSnapshot(
+  date: Date,
+  cadence: NetWorthSnapshotCadence
+): boolean {
+  if (cadence === "month") return true;
+  const m = date.getMonth();
+  return m === 0 || m === 3 || m === 6 || m === 9;
 }
 
 const MONTH_NAMES: Record<string, number> = {
@@ -57,11 +104,19 @@ function quarterSortKey(quarter: number, year: number): number | null {
 
 /**
  * Sortable key YYYYMM for chart ordering and period filters.
- * Supports YYYY-MM, Jan '26, Jan 2023, Q1 2023, 2023 Q1, etc.
+ * Supports MM-YYYY, YYYY-MM (legacy), Q2-2026, Q1 2023, Jan '26, etc.
  */
 export function parsePeriodSortKey(period: string): number | null {
   const trimmed = period.trim();
   if (!trimmed) return null;
+
+  const monthYear = trimmed.match(/^(\d{2})-(\d{4})$/);
+  if (monthYear) return Number(monthYear[2]) * 100 + Number(monthYear[1]);
+
+  const quarterDash = trimmed.match(/^Q([1-4])-(\d{4})$/i);
+  if (quarterDash) {
+    return quarterSortKey(Number(quarterDash[1]), Number(quarterDash[2]));
+  }
 
   const iso = trimmed.match(/^(\d{4})-(\d{2})$/);
   if (iso) return Number(iso[1]) * 100 + Number(iso[2]);
@@ -113,9 +168,32 @@ export function sortNetWorthHistory(history: NetWorthSnapshot[]): NetWorthSnapsh
   });
 }
 
-export function periodMatchesMonthKey(period: string, monthKey: string): boolean {
-  if (period === monthKey) return true;
+export function periodMatchesCaptureKey(
+  period: string,
+  captureKey: string
+): boolean {
+  if (period === captureKey) return true;
   const sortKey = parsePeriodSortKey(period);
-  const target = parsePeriodSortKey(monthKey);
+  const target = parsePeriodSortKey(captureKey);
   return sortKey != null && target != null && sortKey === target;
+}
+
+/** @deprecated Use periodMatchesCaptureKey */
+export function periodMatchesMonthKey(period: string, monthKey: string): boolean {
+  return periodMatchesCaptureKey(period, monthKey);
+}
+
+export function formatPeriodDisplayLabel(period: string): string {
+  const key = parsePeriodSortKey(period);
+  if (key == null) return period;
+  if (/^Q[1-4]-\d{4}$/i.test(period.trim())) return period.trim().toUpperCase();
+  const year = Math.floor(key / 100);
+  const month = key % 100;
+  const mm = String(month).padStart(2, "0");
+  return `${mm}-${year}`;
+}
+
+/** @deprecated Use formatPeriodDisplayLabel */
+export function formatMonthPeriodLabel(date = new Date()): string {
+  return monthPeriodKey(date);
 }

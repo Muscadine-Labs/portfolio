@@ -191,7 +191,7 @@ function ChartPeriodSelector({
 
 function OverviewNetWorthChartPlot({
   data,
-  period = "YTD",
+  period = "ALL",
   onPeriodChange,
 }: OverviewNetWorthChartProps) {
   const { uiPreferences } = usePortfolio();
@@ -361,7 +361,7 @@ function OverviewNetWorthChartPlot({
 
 export function OverviewNetWorthChart({
   data,
-  period = "YTD",
+  period = "ALL",
   onPeriodChange,
 }: OverviewNetWorthChartProps) {
   const emptyHeightClass = "h-[268px] sm:h-[380px]";

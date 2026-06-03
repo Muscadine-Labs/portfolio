@@ -20,7 +20,7 @@ const PROTECTED_ROUTES = [
   "/cash",
   "/liabilities",
   "/plan",
-  "/plan?tab=wallets",
+  "/wallets",
   "/plan?tab=income",
   "/settings",
 ];
@@ -133,7 +133,7 @@ console.log("\n--- Page content ---");
 await checkHtmlContains("/login", ["Portfolio"]);
 if (!authGate) {
   await checkHtmlContains("/dashboard", ["Overview"]);
-  await checkHtmlContains("/plan?tab=wallets", ["Wallets"]);
+  await checkHtmlContains("/wallets", ["Wallets"]);
   await checkHtmlContains("/settings", ["Settings"]);
 } else {
   console.log("  (skipping protected page content — auth gate active)");

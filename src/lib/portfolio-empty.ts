@@ -30,14 +30,16 @@ export const EMPTY_INCOME_PLAN: IncomePlanConfig = {
 export const EMPTY_UI_PREFERENCES: UiPreferences = {
   theme: "system",
   navPages: {
+    overview: true,
     assets: true,
     cash: true,
     liabilities: true,
+    wallets: true,
     plan: true,
   },
   planTabs: {
     income: true,
-    wallets: true,
+    wallets: false,
     budget: true,
     goals: true,
   },
@@ -45,4 +47,5 @@ export const EMPTY_UI_PREFERENCES: UiPreferences = {
   overviewWidgets: DEFAULT_OVERVIEW_WIDGETS,
   sidebarCompact: false,
   monthlyAutoSnapshot: false,
+  netWorthSnapshotCadence: "month",
 };

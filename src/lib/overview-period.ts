@@ -56,7 +56,7 @@ export function yearsOfNetWorthHistory(
 }
 
 export function getAvailableChartPeriods(data: NetWorthSnapshot[]): NetWorthChartPeriod[] {
-  if (data.length === 0) return ["YTD"];
+  if (data.length === 0) return ["ALL"];
 
   const spanYears = yearsOfNetWorthHistory(data);
 
@@ -71,7 +71,7 @@ export function getAvailableChartPeriods(data: NetWorthSnapshot[]): NetWorthChar
 export function getDefaultChartPeriod(
   available: NetWorthChartPeriod[]
 ): NetWorthChartPeriod {
-  if (available.includes("YTD")) return "YTD";
+  if (available.includes("ALL")) return "ALL";
   return available[0] ?? "ALL";
 }
 
@@ -147,10 +147,8 @@ export function computePeriodNetWorthChange(
 export function formatPeriodMonthLabel(period: string): string {
   const key = parsePeriodSortKey(period);
   if (key == null) return period;
+  if (/^Q[1-4]-\d{4}$/i.test(period.trim())) return period.trim().toUpperCase();
   const year = Math.floor(key / 100);
   const month = key % 100;
-  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
+  return `${String(month).padStart(2, "0")}-${year}`;
 }

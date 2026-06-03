@@ -29,7 +29,12 @@ import {
   EMPTY_WALLET_MAP_NODES,
 } from "@/lib/portfolio-empty";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
-import { sortNetWorthHistory } from "@/lib/net-worth-history";
+import {
+  normalizeNetWorthHistory,
+  normalizeNetWorthSnapshot,
+  roundMoney,
+  sortNetWorthHistory,
+} from "@/lib/net-worth-history";
 import {
   moveOverviewWidgetInOrder,
   normalizeOverviewWidgets,
@@ -111,6 +116,7 @@ interface PortfolioContextValue {
   setOverviewWidgetVisible: (widget: OverviewWidgetId, visible: boolean) => void;
   moveOverviewWidget: (widget: OverviewWidgetId, direction: "up" | "down") => void;
   setMonthlyAutoSnapshot: (enabled: boolean) => void;
+  setNetWorthSnapshotCadence: (cadence: UiPreferences["netWorthSnapshotCadence"]) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
   setSidebarCompact: (compact: boolean) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
@@ -320,8 +326,15 @@ export function PortfolioProvider({
     setUiPreferences((prev) => ({ ...prev, monthlyAutoSnapshot: enabled }));
   }, []);
 
+  const setNetWorthSnapshotCadence = useCallback(
+    (cadence: UiPreferences["netWorthSnapshotCadence"]) => {
+      setUiPreferences((prev) => ({ ...prev, netWorthSnapshotCadence: cadence }));
+    },
+    []
+  );
+
   const setNetWorthHistorySorted = useCallback((history: NetWorthSnapshot[]) => {
-    setNetWorthHistory(sortNetWorthHistory(history));
+    setNetWorthHistory(normalizeNetWorthHistory(history));
   }, []);
 
   const upsertNetWorthSnapshotAt = useCallback(
@@ -329,7 +342,12 @@ export function PortfolioProvider({
       setNetWorthHistory((prev) => {
         if (index < 0 || index >= prev.length) return prev;
         const next = [...prev];
-        next[index] = { ...next[index], ...patch };
+        const merged = { ...next[index], ...patch };
+        if (patch.netWorth != null) merged.netWorth = roundMoney(patch.netWorth);
+        if (patch.totalCostBasis != null) {
+          merged.totalCostBasis = roundMoney(patch.totalCostBasis);
+        }
+        next[index] = normalizeNetWorthSnapshot(merged);
         return sortNetWorthHistory(next);
       });
     },
@@ -338,13 +356,13 @@ export function PortfolioProvider({
 
   const addNetWorthSnapshot = useCallback((snapshot?: Partial<NetWorthSnapshot>) => {
     setNetWorthHistory((prev) =>
-      sortNetWorthHistory([
+      normalizeNetWorthHistory([
         ...prev,
-        {
+        normalizeNetWorthSnapshot({
           period: snapshot?.period ?? "",
           netWorth: snapshot?.netWorth ?? 0,
           totalCostBasis: snapshot?.totalCostBasis,
-        },
+        }),
       ])
     );
   }, []);
@@ -824,6 +842,7 @@ export function PortfolioProvider({
       setOverviewWidgetVisible,
       moveOverviewWidget,
       setMonthlyAutoSnapshot,
+      setNetWorthSnapshotCadence,
       setThemePreference,
       setSidebarCompact,
       applyAssetPrices,
@@ -880,6 +899,7 @@ export function PortfolioProvider({
       setOverviewWidgetVisible,
       moveOverviewWidget,
       setMonthlyAutoSnapshot,
+      setNetWorthSnapshotCadence,
       setThemePreference,
       setSidebarCompact,
       applyAssetPrices,

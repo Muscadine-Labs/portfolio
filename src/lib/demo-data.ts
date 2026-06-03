@@ -297,12 +297,20 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
     ],
     uiPreferences: {
       theme: "system",
-      navPages: { assets: true, cash: true, liabilities: true, plan: true },
-      planTabs: { income: true, wallets: true, budget: true, goals: true },
+      navPages: {
+        overview: true,
+        assets: true,
+        cash: true,
+        liabilities: true,
+        wallets: true,
+        plan: true,
+      },
+      planTabs: { income: true, wallets: false, budget: true, goals: true },
       overviewChart: DEFAULT_OVERVIEW_CHART,
       overviewWidgets: DEFAULT_OVERVIEW_WIDGETS,
       sidebarCompact: false,
       monthlyAutoSnapshot: false,
+      netWorthSnapshotCadence: "month",
     },
   };
 }

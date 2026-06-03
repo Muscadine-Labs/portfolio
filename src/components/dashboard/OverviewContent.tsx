@@ -30,7 +30,7 @@ export function OverviewContent() {
     [netWorthHistory]
   );
 
-  const [chartPeriodSelection, setChartPeriod] = useState<NetWorthChartPeriod>("YTD");
+  const [chartPeriodSelection, setChartPeriod] = useState<NetWorthChartPeriod>("ALL");
 
   const chartPeriod = useMemo(() => {
     if (availableChartPeriods.includes(chartPeriodSelection)) {

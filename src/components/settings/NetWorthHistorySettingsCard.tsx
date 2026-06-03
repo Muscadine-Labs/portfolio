@@ -16,7 +16,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { formatMonthPeriodLabel, monthPeriodKey } from "@/lib/net-worth-history";
+import {
+  capturePeriodKey,
+  normalizeNetWorthSnapshot,
+  periodMatchesCaptureKey,
+} from "@/lib/net-worth-history";
 import { computeOverviewSnapshot } from "@/lib/overview";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -41,7 +45,14 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
     deleteNetWorthSnapshot,
     uiPreferences,
     setMonthlyAutoSnapshot,
+    setNetWorthSnapshotCadence,
   } = usePortfolio();
+
+  const cadence = uiPreferences.netWorthSnapshotCadence;
+  const currentPeriodKey = useMemo(
+    () => capturePeriodKey(new Date(), cadence),
+    [cadence]
+  );
 
   const liveSnapshot = useMemo(
     () =>
@@ -58,28 +69,28 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
   );
 
   const handleCaptureCurrent = () => {
-    const monthKey = monthPeriodKey();
-    const existingIndex = netWorthHistory.findIndex(
-      (row) => row.period === monthKey || row.period === formatMonthPeriodLabel()
+    const key = capturePeriodKey(new Date(), cadence);
+    const existingIndex = netWorthHistory.findIndex((row) =>
+      periodMatchesCaptureKey(row.period, key)
     );
 
-    const snapshot = {
-      period: monthKey,
+    const snapshot = normalizeNetWorthSnapshot({
+      period: key,
       netWorth: liveSnapshot.netWorth,
       totalCostBasis: liveSnapshot.totalCostBasis,
-    };
+    });
 
     if (existingIndex >= 0) {
       upsertNetWorthSnapshotAt(existingIndex, snapshot);
-      toast.success("Updated current month", {
+      toast.success(`Updated ${key}`, {
         description: `Net worth set to ${formatCurrency(liveSnapshot.netWorth)}.`,
       });
       return;
     }
 
     addNetWorthSnapshot(snapshot);
-    toast.success("Added current month", {
-      description: `Captured live net worth for ${monthKey}.`,
+    toast.success(`Added ${key}`, {
+      description: `Captured live net worth for ${key}.`,
     });
   };
 
@@ -89,11 +100,35 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
         <div>
           <CardTitle className="text-base">Net worth history</CardTitle>
           <CardDescription>
-            Chart data from the API — edits save automatically. Periods can be{" "}
-            <span className="font-mono text-xs">YYYY-MM</span>, quarters like Q1 2025, or labels
-            like Jan &apos;26.
+            Chart data saved with the portfolio. Use{" "}
+            <span className="font-mono text-xs">06-2026</span> for months or{" "}
+            <span className="font-mono text-xs">Q2-2026</span> for quarters (legacy{" "}
+            <span className="font-mono text-xs">YYYY-MM</span> still works).
           </CardDescription>
         </div>
+
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-medium text-muted-foreground">Capture cadence</legend>
+          <div className="flex flex-wrap gap-4 text-sm">
+            {(
+              [
+                { value: "month", label: "Monthly (06-2026)" },
+                { value: "quarter", label: "Quarterly (Q2-2026)" },
+              ] as const
+            ).map(({ value, label }) => (
+              <label key={value} className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="net-worth-cadence"
+                  className="accent-primary"
+                  checked={cadence === value}
+                  onChange={() => setNetWorthSnapshotCadence(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <label className="flex items-start gap-2 text-sm">
           <input
@@ -105,8 +140,9 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
           <span>
             <span className="font-medium">Auto-snapshot on the 1st</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              When enabled, the home API records net worth and total cost basis on the first of
-              each month (requires the snapshot timer on the mini PC).
+              {cadence === "quarter"
+                ? "Records on Jan 1, Apr 1, Jul 1, and Oct 1 when the home API snapshot timer runs."
+                : "Records every month on the 1st when the home API snapshot timer runs."}
             </span>
           </span>
         </label>
@@ -114,11 +150,11 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => addNetWorthSnapshot()}>
             <Plus className="mr-1.5 h-4 w-4" />
-            Add month
+            Add row
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={handleCaptureCurrent}>
             <LineChart className="mr-1.5 h-4 w-4" />
-            Capture current ({monthPeriodKey()})
+            Capture current ({currentPeriodKey})
           </Button>
           <span className="text-xs text-muted-foreground">
             Live net worth: {formatCurrency(liveSnapshot.netWorth)}
@@ -179,7 +215,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                           <Input
                             id={`nw-period-${index}`}
                             defaultValue={row.period}
-                            placeholder="2026-01"
+                            placeholder={cadence === "quarter" ? "Q2-2026" : "06-2026"}
                             className="h-8 min-w-[7rem] font-mono text-xs"
                             onBlur={(e) => {
                               const next = e.target.value.trim();

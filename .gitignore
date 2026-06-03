@@ -12,6 +12,15 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# local dev test scripts (npm scripts still work; files stay on disk only)
+/scripts/e2e-smoke.mjs
+/scripts/ui-audit.mjs
+/scripts/api-integration.mjs
 
 # next.js
 /.next/

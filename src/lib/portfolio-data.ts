@@ -1,5 +1,6 @@
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
+import { normalizeNetWorthSnapshotCadence } from "@/lib/net-worth-history";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import { migrateAndNormalizeSectionGroups } from "@/lib/section-groups";
 import { parseSectionMetadata } from "@/lib/section-metadata";
@@ -831,7 +832,10 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       } else {
         const navKeys = ["assets", "cash", "liabilities", "plan"] as const;
         const tabKeys = ["income", "wallets", "budget", "goals"] as const;
-        const navValid = navKeys.every((k) => typeof nav[k] === "boolean");
+        const navValid =
+          navKeys.every((k) => typeof nav[k] === "boolean") &&
+          (typeof nav.overview === "boolean" || nav.overview === undefined) &&
+          (typeof nav.wallets === "boolean" || nav.wallets === undefined);
         const tabsValid = tabKeys.every((k) => typeof tabs[k] === "boolean");
         if (!navValid || !tabsValid) {
           errors.push('"uiPreferences" has invalid navigation flags.');
@@ -854,9 +858,13 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
               typeof rawTheme === "string" ? rawTheme : undefined
             ),
             navPages: {
+              overview:
+                typeof nav.overview === "boolean" ? (nav.overview as boolean) : true,
               assets: nav.assets as boolean,
               cash: nav.cash as boolean,
               liabilities: nav.liabilities as boolean,
+              wallets:
+                typeof nav.wallets === "boolean" ? (nav.wallets as boolean) : true,
               plan: nav.plan as boolean,
             },
             planTabs: {
@@ -891,6 +899,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
               typeof body.uiPreferences.monthlyAutoSnapshot === "boolean"
                 ? body.uiPreferences.monthlyAutoSnapshot
                 : false,
+            netWorthSnapshotCadence: normalizeNetWorthSnapshotCadence(
+              body.uiPreferences.netWorthSnapshotCadence
+            ),
             overviewWidgets: normalizeOverviewWidgets(
               parseOverviewWidgets(body.uiPreferences.overviewWidgets)
             ),

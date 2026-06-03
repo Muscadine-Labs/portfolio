@@ -8,22 +8,19 @@ import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import {
   formatNavSummary,
   NAV_PAGE_LABELS,
-  PLAN_TAB_IDS,
+  PLAN_SETTINGS_TAB_IDS,
   PLAN_TAB_LABELS,
-  type PlanTabId,
+  SIDEBAR_NAV_PAGE_KEYS,
+  type PlanSettingsTabId,
 } from "@/lib/ui-preferences";
-import type { NavPageKey } from "@/types";
 import { cn } from "@/lib/utils";
-
-const NAV_PAGE_KEYS: NavPageKey[] = ["assets", "cash", "liabilities", "plan"];
 
 export function NavigationSettingsCard() {
   const { uiPreferences, setNavPageVisible, setPlanTabVisible } = usePortfolio();
   const [open, setOpen] = useState(false);
   const summary = formatNavSummary(uiPreferences);
   const planEnabled = uiPreferences.navPages.plan;
-  const noTabs =
-    planEnabled && !PLAN_TAB_IDS.some((id) => uiPreferences.planTabs[id]);
+  const incomeHidden = planEnabled && !uiPreferences.planTabs.income;
 
   return (
     <Card className="border-border/60 bg-card/80">
@@ -49,9 +46,9 @@ export function NavigationSettingsCard() {
         {open && (
           <div className="space-y-3 rounded-lg border border-border/40 bg-background/40 px-3 py-3">
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Sidebar pages</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Sidebar</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {NAV_PAGE_KEYS.map((pageKey) => (
+                {SIDEBAR_NAV_PAGE_KEYS.map((pageKey) => (
                   <label
                     key={pageKey}
                     className="flex cursor-pointer items-center gap-2 text-sm"
@@ -71,9 +68,9 @@ export function NavigationSettingsCard() {
             </div>
 
             <div className={cn(!planEnabled && "pointer-events-none opacity-40")}>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Plan tabs</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Plan page</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {PLAN_TAB_IDS.map((tabId) => (
+                {PLAN_SETTINGS_TAB_IDS.map((tabId) => (
                   <label
                     key={tabId}
                     className="flex cursor-pointer items-center gap-2 text-sm"
@@ -83,7 +80,7 @@ export function NavigationSettingsCard() {
                       checked={uiPreferences.planTabs[tabId]}
                       disabled={!planEnabled}
                       onChange={(e) =>
-                        setPlanTabVisible(tabId as PlanTabId, e.target.checked)
+                        setPlanTabVisible(tabId as PlanSettingsTabId, e.target.checked)
                       }
                       className="h-3.5 w-3.5 rounded border-input accent-primary"
                     />
@@ -93,13 +90,19 @@ export function NavigationSettingsCard() {
                   </label>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Budget and Goals stay on the Plan page (tabs there). They are not shown in the
+                sidebar.
+              </p>
             </div>
 
-            {noTabs && (
-              <p className="text-xs text-amber-500">Enable at least one Plan tab or hide Plan.</p>
+            {incomeHidden && (
+              <p className="text-xs text-amber-500">
+                Income is hidden — open Plan to use Budget and Goals, or turn Income back on.
+              </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Hidden pages are removed from the sidebar and Overview. Sections with $0 are
+              Hidden sidebar pages are removed from the menu and Overview. Sections with $0 are
               omitted on Overview.
             </p>
           </div>

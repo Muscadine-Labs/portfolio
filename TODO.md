@@ -9,3 +9,7 @@
 - [ ] **UI** — Settings → Data: connect sheet URL, test import, last sync time
 
 **Notes:** Keep SQLite as source of truth after import; sheet is input/export, not live DB. Align period labels with `parsePeriodSortKey` in `src/lib/net-worth-history.ts` (`YYYY-MM`, `Q1 2023`, `Jan '26`, etc.).
+
+- delete dead code, we built alot, some things are unused.
+
+- Redesign overview page where chart of assets includes all of the sections, so assets isnt in it twice.

@@ -543,7 +543,7 @@ export function AssetTable() {
   const refreshPrices = async () => {
     if (finnhubEligibleCount === 0) {
       toast.message("No stock/ETF/metal assets to refresh", {
-        description: "Finnhub updates symbols without wallet or on-chain metadata.",
+        description: "Finnhub + Yahoo fallback for symbols without wallet or on-chain metadata.",
       });
       return;
     }
@@ -566,8 +566,13 @@ export function AssetTable() {
       if ((data.notFound?.length ?? 0) > 0) {
         parts.push(`${data.notFound!.length} symbol(s) not found`);
       }
-      if (typeof data.apiCalls === "number") {
+      if (typeof data.finnhubCalls === "number" && data.finnhubCalls > 0) {
+        parts.push(`${data.finnhubCalls} Finnhub call${data.finnhubCalls === 1 ? "" : "s"}`);
+      } else if (typeof data.apiCalls === "number" && data.apiCalls > 0) {
         parts.push(`${data.apiCalls} Finnhub call${data.apiCalls === 1 ? "" : "s"}`);
+      }
+      if (typeof data.yfinanceSymbols === "number" && data.yfinanceSymbols > 0) {
+        parts.push(`Yahoo fallback (${data.yfinanceSymbols} symbol${data.yfinanceSymbols === 1 ? "" : "s"})`);
       }
       setLastPriceRefresh(new Date());
       toast.success("Prices refreshed", {

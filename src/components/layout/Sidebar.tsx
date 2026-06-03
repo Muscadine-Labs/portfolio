@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import {
   Home,
@@ -11,12 +11,12 @@ import {
   Settings,
   Grape,
   ClipboardList,
+  KeyRound,
   X,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { getVisiblePlanNavShortcuts } from "@/lib/plan-nav";
 import { isNavPageVisible } from "@/lib/ui-preferences";
 import { portfolioNavAccent, type PortfolioAccent } from "@/lib/portfolio-panel";
 import { sidebarWidthClass } from "@/lib/sidebar-layout";
@@ -32,7 +32,7 @@ type MainNavItem = {
 };
 
 const MAIN_NAV_ITEMS: MainNavItem[] = [
-  { href: "/dashboard", label: "Overview", icon: Home },
+  { href: "/dashboard", label: "Overview", icon: Home, navKey: "overview" },
   { href: "/assets", label: "Assets", icon: BarChart3, navKey: "assets", accent: "assets" },
   { href: "/cash", label: "Cash", icon: Banknote, navKey: "cash", accent: "cash" },
   {
@@ -43,6 +43,7 @@ const MAIN_NAV_ITEMS: MainNavItem[] = [
     accent: "liabilities",
   },
   { href: "/plan", label: "Plan", icon: ClipboardList, navKey: "plan" },
+  { href: "/wallets", label: "Wallets", icon: KeyRound, navKey: "wallets" },
 ];
 
 interface SidebarProps {
@@ -105,11 +106,8 @@ function accountSubtitle(account: User): string {
 
 function SidebarInner({ onNavigate, mobile = false }: SidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { uiPreferences, account, setSidebarCompact } = usePortfolio();
   const compact = !mobile && uiPreferences.sidebarCompact;
-  const planShortcuts = getVisiblePlanNavShortcuts(uiPreferences);
-  const tabParam = searchParams.get("tab");
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(
     (item) => !item.navKey || isNavPageVisible(uiPreferences, item.navKey)
@@ -168,14 +166,10 @@ function SidebarInner({ onNavigate, mobile = false }: SidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 sm:px-3 sm:py-4">
         {mainNavItems.map(({ href, label, icon, accent }) => {
           const isPlan = href === "/plan";
-          const onPlanShortcut =
-            isPlan && pathname === "/plan" && planShortcuts.some((s) => s.tab === tabParam);
           const active =
-            !onPlanShortcut &&
-            (pathname === href ||
-              pathname.startsWith(`${href}/`) ||
-              (isPlan &&
-                (pathname === "/planning" || pathname === "/spending")));
+            pathname === href ||
+            pathname.startsWith(`${href}/`) ||
+            (isPlan && (pathname === "/planning" || pathname === "/spending"));
 
           return (
             <div key={href}>
@@ -188,20 +182,6 @@ function SidebarInner({ onNavigate, mobile = false }: SidebarProps) {
                 compact={compact}
                 onNavigate={onNavigate}
               />
-              {isPlan && !compact
-                ? planShortcuts.map((shortcut) => (
-                    <NavLink
-                      key={shortcut.href}
-                      href={shortcut.href}
-                      label={shortcut.label}
-                      icon={shortcut.icon}
-                      active={pathname === "/plan" && tabParam === shortcut.tab}
-                      compact={compact}
-                      nested
-                      onNavigate={onNavigate}
-                    />
-                  ))
-                : null}
             </div>
           );
         })}

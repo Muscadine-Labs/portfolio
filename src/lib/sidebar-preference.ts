@@ -1,3 +1,5 @@
+import { normalizeNetWorthSnapshotCadence } from "@/lib/net-worth-history";
+import { resolveWalletsNavVisible } from "@/lib/nav-preferences";
 import { EMPTY_UI_PREFERENCES } from "@/lib/portfolio-empty";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
@@ -45,14 +47,32 @@ export function normalizeUiPreferences(
   tenant: string
 ): UiPreferences {
   const base = prefs ?? EMPTY_UI_PREFERENCES;
+  const walletsNav = resolveWalletsNavVisible(base, tenant);
   return {
     ...EMPTY_UI_PREFERENCES,
     ...base,
+    navPages: {
+      ...EMPTY_UI_PREFERENCES.navPages,
+      ...base.navPages,
+      overview:
+        typeof base.navPages?.overview === "boolean" ? base.navPages.overview : true,
+      wallets: walletsNav,
+    },
+    planTabs: {
+      ...EMPTY_UI_PREFERENCES.planTabs,
+      ...base.planTabs,
+      wallets: false,
+      budget: true,
+      goals: true,
+    },
     theme: normalizeThemePreference(base.theme),
     overviewChart: normalizeOverviewChart(base.overviewChart),
     overviewWidgets: normalizeOverviewWidgets(base.overviewWidgets),
     sidebarCompact: resolveSidebarCompact(base.sidebarCompact, tenant),
     monthlyAutoSnapshot:
       typeof base.monthlyAutoSnapshot === "boolean" ? base.monthlyAutoSnapshot : false,
+    netWorthSnapshotCadence: normalizeNetWorthSnapshotCadence(
+      base.netWorthSnapshotCadence
+    ),
   };
 }

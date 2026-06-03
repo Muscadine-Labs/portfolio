@@ -3,20 +3,32 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Home, BarChart3, ClipboardList, Settings } from "lucide-react";
+import { Home, BarChart3, ClipboardList, KeyRound, Settings } from "lucide-react";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
-import { getVisiblePlanNavShortcuts } from "@/lib/plan-nav";
 import { isNavPageVisible } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 const CORE_TABS = [
-  { href: "/dashboard", label: "Overview", icon: Home, match: (p: string) => p === "/dashboard" },
+  {
+    href: "/dashboard",
+    label: "Overview",
+    icon: Home,
+    navKey: "overview" as const,
+    match: (p: string) => p === "/dashboard",
+  },
   {
     href: "/assets",
     label: "Assets",
     icon: BarChart3,
     navKey: "assets" as const,
     match: (p: string) => p === "/assets" || p.startsWith("/assets/"),
+  },
+  {
+    href: "/wallets",
+    label: "Wallets",
+    icon: KeyRound,
+    navKey: "wallets" as const,
+    match: (p: string) => p === "/wallets" || p.startsWith("/wallets/"),
   },
   {
     href: "/plan",
@@ -43,17 +55,9 @@ function MobileBottomNavInner() {
   const tabParam = searchParams.get("tab");
   const { uiPreferences } = usePortfolio();
 
-  const planShortcuts = getVisiblePlanNavShortcuts(uiPreferences).map((s) => ({
-    href: s.href,
-    label: s.label,
-    icon: s.icon,
-    match: (p: string, tab: string | null) => p === "/plan" && tab === s.tab,
-  }));
-
-  const items = [
-    ...CORE_TABS.filter((tab) => !tab.navKey || isNavPageVisible(uiPreferences, tab.navKey)),
-    ...planShortcuts,
-  ];
+  const items = CORE_TABS.filter(
+    (tab) => !tab.navKey || isNavPageVisible(uiPreferences, tab.navKey)
+  );
 
   return (
     <nav

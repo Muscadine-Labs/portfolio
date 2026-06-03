@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.5** — Monarch-style overview UI, demo mode (fixed prices), chart periods YTD–All, mobile nav, `test:api` integration script.
+**Release v1.0.7** — Wallets nav, overview All default, MM-YYYY snapshots, net worth/cost basis rounded to cents.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
@@ -83,7 +83,7 @@ src/app/                      Pages + /api route handlers
 src/components/providers/PortfolioProvider.tsx
 src/lib/home-api.ts           proxyToHomeApi()
 src/lib/portfolio-data.ts     Validation — keep in sync with api-portfolio
-src/lib/overview-period.ts    Net worth chart periods (YTD default)
+src/lib/overview-period.ts    Net worth chart periods (All default)
 src/lib/demo-constants.ts     Client-safe demo tenant check
 src/proxy.ts                  Auth middleware
 ```
