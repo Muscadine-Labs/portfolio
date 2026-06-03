@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/format-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -123,7 +124,7 @@ export function ResetContent() {
         tenant?: string;
       };
       if (!res.ok) {
-        toast.error(data.error ?? "Could not save sign-in settings");
+        toast.error(apiErrorMessage(data.error, "Could not save sign-in settings"));
         return;
       }
 

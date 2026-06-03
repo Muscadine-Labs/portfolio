@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import {
   Home,
   BarChart3,
@@ -15,6 +16,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
+import { getVisiblePlanNavShortcuts } from "@/lib/plan-nav";
 import { isNavPageVisible } from "@/lib/ui-preferences";
 import { portfolioNavAccent, type PortfolioAccent } from "@/lib/portfolio-panel";
 import { sidebarWidthClass } from "@/lib/sidebar-layout";
@@ -45,7 +47,6 @@ const MAIN_NAV_ITEMS: MainNavItem[] = [
 
 interface SidebarProps {
   onNavigate?: () => void;
-  /** Full-width labels — used for mobile drawer. */
   mobile?: boolean;
 }
 
@@ -56,6 +57,7 @@ function NavLink({
   active,
   compact,
   accent,
+  nested,
   onNavigate,
 }: {
   href: string;
@@ -64,6 +66,7 @@ function NavLink({
   active: boolean;
   compact: boolean;
   accent?: Exclude<PortfolioAccent, "neutral">;
+  nested?: boolean;
   onNavigate?: () => void;
 }) {
   const activeClass =
@@ -82,10 +85,11 @@ function NavLink({
       className={cn(
         "flex items-center rounded-lg text-sm font-medium transition-colors",
         compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+        nested && !compact && "ml-3 py-2 text-xs",
         active ? activeClass : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon className={cn("shrink-0", nested ? "h-3.5 w-3.5" : "h-4 w-4")} />
       {!compact ? <span>{label}</span> : null}
     </Link>
   );
@@ -99,10 +103,13 @@ function accountSubtitle(account: User): string {
   return account.tenant;
 }
 
-export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
+function SidebarInner({ onNavigate, mobile = false }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { uiPreferences, account, setSidebarCompact } = usePortfolio();
   const compact = !mobile && uiPreferences.sidebarCompact;
+  const planShortcuts = getVisiblePlanNavShortcuts(uiPreferences);
+  const tabParam = searchParams.get("tab");
 
   const mainNavItems = MAIN_NAV_ITEMS.filter(
     (item) => !item.navKey || isNavPageVisible(uiPreferences, item.navKey)
@@ -160,23 +167,42 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 sm:px-3 sm:py-4">
         {mainNavItems.map(({ href, label, icon, accent }) => {
+          const isPlan = href === "/plan";
+          const onPlanShortcut =
+            isPlan && pathname === "/plan" && planShortcuts.some((s) => s.tab === tabParam);
           const active =
-            pathname === href ||
-            pathname.startsWith(`${href}/`) ||
-            (href === "/plan" &&
-              isNavPageVisible(uiPreferences, "plan") &&
-              (pathname === "/planning" || pathname === "/spending"));
+            !onPlanShortcut &&
+            (pathname === href ||
+              pathname.startsWith(`${href}/`) ||
+              (isPlan &&
+                (pathname === "/planning" || pathname === "/spending")));
+
           return (
-            <NavLink
-              key={href}
-              href={href}
-              label={label}
-              icon={icon}
-              accent={accent}
-              active={active}
-              compact={compact}
-              onNavigate={onNavigate}
-            />
+            <div key={href}>
+              <NavLink
+                href={href}
+                label={label}
+                icon={icon}
+                accent={accent}
+                active={active}
+                compact={compact}
+                onNavigate={onNavigate}
+              />
+              {isPlan && !compact
+                ? planShortcuts.map((shortcut) => (
+                    <NavLink
+                      key={shortcut.href}
+                      href={shortcut.href}
+                      label={shortcut.label}
+                      icon={shortcut.icon}
+                      active={pathname === "/plan" && tabParam === shortcut.tab}
+                      compact={compact}
+                      nested
+                      onNavigate={onNavigate}
+                    />
+                  ))
+                : null}
+            </div>
           );
         })}
       </nav>
@@ -211,5 +237,13 @@ export function Sidebar({ onNavigate, mobile = false }: SidebarProps) {
         </div>
       </div>
     </aside>
+  );
+}
+
+export function Sidebar(props: SidebarProps) {
+  return (
+    <Suspense fallback={<aside className="h-full w-64 border-r border-border/60 bg-sidebar/95" />}>
+      <SidebarInner {...props} />
+    </Suspense>
   );
 }

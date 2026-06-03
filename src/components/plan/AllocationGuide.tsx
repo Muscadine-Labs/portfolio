@@ -150,10 +150,17 @@ function AllocationRow({
             className="h-7 w-7"
             onClick={() => onAddChild(node)}
             title="Add sub-allocation"
+            aria-label={`Add sub-allocation under ${node.label}`}
           >
             <Plus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(node)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onEdit(node)}
+            aria-label={`Edit ${node.label}`}
+          >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
@@ -161,6 +168,7 @@ function AllocationRow({
             size="icon"
             className="h-7 w-7 text-destructive"
             onClick={() => onDelete(node.id)}
+            aria-label={`Delete ${node.label}`}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -236,8 +244,45 @@ export function AllocationGuide() {
     ? getChildNodes(allocationNodes, parentId).length
     : roots.length;
 
+  const monthlyOut = useMemo(() => {
+    let out = 0;
+    for (const root of roots) {
+      const amt = plannedMonthlyAmount(root, allocationNodes, monthlyIncome);
+      if (amt != null && !/invest/i.test(root.label)) out += amt;
+    }
+    return out;
+  }, [roots, allocationNodes, monthlyIncome]);
+
+  const monthlyInvest = investMonthly ?? 0;
+
   return (
     <div className="space-y-4">
+      {monthlyIncome != null && monthlyIncome > 0 ? (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-card/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Monthly flow</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Income</p>
+              <p className="text-xl font-semibold tabular-nums">{formatCurrency(monthlyIncome)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Planned out</p>
+              <p className="text-xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                {formatCurrency(monthlyOut)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">To invest</p>
+              <p className="text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(monthlyInvest)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="border-border/60 bg-card/80">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Income split</CardTitle>

@@ -12,13 +12,24 @@ function record(name, ok, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+async function startDemoSession(page) {
+  const res = await page.request.post(`${BASE}/api/auth/demo`);
+  if (!res.ok()) {
+    throw new Error(`Demo auth failed (${res.status()})`);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
   try {
+    await startDemoSession(page);
+    record("Demo session", true);
+
     await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
     record("Dashboard loads", (await page.locator("text=Overview").count()) > 0);
 

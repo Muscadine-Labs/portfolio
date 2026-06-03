@@ -54,6 +54,10 @@ interface PortfolioPageToolbarProps<K extends string = string> {
   showSectionControls?: boolean;
   refreshingPrices?: boolean;
   onRefreshPrices?: () => void;
+  lastPriceRefresh?: Date | null;
+  pricesNote?: string;
+  mobileCardView?: boolean;
+  onMobileCardViewChange?: (cards: boolean) => void;
 }
 
 export function PortfolioPageToolbar<K extends string = string>({
@@ -79,6 +83,10 @@ export function PortfolioPageToolbar<K extends string = string>({
   showSectionControls = false,
   refreshingPrices = false,
   onRefreshPrices,
+  lastPriceRefresh,
+  pricesNote,
+  mobileCardView,
+  onMobileCardViewChange,
 }: PortfolioPageToolbarProps<K>) {
   const panel = portfolioPanel(accent);
   const filtersButtonRef = useRef<HTMLButtonElement>(null);
@@ -131,9 +139,22 @@ export function PortfolioPageToolbar<K extends string = string>({
 
         <div className="hidden h-8 w-px bg-border/80 sm:block" />
 
-        <p className={cn(panel.meta, "hidden sm:block")}>
-          {count} {countLabel} · showing {resultCount}
-        </p>
+        <div className="hidden min-w-0 sm:block">
+          <p className={panel.meta}>
+            {count} {countLabel} · showing {resultCount}
+          </p>
+          {pricesNote ? (
+            <p className="text-[10px] text-muted-foreground">{pricesNote}</p>
+          ) : lastPriceRefresh ? (
+            <p className="text-[10px] text-muted-foreground">
+              Prices updated{" "}
+              {lastPriceRefresh.toLocaleTimeString(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          ) : null}
+        </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-1 max-sm:ml-0 max-sm:w-full max-sm:justify-end">
           {onViewModeChange && viewMode ? (
@@ -182,6 +203,30 @@ export function PortfolioPageToolbar<K extends string = string>({
               </Button>
             </>
           ) : null}
+          {onMobileCardViewChange && mobileCardView != null ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant={mobileCardView ? "secondary" : "ghost"}
+                className="h-7 px-2 text-[11px] md:hidden"
+                aria-pressed={mobileCardView}
+                onClick={() => onMobileCardViewChange(true)}
+              >
+                Cards
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={!mobileCardView ? "secondary" : "ghost"}
+                className="h-7 px-2 text-[11px] md:hidden"
+                aria-pressed={!mobileCardView}
+                onClick={() => onMobileCardViewChange(false)}
+              >
+                Table
+              </Button>
+            </>
+          ) : null}
           {onRefreshPrices ? (
             <Button
               type="button"
@@ -212,6 +257,7 @@ export function PortfolioPageToolbar<K extends string = string>({
           <button
             type="button"
             className={panel.pill(activeSectionId === "all")}
+            aria-pressed={activeSectionId === "all"}
             onClick={() => onSectionSelect("all")}
           >
             ALL
@@ -221,6 +267,7 @@ export function PortfolioPageToolbar<K extends string = string>({
               key={item.id}
               type="button"
               className={panel.pill(activeSectionId === item.id)}
+              aria-pressed={activeSectionId === item.id}
               onClick={() => onSectionSelect(item.id)}
               title={`${item.label} — ${formatCurrency(item.value)}`}
             >

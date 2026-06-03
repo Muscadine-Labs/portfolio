@@ -91,10 +91,17 @@ function WalletRow({
               className="h-7 w-7"
               onClick={() => onAddChild(node)}
               title="Add child wallet"
+              aria-label={`Add child wallet under ${node.label}`}
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(node)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onEdit(node)}
+              aria-label={`Edit wallet ${node.label}`}
+            >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button
@@ -102,6 +109,7 @@ function WalletRow({
               size="icon"
               className="h-7 w-7 text-destructive"
               onClick={() => onDelete(node.id)}
+              aria-label={`Delete wallet ${node.label}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

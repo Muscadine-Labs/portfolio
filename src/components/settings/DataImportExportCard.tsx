@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/format-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePortfolio, buildPortfolioPayload } from "@/components/providers/PortfolioProvider";
@@ -56,7 +57,7 @@ export function DataImportExportCard({ embedded = false }: { embedded?: boolean 
       const payload = (await res.json()) as PortfolioDataPayload & { error?: string };
       if (!res.ok) {
         toast.error("Export failed", {
-          description: payload.error ?? "The server could not validate portfolio data.",
+          description: apiErrorMessage(payload.error, "The server could not validate portfolio data."),
         });
         return;
       }
@@ -130,7 +131,7 @@ export function DataImportExportCard({ embedded = false }: { embedded?: boolean 
       const result = (await res.json()) as PortfolioDataPayload & { error?: string };
       if (!res.ok) {
         toast.error("Import rejected", {
-          description: result.error ?? "The file could not be applied.",
+          description: apiErrorMessage(result.error, "The file could not be applied."),
         });
         return;
       }

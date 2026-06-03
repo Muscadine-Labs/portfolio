@@ -1,5 +1,6 @@
 import { EMPTY_UI_PREFERENCES } from "@/lib/portfolio-empty";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
+import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import type { UiPreferences } from "@/types";
 
@@ -49,6 +50,7 @@ export function normalizeUiPreferences(
     ...base,
     theme: normalizeThemePreference(base.theme),
     overviewChart: normalizeOverviewChart(base.overviewChart),
+    overviewWidgets: normalizeOverviewWidgets(base.overviewWidgets),
     sidebarCompact: resolveSidebarCompact(base.sidebarCompact, tenant),
     monthlyAutoSnapshot:
       typeof base.monthlyAutoSnapshot === "boolean" ? base.monthlyAutoSnapshot : false,

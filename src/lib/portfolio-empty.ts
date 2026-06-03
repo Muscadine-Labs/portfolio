@@ -1,4 +1,5 @@
 import { DEFAULT_OVERVIEW_CHART } from "@/lib/overview-chart";
+import { DEFAULT_OVERVIEW_WIDGETS } from "@/lib/overview-widgets";
 import type {
   AllocationNode,
   IncomePlanConfig,
@@ -41,6 +42,7 @@ export const EMPTY_UI_PREFERENCES: UiPreferences = {
     goals: true,
   },
   overviewChart: DEFAULT_OVERVIEW_CHART,
+  overviewWidgets: DEFAULT_OVERVIEW_WIDGETS,
   sidebarCompact: false,
   monthlyAutoSnapshot: false,
 };

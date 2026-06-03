@@ -287,6 +287,7 @@ export function CashPageContent() {
                         setDefaultSectionId(account.sectionId);
                         setCashDrawerOpen(true);
                       }}
+                      aria-label={`Edit ${account.name}`}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -295,6 +296,7 @@ export function CashPageContent() {
                       size="icon"
                       className={cn(panel.iconBtn, "hover:text-destructive")}
                       onClick={() => deleteCashAccount(account.id)}
+                      aria-label={`Delete ${account.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

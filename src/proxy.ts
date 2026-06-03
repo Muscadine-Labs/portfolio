@@ -72,7 +72,8 @@ export async function proxy(request: NextRequest) {
     !authenticated &&
     !isPublicPath(pathname) &&
     !pathname.startsWith("/api/auth") &&
-    !pathname.startsWith("/api/admin")
+    !pathname.startsWith("/api/admin") &&
+    pathname !== "/api/health"
   ) {
     const loginUrl = new URL("/login", request.url);
     if (pathname !== "/") {

@@ -1,4 +1,5 @@
 import { DEFAULT_OVERVIEW_CHART } from "@/lib/overview-chart";
+import { DEFAULT_OVERVIEW_WIDGETS } from "@/lib/overview-widgets";
 import type { PortfolioDataPayload } from "@/lib/portfolio-data";
 import type { User } from "@/types";
 
@@ -299,6 +300,7 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
       navPages: { assets: true, cash: true, liabilities: true, plan: true },
       planTabs: { income: true, wallets: true, budget: true, goals: true },
       overviewChart: DEFAULT_OVERVIEW_CHART,
+      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS,
       sidebarCompact: false,
       monthlyAutoSnapshot: false,
     },

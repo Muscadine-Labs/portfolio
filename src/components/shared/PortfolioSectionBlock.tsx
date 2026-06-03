@@ -101,6 +101,7 @@ export function PortfolioSectionBlock({
               className={panel.iconBtn}
               onClick={onEditSection}
               title="Edit section"
+              aria-label={`Edit section ${label}`}
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
@@ -110,6 +111,7 @@ export function PortfolioSectionBlock({
               className={cn(panel.iconBtn, "hover:text-destructive")}
               onClick={handleDelete}
               title="Delete section"
+              aria-label={`Delete section ${label}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

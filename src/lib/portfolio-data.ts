@@ -1,7 +1,8 @@
 import { normalizeOverviewChart } from "@/lib/overview-chart";
+import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
+import { normalizeThemePreference } from "@/lib/theme-preference";
 import { migrateAndNormalizeSectionGroups } from "@/lib/section-groups";
 import { parseSectionMetadata } from "@/lib/section-metadata";
-import { normalizeThemePreference } from "@/lib/theme-preference";
 import {
   mergeLegacyConnectedWallets,
   normalizeWalletMapNodes,
@@ -28,6 +29,8 @@ import type {
   IncomePlanConfig,
   Liability,
   OverviewChartLineType,
+  OverviewWidgetId,
+  OverviewWidgetsPreferences,
   PageType,
   PlanningItem,
   PortfolioSection,
@@ -90,6 +93,38 @@ const TRACK_PAGES: NonNullable<PlanningItem["trackPage"]>[] = [
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const OVERVIEW_WIDGET_IDS: OverviewWidgetId[] = [
+  "insights",
+  "chart",
+  "allocation",
+  "breakdown",
+];
+
+function parseOverviewWidgets(
+  raw: unknown
+): Partial<OverviewWidgetsPreferences> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const order: OverviewWidgetId[] = [];
+  if (Array.isArray(raw.order)) {
+    for (const item of raw.order) {
+      if (
+        typeof item === "string" &&
+        OVERVIEW_WIDGET_IDS.includes(item as OverviewWidgetId) &&
+        !order.includes(item as OverviewWidgetId)
+      ) {
+        order.push(item as OverviewWidgetId);
+      }
+    }
+  }
+  return {
+    insights: typeof raw.insights === "boolean" ? raw.insights : undefined,
+    chart: typeof raw.chart === "boolean" ? raw.chart : undefined,
+    allocation: typeof raw.allocation === "boolean" ? raw.allocation : undefined,
+    breakdown: typeof raw.breakdown === "boolean" ? raw.breakdown : undefined,
+    order: order.length > 0 ? order : undefined,
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -226,6 +261,15 @@ export function normalizePortfolioEntityIds(
       ? dedupeEntityIds(payload.allocationNodes, "alloc")
       : payload.allocationNodes,
     walletMapNodes,
+    uiPreferences: payload.uiPreferences
+      ? {
+          ...EMPTY_UI_PREFERENCES,
+          ...payload.uiPreferences,
+          theme: normalizeThemePreference(payload.uiPreferences.theme),
+          overviewChart: normalizeOverviewChart(payload.uiPreferences.overviewChart),
+          overviewWidgets: normalizeOverviewWidgets(payload.uiPreferences.overviewWidgets),
+        }
+      : EMPTY_UI_PREFERENCES,
   };
 }
 
@@ -847,6 +891,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
               typeof body.uiPreferences.monthlyAutoSnapshot === "boolean"
                 ? body.uiPreferences.monthlyAutoSnapshot
                 : false,
+            overviewWidgets: normalizeOverviewWidgets(
+              parseOverviewWidgets(body.uiPreferences.overviewWidgets)
+            ),
           };
         }
       }

@@ -6,7 +6,7 @@ export default async function SettingsPage() {
   const authEnabled = await isTenantCredentialManagementEnabled();
 
   return (
-    <TenantPage title="Settings" description="Manage account, display, wallets, and data">
+    <TenantPage title="Settings" description="Manage account, display, wallets, and data" compact>
       <SettingsContent authEnabled={authEnabled} />
     </TenantPage>
   );

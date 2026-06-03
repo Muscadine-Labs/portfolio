@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-/** Subscribes to a CSS media query; defaults to `false` until mounted (mobile-first). */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+/**
+ * Subscribes to a CSS media query.
+ * Pass `defaultValue: true` for max-width queries to avoid a desktop-first flash on mobile.
+ */
+export function useMediaQuery(query: string, defaultValue = false): boolean {
+  const [matches, setMatches] = useState(defaultValue);
 
   useEffect(() => {
     const mq = window.matchMedia(query);

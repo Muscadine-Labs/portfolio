@@ -22,6 +22,16 @@ export type PageType =
 
 export type NavPageKey = "assets" | "cash" | "liabilities" | "plan";
 
+export type OverviewWidgetId = "insights" | "chart" | "allocation" | "breakdown";
+
+export interface OverviewWidgetsPreferences {
+  insights: boolean;
+  chart: boolean;
+  allocation: boolean;
+  breakdown: boolean;
+  order: OverviewWidgetId[];
+}
+
 export type OverviewChartLineType =
   | "monotone"
   | "linear"
@@ -63,6 +73,8 @@ export interface UiPreferences {
     goals: boolean;
   };
   overviewChart: OverviewChartPreferences;
+  /** Overview dashboard widget visibility and order. */
+  overviewWidgets: OverviewWidgetsPreferences;
   /** Icon-only sidebar on desktop — persisted per user. */
   sidebarCompact: boolean;
   /** When enabled, the home API records net worth on the 1st of each month. */

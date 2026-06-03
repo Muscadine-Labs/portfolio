@@ -20,6 +20,14 @@ export function computePanelPosition(button: HTMLButtonElement): PanelPosition {
   return { top, left, width };
 }
 
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  );
+}
+
 function ColumnToggle({
   label,
   on,
@@ -32,6 +40,7 @@ function ColumnToggle({
   return (
     <button
       type="button"
+      aria-pressed={on}
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
         on
@@ -83,6 +92,28 @@ export function ColumnPickerPopover<K extends string = string>({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [open, onOpenChange, anchorRef]);
+
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const panel = panelRef.current;
+    const focusables = getFocusableElements(panel);
+    focusables[0]?.focus();
+
+    const trapTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    panel.addEventListener("keydown", trapTab);
+    return () => panel.removeEventListener("keydown", trapTab);
+  }, [open, columnOptions.length]);
 
   if (!open || !panelPosition || typeof document === "undefined") {
     return null;

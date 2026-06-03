@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { GoalProgressRing } from "@/components/planning/GoalProgressRing";
 import { PlanningDrawer } from "@/components/planning/PlanningDrawer";
 import { SectionDrawer } from "@/components/sections/SectionDrawer";
 import { SectionHeader, AddSectionButton } from "@/components/sections/SectionHeader";
@@ -88,7 +89,21 @@ export function PlanningContent() {
             />
             <CardContent className="space-y-3">
               {items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No goals in this section</p>
+                <div className="rounded-lg border border-dashed border-border/50 bg-muted/15 px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">No goals in this section yet.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => {
+                      setEditing(null);
+                      setDefaultSectionId(section.id);
+                      setItemDrawerOpen(true);
+                    }}
+                  >
+                    Add goal
+                  </Button>
+                </div>
               ) : (
                 items.map((item) => {
                   const linked = isGoalLinkedToPortfolio(item);
@@ -102,6 +117,14 @@ export function PlanningContent() {
                       className="rounded-lg border border-border/40 bg-background/50 px-4 py-3"
                     >
                       <div className="flex items-start justify-between gap-3">
+                        {progress != null ? (
+                          <div className="relative flex shrink-0 flex-col items-center">
+                            <GoalProgressRing percent={progress} />
+                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
+                              {Math.round(progress)}%
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium">{item.title}</p>
@@ -139,7 +162,7 @@ export function PlanningContent() {
                             <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
                           )}
                           {progress != null && (
-                            <Progress value={progress} className="mt-2 h-1.5" />
+                            <Progress value={progress} className="mt-3 h-2 [&>div]:bg-primary/80" />
                           )}
                         </div>
                         <div className="flex shrink-0 gap-1">
@@ -152,6 +175,7 @@ export function PlanningContent() {
                               setDefaultSectionId(item.sectionId);
                               setItemDrawerOpen(true);
                             }}
+                            aria-label={`Edit ${item.title}`}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -160,6 +184,7 @@ export function PlanningContent() {
                             size="icon"
                             className="h-8 w-8 text-destructive"
                             onClick={() => deletePlanningItem(item.id)}
+                            aria-label={`Delete ${item.title}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

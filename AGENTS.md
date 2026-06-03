@@ -1,74 +1,53 @@
 # Agent instructions
 
-**Version 1.0.0**
+**Version 1.0.5**
 
-Read first:
-
-- `CLAUDE.md` — codebase map and agent rules  
-- `README.md` — production stack and Vercel env  
-- `SECURITY.md` — privacy and trust boundaries  
+Read first: `CLAUDE.md` (full guide), `README.md`, `SECURITY.md`.
 
 ---
 
-Personal finance dashboard (Next.js 16): net worth, assets, cash, liabilities, plan, settings.
+## What this repo is
 
-**Deployed:** https://portfolio.muscadine.io (Vercel). **Data:** https://api-portfolio.muscadine.io (mini PC + tunnel).
+Next.js 16 UI for personal finance (net worth, assets, plan, settings). Deployed on Vercel; persistence via proxied calls to **api-portfolio** (SQLite on mini PC).
 
----
+| Area | Path |
+|------|------|
+| Pages & API routes | `src/app/` |
+| Components | `src/components/` |
+| Logic | `src/lib/` |
+| Types | `src/types/` — sync with api-portfolio |
 
-## Repo at a glance
-
-| Area | Path | Notes |
-|------|------|--------|
-| Pages & API routes | `src/app/` | UI + `/api/*` proxies to home API when `API_URL` set |
-| UI components | `src/components/` | Feature folders + `ui/` (shadcn) |
-| Shared logic | `src/lib/` | Auth, validation, wallet map |
-| Types | `src/types/` | Shared with api-portfolio (keep in sync) |
-| Optional local seed | `portfolio-data.ts` (gitignored) | Dev only when `API_URL` unset |
-| Example seed | `portfolio-data.example.ts` | Generic demo structure |
-
-**Do not put real names, addresses, or balances in committed files.**
+Do not commit real balances, names, or `portfolio-data.ts` with PII.
 
 ---
 
-## Local setup
+## Version bumps (required after GitHub push)
+
+After every **`git push`** to GitHub for this repo:
+
+1. Bump `package.json` `version` by **+0.0.1** on the patch digit.
+2. Digits are **0–9** only per segment (no tenth patch like `1.0.10`).
+3. **Rollover:** patch `9` → `0` and +1 minor (`1.0.9` → `1.1.0`). Minor and patch both `9` → +1 major (`2.9.9` → `3.0.0`).
+4. Update `CLAUDE.md` release line and this file’s version header.
+
+---
+
+## Local commands
 
 ```bash
-npm install
-cp .env.example .env
-# With home API:
-# API_URL=http://127.0.0.1:3001
-# API_SECRET=<match api-portfolio>
+npm install && cp .env.example .env
 npm run dev
-env -u NODE_ENV npm run build
-npm run lint
-npm run test:smoke
+env -u NODE_ENV npm run build && npm run lint
+npm run test:smoke && npm run test:api
 ```
 
 ---
 
-## Data flow (production)
+## Conventions
 
-1. Sign in → home API sets session cookies (proxied via Vercel)
-2. SSR loads portfolio from `GET /api/me`
-3. Edits → debounced `POST /api/export` → SQLite on mini PC
+1. Minimize diff.
+2. Crypto columns: section `metadata.isCrypto` on assets.
+3. Secrets only in `.env`.
+4. Validation parity with api-portfolio `portfolio-data.ts`.
 
----
-
-## Conventions for agents
-
-1. **Minimize diff** — match existing patterns.
-2. **No PII in git** — never commit `portfolio-data.ts` with real data.
-3. **Crypto sections** — use section `metadata.isCrypto` (or legacy id/label) for network & exchange columns on assets.
-4. **Secrets** — only in `.env`, never in source.
-5. **Validation** — keep `src/lib/portfolio-data.ts` in sync with api-portfolio.
-
----
-
-## Useful paths
-
-- Plan / wallets: `src/components/plan/WalletMapGuide.tsx`, `src/lib/wallet-map.ts`
-- Settings: `src/components/settings/`
-- Proxy: `src/lib/home-api.ts`, `src/proxy.ts`
-
-Human getting started: `README.md`.
+Human overview: `README.md`.

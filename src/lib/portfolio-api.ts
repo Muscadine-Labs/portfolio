@@ -52,12 +52,17 @@ export async function fetchHomeApi(
 ): Promise<Response | null> {
   const base = getHomeApiBaseUrl();
   if (!base) return null;
-  const apiHeaders = await buildHomeApiHeaders(tenant, init);
-  return fetch(`${base}${path}`, {
-    ...init,
-    headers: apiHeaders,
-    cache: "no-store",
-  });
+  try {
+    const apiHeaders = await buildHomeApiHeaders(tenant, init);
+    return await fetch(`${base}${path}`, {
+      ...init,
+      headers: apiHeaders,
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("fetchHomeApi failed", path, error);
+    return null;
+  }
 }
 
 export async function getInitialPortfolioFromApi(): Promise<PortfolioDataPayload> {

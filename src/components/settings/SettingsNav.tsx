@@ -63,7 +63,7 @@ export function SettingsNav({ active, onChange }: SettingsNavProps) {
                   "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                   isActive
                     ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border/60 bg-card/80 text-muted-foreground"
+                    : "border-border/60 bg-card/80 text-muted-foreground hover:border-border hover:text-foreground"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />

@@ -7,6 +7,7 @@ import { DataImportExportCard } from "@/components/settings/DataImportExportCard
 import { NetWorthHistorySettingsCard } from "@/components/settings/NetWorthHistorySettingsCard";
 import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
 import { OverviewChartSettingsCard } from "@/components/settings/OverviewChartSettingsCard";
+import { OverviewDashboardSettingsCard } from "@/components/settings/OverviewDashboardSettingsCard";
 import { SettingsFooter } from "@/components/settings/SettingsFooter";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import {
@@ -33,7 +34,7 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
 
   return (
-    <div className="mx-auto max-w-5xl pb-8">
+    <div className="mx-auto max-w-5xl space-y-4 pb-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
         <div className="lg:sticky lg:top-20 lg:self-start xl:top-24">
           <SettingsNav active={activeSection} onChange={setActiveSection} />
@@ -51,6 +52,7 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
             <section aria-labelledby="settings-display" className="space-y-4">
               <SettingsPanelHeader sectionId="display" />
               <AppearanceSettingsCard />
+              <OverviewDashboardSettingsCard />
               <OverviewChartSettingsCard />
             </section>
           )}

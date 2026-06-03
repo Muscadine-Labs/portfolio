@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/format-error";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -53,7 +54,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         toast.error("Sign in failed", {
-          description: body.error ?? "Invalid username or password",
+          description: apiErrorMessage(body.error, "Invalid username or password"),
         });
         return;
       }
@@ -151,7 +152,12 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={loading || demoLoading}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full font-semibold"
+              disabled={loading || demoLoading}
+            >
               <LogIn className="mr-2 h-4 w-4" />
               {loading ? "Signing in…" : "Sign In"}
             </Button>
@@ -169,7 +175,8 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="secondary"
-            className="w-full"
+            size="lg"
+            className="w-full font-medium"
             disabled={loading || demoLoading}
             onClick={() => void startDemo()}
           >

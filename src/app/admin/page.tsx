@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/format-error";
 
 type AdminAccount = {
   username: string;
@@ -156,7 +157,7 @@ export default function AdminPage() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(body.error ?? "Could not create user");
+        toast.error(apiErrorMessage(body.error, "Could not create user"));
         return;
       }
       toast.success("User created");
@@ -230,7 +231,7 @@ export default function AdminPage() {
 
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(err.error ?? "Could not save changes");
+        toast.error(apiErrorMessage(err.error, "Could not save changes"));
         return;
       }
 
@@ -250,7 +251,7 @@ export default function AdminPage() {
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
-      toast.error(body.error ?? "Could not delete user");
+      toast.error(apiErrorMessage(body.error, "Could not delete user"));
       return;
     }
     toast.success(`Deleted "${tenant}"`);
@@ -267,31 +268,33 @@ export default function AdminPage() {
   const editingUserTenant = editing?.kind === "user" ? editing.originalTenant : null;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 md:px-8">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <UserCog className="h-8 w-8 text-violet-400" />
-          <div>
-            <h1 className="text-2xl font-bold">Admin</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage portfolio users and credentials
-            </p>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 px-4 py-4 backdrop-blur-xl md:px-8">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <UserCog className="h-8 w-8 text-violet-400" />
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Admin</h1>
+              <p className="text-sm text-muted-foreground">
+                Manage portfolio users and credentials
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => void loadUsers()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void signOut()}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void loadUsers()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void signOut()}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </Button>
-        </div>
-      </div>
+      </header>
 
-      <div className="mx-auto mt-8 grid max-w-5xl gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="mx-auto grid max-w-5xl gap-4 px-4 py-6 md:px-8 lg:grid-cols-2">
+        <Card className="border-border/60 bg-card/80 shadow-sm">
           <CardHeader>
             <CardTitle>Add user</CardTitle>
             <CardDescription>
@@ -345,7 +348,7 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="border-border/60 bg-card/80 shadow-sm lg:col-span-2">
           <CardHeader>
             <CardTitle>Accounts</CardTitle>
             <CardDescription>

@@ -1,7 +1,8 @@
 import { cookies, headers } from "next/headers";
+import { DEMO_COOKIE } from "@/lib/demo-constants";
 
-export const DEMO_COOKIE = "portfolio_demo";
-export const DEMO_TENANT = "demo";
+export { DEMO_COOKIE, DEMO_TENANT } from "@/lib/demo-constants";
+export { isDemoTenant } from "@/lib/demo-constants";
 
 export function isDemoCookieValue(value: string | undefined | null): boolean {
   return value === "1";

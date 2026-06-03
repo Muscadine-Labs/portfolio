@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/format-error";
 import { getSectionsForPage, createSectionId } from "@/lib/sections";
 import { createSectionGroupId, getSectionGroupsForPage } from "@/lib/section-groups";
 import {
@@ -29,10 +30,15 @@ import {
 } from "@/lib/portfolio-empty";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { sortNetWorthHistory } from "@/lib/net-worth-history";
+import {
+  moveOverviewWidgetInOrder,
+  normalizeOverviewWidgets,
+} from "@/lib/overview-widgets";
 import { normalizeUiPreferences, writeSidebarCompactToStorage } from "@/lib/sidebar-preference";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
 import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
+import { isDemoTenant } from "@/lib/demo-constants";
 import { isFinnhubEligible } from "@/lib/finnhub";
 import type {
   AllocationNode,
@@ -42,6 +48,7 @@ import type {
   Liability,
   NetWorthSnapshot,
   OverviewChartPreferences,
+  OverviewWidgetId,
   PageType,
   PlanningItem,
   PortfolioSection,
@@ -101,6 +108,8 @@ interface PortfolioContextValue {
   setNavPageVisible: (page: NavPageKey, visible: boolean) => void;
   setPlanTabVisible: (tab: PlanTabId, visible: boolean) => void;
   setOverviewChartPreferences: (patch: Partial<OverviewChartPreferences>) => void;
+  setOverviewWidgetVisible: (widget: OverviewWidgetId, visible: boolean) => void;
+  moveOverviewWidget: (widget: OverviewWidgetId, direction: "up" | "down") => void;
   setMonthlyAutoSnapshot: (enabled: boolean) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
   setSidebarCompact: (compact: boolean) => void;
@@ -281,6 +290,32 @@ export function PortfolioProvider({
     []
   );
 
+  const setOverviewWidgetVisible = useCallback(
+    (widget: OverviewWidgetId, visible: boolean) => {
+      setUiPreferences((prev) => ({
+        ...prev,
+        overviewWidgets: normalizeOverviewWidgets({
+          ...prev.overviewWidgets,
+          [widget]: visible,
+        }),
+      }));
+    },
+    []
+  );
+
+  const moveOverviewWidget = useCallback(
+    (widget: OverviewWidgetId, direction: "up" | "down") => {
+      setUiPreferences((prev) => ({
+        ...prev,
+        overviewWidgets: normalizeOverviewWidgets({
+          ...prev.overviewWidgets,
+          order: moveOverviewWidgetInOrder(prev.overviewWidgets.order, widget, direction),
+        }),
+      }));
+    },
+    []
+  );
+
   const setMonthlyAutoSnapshot = useCallback((enabled: boolean) => {
     setUiPreferences((prev) => ({ ...prev, monthlyAutoSnapshot: enabled }));
   }, []);
@@ -333,9 +368,11 @@ export function PortfolioProvider({
     [account.tenant]
   );
 
-  const applyAssetPrices = useCallback((pricesBySymbol: Record<string, number>) => {
-    let updated = 0;
-    setAssets((prev) =>
+  const applyAssetPrices = useCallback(
+    (pricesBySymbol: Record<string, number>) => {
+      if (isDemoTenant(account.tenant)) return 0;
+      let updated = 0;
+      setAssets((prev) =>
       prev.map((asset) => {
         if (!isFinnhubEligible(asset)) return asset;
         const price = pricesBySymbol[asset.symbol.toUpperCase()];
@@ -344,8 +381,10 @@ export function PortfolioProvider({
         return { ...asset, price };
       })
     );
-    return updated;
-  }, []);
+      return updated;
+    },
+    [account.tenant]
+  );
 
   const setIncomePlanDescription = useCallback((description: string) => {
     setIncomePlan((prev) => ({ ...prev, description }));
@@ -647,8 +686,8 @@ export function PortfolioProvider({
       body,
     }).then(async (res) => {
       if (!res.ok && options?.keepalive !== true) {
-        const errorBody = (await res.json().catch(() => ({}))) as { error?: string };
-        toast.error(errorBody.error ?? `Save failed (${res.status})`);
+        const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown };
+        toast.error(apiErrorMessage(errorBody.error, `Save failed (${res.status})`));
       }
     }).catch(() => {
       if (options?.keepalive !== true) {
@@ -782,6 +821,8 @@ export function PortfolioProvider({
       setNavPageVisible,
       setPlanTabVisible,
       setOverviewChartPreferences,
+      setOverviewWidgetVisible,
+      moveOverviewWidget,
       setMonthlyAutoSnapshot,
       setThemePreference,
       setSidebarCompact,
@@ -836,6 +877,8 @@ export function PortfolioProvider({
       setNavPageVisible,
       setPlanTabVisible,
       setOverviewChartPreferences,
+      setOverviewWidgetVisible,
+      moveOverviewWidget,
       setMonthlyAutoSnapshot,
       setThemePreference,
       setSidebarCompact,

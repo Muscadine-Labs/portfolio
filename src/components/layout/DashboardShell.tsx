@@ -2,6 +2,7 @@
 
 import { type CSSProperties, type ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MobileNavProvider, useMobileNav } from "@/components/layout/MobileNavContext";
 import { PortfolioProvider, usePortfolio } from "@/components/providers/PortfolioProvider";
 import { PortfolioAgreementProvider } from "@/contexts/PortfolioAgreementContext";
@@ -39,6 +40,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           open ? "pointer-events-auto" : "pointer-events-none"
         )}
         aria-hidden={!open}
+        inert={!open ? true : undefined}
       >
         <div
           className={cn(
@@ -61,10 +63,17 @@ function ShellInner({ children }: { children: ReactNode }) {
         <Sidebar />
       </div>
 
-      <div className={cn("min-w-0 transition-[padding] duration-200", mainOffsetClass(compact))}>
+      <div
+        className={cn(
+          "min-w-0 pb-16 transition-[padding] duration-200 md:pb-0",
+          mainOffsetClass(compact)
+        )}
+      >
         <ThemePreferenceSync />
         {children}
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }

@@ -99,6 +99,7 @@ export function SectionHeader({
           className={cn(panel?.iconBtn ?? "h-8 w-8 shrink-0")}
           onClick={onEditSection}
           title="Edit section"
+          aria-label={`Edit section ${title}`}
         >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
@@ -108,6 +109,7 @@ export function SectionHeader({
           className={cn(panel?.iconBtn ?? "h-8 w-8 shrink-0", "hover:text-destructive")}
           onClick={handleDelete}
           title="Delete section"
+          aria-label={`Delete section ${title}`}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

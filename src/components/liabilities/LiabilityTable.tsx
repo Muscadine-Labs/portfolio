@@ -334,6 +334,7 @@ export function LiabilityTable() {
                         setDefaultSectionId(l.sectionId);
                         setLiabilityDrawerOpen(true);
                       }}
+                      aria-label={`Edit ${l.name}`}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -342,6 +343,7 @@ export function LiabilityTable() {
                       size="icon"
                       className={cn(panel.iconBtn, "hover:text-destructive")}
                       onClick={() => deleteLiability(l.id)}
+                      aria-label={`Delete ${l.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

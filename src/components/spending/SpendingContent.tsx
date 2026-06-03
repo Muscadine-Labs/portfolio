@@ -107,11 +107,26 @@ export function SpendingContent() {
                 </p>
               )}
               {items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No items in this section</p>
+                <div className="rounded-lg border border-dashed border-border/50 bg-muted/15 px-4 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">No budget items yet.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => {
+                      setEditing(null);
+                      setDefaultSectionId(section.id);
+                      setItemDrawerOpen(true);
+                    }}
+                  >
+                    Add budget item
+                  </Button>
+                </div>
               ) : (
                 items.map((item) => {
                   const pct = item.budget > 0 ? Math.min(100, (item.spent / item.budget) * 100) : 0;
                   const over = item.spent > item.budget;
+                  const remaining = item.budget - item.spent;
                   return (
                     <div
                       key={item.id}
@@ -119,19 +134,27 @@ export function SpendingContent() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium">{item.name}</p>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="font-medium">{item.name}</p>
+                            <p
+                              className={`shrink-0 text-xs font-medium tabular-nums ${over ? "text-red-400" : "text-emerald-500"}`}
+                            >
+                              {over ? "Over" : formatCurrency(remaining)} left
+                            </p>
+                          </div>
                           <p className="text-sm text-muted-foreground capitalize">
                             {item.frequency.replace("_", "-")} ·{" "}
                             <span className={over ? "text-red-400" : ""}>
-                              {formatCurrency(item.spent)} / {formatCurrency(item.budget)}
+                              {formatCurrency(item.spent)} of {formatCurrency(item.budget)}
                             </span>
+                            <span className="text-foreground"> ({pct.toFixed(0)}%)</span>
                           </p>
                           {item.notes && (
                             <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>
                           )}
                           <Progress
                             value={pct}
-                            className={`mt-2 h-1.5 ${over ? "[&>div]:bg-red-500" : ""}`}
+                            className={`mt-3 h-2.5 ${over ? "[&>div]:bg-red-500" : "[&>div]:bg-emerald-600"}`}
                           />
                         </div>
                         <div className="flex shrink-0 gap-1">
@@ -144,6 +167,7 @@ export function SpendingContent() {
                               setDefaultSectionId(item.sectionId);
                               setItemDrawerOpen(true);
                             }}
+                            aria-label={`Edit ${item.name}`}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -152,6 +176,7 @@ export function SpendingContent() {
                             size="icon"
                             className="h-8 w-8 text-destructive"
                             onClick={() => deleteSpendingItem(item.id)}
+                            aria-label={`Delete ${item.name}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

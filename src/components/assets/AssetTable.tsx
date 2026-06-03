@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AssetMobileList } from "@/components/assets/AssetMobileList";
+import { PageBreadcrumbs, type BreadcrumbItem } from "@/components/layout/PageBreadcrumbs";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
@@ -23,6 +26,7 @@ import { SectionGroupBlock, UngroupedSectionsBlock } from "@/components/sections
 import { SectionGroupDrawer } from "@/components/sections/SectionGroupDrawer";
 import { AddSectionButton } from "@/components/sections/SectionHeader";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
+import { isDemoTenant } from "@/lib/demo-constants";
 import {
   formatCurrency,
   formatPercent,
@@ -42,6 +46,7 @@ import {
   sectionFilterMatches,
 } from "@/lib/section-groups";
 import { isFinnhubEligible, type MarketQuotesResponse } from "@/lib/finnhub";
+import { apiErrorMessage } from "@/lib/format-error";
 import { toast } from "sonner";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import type { Asset, PortfolioSection, SectionGroup } from "@/types";
@@ -165,7 +170,9 @@ export function AssetTable() {
     upsertSection,
     deleteSection,
     applyAssetPrices,
+    account,
   } = usePortfolio();
+  const isDemo = isDemoTenant(account.tenant);
   const sections = getSections("assets");
   const groups = getSectionGroups("assets");
   const filterIds = useMemo(
@@ -190,6 +197,9 @@ export function AssetTable() {
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
   const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [lastPriceRefresh, setLastPriceRefresh] = useState<Date | null>(null);
+  const isMobile = useMediaQuery("(max-width: 767px)", true);
+  const [mobileCardView, setMobileCardView] = useState(true);
 
   const finnhubEligibleCount = useMemo(
     () => assets.filter(isFinnhubEligible).length,
@@ -403,6 +413,7 @@ export function AssetTable() {
               size="icon"
               className={panel.iconBtn}
               onClick={() => openEditAsset(asset)}
+              aria-label={`Edit ${asset.symbol}`}
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
@@ -411,6 +422,7 @@ export function AssetTable() {
               size="icon"
               className={cn(panel.iconBtn, "hover:text-destructive")}
               onClick={() => deleteAsset(asset.id)}
+              aria-label={`Delete ${asset.symbol}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -541,7 +553,9 @@ export function AssetTable() {
       const res = await fetch("/api/market/quotes", { method: "POST" });
       const data = (await res.json()) as MarketQuotesResponse;
       if (!res.ok) {
-        toast.error("Price refresh failed", { description: data.error ?? "Unknown error" });
+        toast.error("Price refresh failed", {
+          description: apiErrorMessage(data.error, "Unknown error"),
+        });
         return;
       }
 
@@ -555,6 +569,7 @@ export function AssetTable() {
       if (typeof data.apiCalls === "number") {
         parts.push(`${data.apiCalls} Finnhub call${data.apiCalls === 1 ? "" : "s"}`);
       }
+      setLastPriceRefresh(new Date());
       toast.success("Prices refreshed", {
         description: parts.length > 0 ? parts.join(" · ") : data.message ?? "No changes",
       });
@@ -565,8 +580,30 @@ export function AssetTable() {
     }
   };
 
+  const breadcrumbItems = useMemo((): BreadcrumbItem[] => {
+    const items: BreadcrumbItem[] = [
+      { label: "Overview", href: "/dashboard" },
+      { label: "Assets", href: "/assets" },
+    ];
+    if (sectionFilter !== "all") {
+      const nav = sectionNavItems.find((i) => i.id === sectionFilter);
+      if (nav) items.push({ label: nav.label });
+    }
+    return items;
+  }, [sectionFilter, sectionNavItems]);
+
+  const showMobileCards = isMobile && mobileCardView;
+  const flatFilteredAssets = useMemo(() => {
+    const list: Asset[] = [];
+    for (const section of visibleSections) {
+      list.push(...(assetsBySection[section.id] ?? []));
+    }
+    return list;
+  }, [visibleSections, assetsBySection]);
+
   return (
     <div className="space-y-3">
+      <PageBreadcrumbs items={breadcrumbItems} />
       <PortfolioPageToolbar
         accent="assets"
         totalLabel="Total assets"
@@ -583,13 +620,25 @@ export function AssetTable() {
         columnOptions={getAssetColumnOptions(showWalletPositionColumns)}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
-        refreshingPrices={refreshingPrices}
-        onRefreshPrices={() => void refreshPrices()}
+        refreshingPrices={isDemo ? false : refreshingPrices}
+        onRefreshPrices={isDemo ? undefined : () => void refreshPrices()}
+        lastPriceRefresh={isDemo ? null : lastPriceRefresh}
+        pricesNote={isDemo ? "Demo — sample prices are fixed" : undefined}
+        mobileCardView={isMobile ? mobileCardView : undefined}
+        onMobileCardViewChange={isMobile ? setMobileCardView : undefined}
       />
+
+      {showMobileCards && flatFilteredAssets.length > 0 ? (
+        <AssetMobileList
+          assets={flatFilteredAssets}
+          totalPortfolioMV={totalPortfolioMV}
+          onEdit={openEditAsset}
+        />
+      ) : null}
 
       {sections.length === 0 ? (
         <p className="px-1 text-sm text-muted-foreground">No sections yet. Add one below.</p>
-      ) : (
+      ) : showMobileCards ? null : (
         <div className={panel.sectionStack}>
           {pageLayout.map((block) => {
             if (block.kind === "group") {

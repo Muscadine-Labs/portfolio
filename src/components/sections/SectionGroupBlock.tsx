@@ -61,6 +61,7 @@ export function SectionGroupBlock({
             className="h-8 w-8 shrink-0"
             onClick={onToggleCollapse}
             aria-expanded={!collapsed}
+            aria-label={collapsed ? `Expand group ${group.name}` : `Collapse group ${group.name}`}
           >
             <ChevronDown
               className={cn(
@@ -85,6 +86,7 @@ export function SectionGroupBlock({
               className={panel.iconBtn}
               onClick={onEditGroup}
               title="Rename group"
+              aria-label={`Rename group ${group.name}`}
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
@@ -97,6 +99,7 @@ export function SectionGroupBlock({
               className={cn(panel.iconBtn, "hover:text-destructive")}
               onClick={handleDelete}
               title="Delete group"
+              aria-label={`Delete group ${group.name}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -139,6 +142,7 @@ export function UngroupedSectionsBlock({
             className="h-8 w-8 shrink-0"
             onClick={onToggleCollapse}
             aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand ungrouped sections" : "Collapse ungrouped sections"}
           >
             <ChevronDown
               className={cn(

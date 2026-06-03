@@ -5,6 +5,12 @@ import { ClientOnly } from "@/components/shared/ClientOnly";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
+  filterNetWorthHistory,
+  getAvailableChartPeriods,
+  NET_WORTH_CHART_PERIOD_DEFS,
+  type NetWorthChartPeriod,
+} from "@/lib/overview-period";
+import {
   formatNetWorthAxisTick,
   hasNetWorthCostBasisSeries,
   netWorthChartScale,
@@ -45,6 +51,8 @@ const GRID_LINE = {
 
 interface OverviewNetWorthChartProps {
   data: NetWorthSnapshot[];
+  period?: NetWorthChartPeriod;
+  onPeriodChange?: (period: NetWorthChartPeriod) => void;
 }
 
 type ChartRow = NetWorthSnapshot & {
@@ -142,14 +150,60 @@ function ChartLegend({
   );
 }
 
-function OverviewNetWorthChartPlot({ data }: OverviewNetWorthChartProps) {
+function ChartPeriodSelector({
+  period,
+  availablePeriods,
+  onPeriodChange,
+}: {
+  period: NetWorthChartPeriod;
+  availablePeriods: NetWorthChartPeriod[];
+  onPeriodChange?: (period: NetWorthChartPeriod) => void;
+}) {
+  if (!onPeriodChange || availablePeriods.length === 0) return null;
+
+  return (
+    <div
+      className="flex flex-wrap gap-1 px-3 pt-3 sm:px-4"
+      role="group"
+      aria-label="Chart time range"
+    >
+      {NET_WORTH_CHART_PERIOD_DEFS.filter((d) => availablePeriods.includes(d.id)).map(
+        ({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onPeriodChange(id)}
+            aria-pressed={period === id}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors",
+              period === id
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            )}
+          >
+            {label}
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+function OverviewNetWorthChartPlot({
+  data,
+  period = "YTD",
+  onPeriodChange,
+}: OverviewNetWorthChartProps) {
   const { uiPreferences } = usePortfolio();
   const chart = uiPreferences.overviewChart;
   const isDesktop = useMediaQuery("(min-width: 640px)");
   const isCompact = !isDesktop;
 
-  const chartData = useMemo(() => enrichChartData(data), [data]);
-  const yScale = useMemo(() => netWorthChartScale(data), [data]);
+  const availablePeriods = useMemo(() => getAvailableChartPeriods(data), [data]);
+
+  const filteredData = useMemo(() => filterNetWorthHistory(data, period), [data, period]);
+  const chartData = useMemo(() => enrichChartData(filteredData), [filteredData]);
+  const yScale = useMemo(() => netWorthChartScale(filteredData), [filteredData]);
   const periodDividers = useMemo(
     () => (chartData.length > 1 ? chartData.slice(0, -1).map((_, i) => i + 0.5) : []),
     [chartData]
@@ -161,7 +215,7 @@ function OverviewNetWorthChartPlot({ data }: OverviewNetWorthChartProps) {
   }, [isCompact, periodTicks, chartData.length]);
 
   const showCostBasis =
-    chart.showCostBasisLine && hasNetWorthCostBasisSeries(data);
+    chart.showCostBasisLine && hasNetWorthCostBasisSeries(filteredData);
   const scrollChart = isCompact && chartData.length > 8;
   const chartHeight = isCompact ? 268 : 340;
   const chartMinWidth = scrollChart ? Math.max(chartData.length * 46, 320) : undefined;
@@ -180,6 +234,11 @@ function OverviewNetWorthChartPlot({ data }: OverviewNetWorthChartProps) {
 
   return (
     <>
+      <ChartPeriodSelector
+        period={period}
+        availablePeriods={availablePeriods}
+        onPeriodChange={onPeriodChange}
+      />
       <ChartLegend
         barColor={chart.barColor}
         costBasisColor={chart.costBasisLineColor}
@@ -196,8 +255,11 @@ function OverviewNetWorthChartPlot({ data }: OverviewNetWorthChartProps) {
             Swipe chart for earlier periods →
           </p>
         ) : null}
-        <div className="min-w-0" style={chartMinWidth ? { minWidth: chartMinWidth } : undefined}>
-          <ResponsiveContainer width="100%" height={chartHeight}>
+        <div
+          className="min-h-[200px] min-w-0 w-full"
+          style={chartMinWidth ? { minWidth: chartMinWidth } : undefined}
+        >
+          <ResponsiveContainer width="100%" height={chartHeight} minHeight={chartHeight}>
             <ComposedChart
               data={chartData}
               margin={{
@@ -297,11 +359,15 @@ function OverviewNetWorthChartPlot({ data }: OverviewNetWorthChartProps) {
   );
 }
 
-export function OverviewNetWorthChart({ data }: OverviewNetWorthChartProps) {
+export function OverviewNetWorthChart({
+  data,
+  period = "YTD",
+  onPeriodChange,
+}: OverviewNetWorthChartProps) {
   const emptyHeightClass = "h-[268px] sm:h-[380px]";
 
   return (
-    <Card className="overflow-hidden border-border/60 bg-card/80">
+    <Card className="overflow-hidden border-border/50 bg-card/70 shadow-sm">
       <CardContent className="p-0">
         <ClientOnly
           fallback={
@@ -309,16 +375,24 @@ export function OverviewNetWorthChart({ data }: OverviewNetWorthChartProps) {
           }
         >
           {data.length === 0 ? (
-            <p
-              className={cn(
-                "flex items-center justify-center px-4 text-center text-sm text-muted-foreground",
-                emptyHeightClass
-              )}
-            >
-              No history yet. Add periods in Settings → Data or enable monthly auto-snapshot.
-            </p>
+            <div className={cn("flex flex-col", emptyHeightClass)}>
+              {onPeriodChange ? (
+                <ChartPeriodSelector
+                  period={period}
+                  availablePeriods={getAvailableChartPeriods(data)}
+                  onPeriodChange={onPeriodChange}
+                />
+              ) : null}
+              <p className="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                No history yet. Add periods in Settings → Data or enable monthly auto-snapshot.
+              </p>
+            </div>
           ) : (
-            <OverviewNetWorthChartPlot data={data} />
+            <OverviewNetWorthChartPlot
+              data={data}
+              period={period}
+              onPeriodChange={onPeriodChange}
+            />
           )}
         </ClientOnly>
       </CardContent>

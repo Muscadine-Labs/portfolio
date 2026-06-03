@@ -21,6 +21,12 @@ export function NavPageGuard({
     if (!visible) router.replace("/dashboard");
   }, [visible, router]);
 
-  if (!visible) return null;
+  if (!visible) {
+    return (
+      <p className="px-4 py-8 text-sm text-muted-foreground" role="status">
+        Redirecting…
+      </p>
+    );
+  }
   return children;
 }
