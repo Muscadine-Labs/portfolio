@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.9** — API health via same-origin `/api/health` (fixes Settings “Offline”); production saves proxy unchanged.
+**Release v1.0.10** — Settings API health returns JSON via NextResponse (fixes empty-body “Offline” on Vercel).
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

@@ -1,12 +1,36 @@
 import { NextResponse } from "next/server";
-import { proxyToHomeApi } from "@/lib/home-api";
+import { getHomeApiBaseUrl } from "@/lib/home-api";
 
-/** GET — home API health via same-origin proxy (avoids browser CORS). */
-export async function GET(request: Request) {
-  const proxied = await proxyToHomeApi(request, "/api/health");
-  if (proxied) return proxied;
-  return NextResponse.json(
-    { error: "Home API not configured (set API_URL)." },
-    { status: 503 }
-  );
+export const dynamic = "force-dynamic";
+
+type ApiHealth = {
+  service?: string;
+  version?: string;
+  status?: string;
+};
+
+/** GET — home API health (JSON via NextResponse; raw proxy Response was empty on Vercel). */
+export async function GET() {
+  const base = getHomeApiBaseUrl();
+  if (!base) {
+    return NextResponse.json(
+      { error: "Home API not configured (set API_URL)." },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const upstream = await fetch(`${base}/api/health`, { cache: "no-store" });
+    if (!upstream.ok) {
+      return NextResponse.json(
+        { error: "Home API unreachable", status: upstream.status },
+        { status: 502 }
+      );
+    }
+    const data = (await upstream.json()) as ApiHealth;
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("GET /api/health proxy failed", error);
+    return NextResponse.json({ error: "Home API unreachable" }, { status: 502 });
+  }
 }

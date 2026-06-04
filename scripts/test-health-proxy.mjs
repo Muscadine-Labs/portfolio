@@ -7,12 +7,13 @@
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
 
 const res = await fetch(`${BASE}/api/health`, { cache: "no-store" });
-if (!res.ok) {
-  console.error(`FAIL: GET /api/health → HTTP ${res.status}`);
+const text = await res.text();
+if (!res.ok || !text.trim()) {
+  console.error(`FAIL: GET /api/health → HTTP ${res.status}, body length ${text.length}`);
   process.exit(1);
 }
 
-const body = await res.json();
+const body = JSON.parse(text);
 if (body.status !== "ok" || !body.version) {
   console.error("FAIL: unexpected body", body);
   process.exit(1);

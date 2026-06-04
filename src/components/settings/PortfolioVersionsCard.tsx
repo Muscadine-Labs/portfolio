@@ -22,11 +22,18 @@ export function PortfolioVersionsCard() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(API_HEALTH_URL, { cache: "no-store" });
-        if (!res.ok) throw new Error("unreachable");
-        const body = (await res.json()) as ApiHealth;
+        const res = await fetch(API_HEALTH_URL, {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const text = await res.text();
+        if (!res.ok || !text.trim()) throw new Error("unreachable");
+        const body = JSON.parse(text) as ApiHealth;
         if (cancelled) return;
-        setApiConnected(body.status === "ok");
+        const ok =
+          body.status === "ok" ||
+          (body.service === "api-portfolio" && Boolean(body.version));
+        setApiConnected(ok);
         setApiVersion(typeof body.version === "string" ? body.version : null);
       } catch {
         if (!cancelled) {
