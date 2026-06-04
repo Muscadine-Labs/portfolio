@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.8** — Overview categories column, assets-only allocation chart, protocols rename, manual price toggle, quote aliases, versions card, nav overview widgets.
+**Release v1.0.9** — API health via same-origin `/api/health` (fixes Settings “Offline”); production saves proxy unchanged.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

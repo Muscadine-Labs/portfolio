@@ -5,7 +5,8 @@ import packageJson from "../../../package.json";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-const API_HEALTH_URL = "https://api-portfolio.muscadine.io/api/health";
+/** Same-origin proxy — direct api-portfolio URL fails browser CORS on GET /api/health. */
+const API_HEALTH_URL = "/api/health";
 
 type ApiHealth = {
   service?: string;

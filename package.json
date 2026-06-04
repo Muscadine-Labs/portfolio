@@ -1,6 +1,6 @@
 {
   "name": "portfolio",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -13,7 +13,8 @@
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:ui": "node scripts/ui-audit.mjs",
     "test:e2e": "node scripts/e2e-smoke.mjs",
-    "test:api": "node scripts/api-integration.mjs"
+    "test:api": "node scripts/api-integration.mjs",
+    "test:health": "node scripts/test-health-proxy.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
