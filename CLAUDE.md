@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.7** — Wallets nav, overview All default, MM-YYYY snapshots, net worth/cost basis rounded to cents.
+**Release v1.0.8** — Overview categories column, assets-only allocation chart, protocols rename, manual price toggle, quote aliases, versions card, nav overview widgets.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

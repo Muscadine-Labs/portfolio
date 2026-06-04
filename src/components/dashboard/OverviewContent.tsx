@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { OverviewAllocationChart } from "@/components/dashboard/OverviewAllocationChart";
-import { OverviewBreakdownCards } from "@/components/dashboard/OverviewBreakdownCards";
+import { OverviewCategoriesColumn } from "@/components/dashboard/OverviewCategoriesColumn";
 import { OverviewInsights } from "@/components/dashboard/OverviewInsights";
 import { OverviewNetWorthChart } from "@/components/dashboard/OverviewNetWorthChart";
 import { OverviewSummary } from "@/components/dashboard/OverviewSummary";
@@ -17,7 +17,6 @@ import { computeOverviewSnapshot } from "@/lib/overview";
 import { orderedVisibleOverviewWidgets } from "@/lib/overview-widgets";
 import { isNavPageVisible } from "@/lib/ui-preferences";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { OverviewWidgetId } from "@/types";
 import Link from "next/link";
 
@@ -99,12 +98,8 @@ export function OverviewContent() {
       }));
   }, [snapshot, uiPreferences]);
 
-  const gridClass =
-    panels.length >= 3
-      ? "lg:grid-cols-3"
-      : panels.length === 2
-        ? "lg:grid-cols-2"
-        : "lg:grid-cols-1";
+  const embedAllocationInAssets =
+    uiPreferences.overviewWidgets.breakdown && uiPreferences.overviewWidgets.allocation;
 
   const hasPositions =
     snapshot.totalAssets > 0 || snapshot.totalCash > 0 || snapshot.totalLiabilities > 0;
@@ -123,21 +118,21 @@ export function OverviewContent() {
           />
         );
       case "allocation":
-        return hasPositions ? <OverviewAllocationChart key={id} snapshot={snapshot} /> : null;
+        if (embedAllocationInAssets) return null;
+        return hasPositions ? (
+          <OverviewAllocationChart key={id} snapshot={snapshot} assetsOnly />
+        ) : null;
       case "breakdown":
         return hasPositions && panels.length > 0 ? (
-          <div key={id} className={cn("grid items-start gap-4", gridClass)}>
-            {panels.map((panel) => (
-              <OverviewBreakdownCards
-                key={panel.key}
-                title={panel.title}
-                rows={panel.rows}
-                total={panel.total}
-                href={panel.href}
-                accent={panel.accent}
-              />
-            ))}
-          </div>
+          <OverviewCategoriesColumn
+            key={id}
+            panels={panels.map((p) => ({
+              ...p,
+              totalLabel: `Total ${p.title.toLowerCase()}`,
+            }))}
+            snapshot={snapshot}
+            showAllocation={embedAllocationInAssets}
+          />
         ) : null;
       default:
         return null;

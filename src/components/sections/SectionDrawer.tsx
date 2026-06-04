@@ -188,7 +188,7 @@ export function SectionDrawer({
                 className="rounded border-border"
                 {...register("isCrypto")}
               />
-              Crypto section (show network &amp; exchange columns on assets)
+              Crypto section (show network &amp; protocol columns on assets)
             </label>
           ) : null}
           {showDefiToggle ? (

@@ -457,6 +457,10 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       errors.push(`assets[${index}].costBasis must be a number.`);
       continue;
     }
+    const priceSource =
+      raw.priceSource === "manual" || raw.priceSource === "api"
+        ? raw.priceSource
+        : undefined;
     assets.push({
       id: raw.id,
       symbol: raw.symbol.trim(),
@@ -464,6 +468,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       sectionId,
       price,
       quantity,
+      priceSource,
       costBasis,
       network: optionalString(raw.network),
       protocol: optionalString(raw.protocol),

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
+import { roundMoney } from "@/lib/utils";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import type { CashAccount } from "@/types";
 
@@ -107,11 +108,17 @@ export function CashDrawer({
       id: account?.id ?? createEntityId("cash"),
       name: values.name,
       sectionId: values.sectionId,
-      balance: values.balance,
+      balance: roundMoney(values.balance),
       protocol: values.protocol || undefined,
       address: values.address || undefined,
-      originalAmount: showOptional ? optionalNumber(values.originalAmount) : undefined,
-      interest: showOptional ? optionalNumber(values.interest) : undefined,
+      originalAmount: showOptional
+        ? optionalNumber(
+            values.originalAmount != null ? roundMoney(values.originalAmount) : undefined
+          )
+        : undefined,
+      interest: showOptional
+        ? optionalNumber(values.interest != null ? roundMoney(values.interest) : undefined)
+        : undefined,
     });
     onOpenChange(false);
   };

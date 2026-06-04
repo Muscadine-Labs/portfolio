@@ -33,9 +33,23 @@ export function formatCurrency(
   }).format(value);
 }
 
-export function formatPercent(value: number, digits = 2): string {
-  const sign = value > 0 ? "+" : "";
+export function formatPercent(
+  value: number,
+  digits = 2,
+  options?: { signed?: boolean }
+): string {
+  const signed = options?.signed !== false;
+  const sign = signed && value > 0 ? "+" : "";
   return `${sign}${value.toFixed(digits)}%`;
+}
+
+/** Round to two decimal places for cost / gain columns. */
+export function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export function formatMoneyColumn(value: number): string {
+  return formatCurrency(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function getMarketValue(asset: Asset): number {

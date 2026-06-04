@@ -128,6 +128,8 @@ export interface PortfolioSection {
   metadata?: SectionMetadata;
 }
 
+export type AssetPriceSource = "api" | "manual";
+
 export interface Asset {
   id: string;
   symbol: string;
@@ -135,6 +137,8 @@ export interface Asset {
   sectionId: string;
   price: number;
   quantity: number;
+  /** `manual` = user-set price; `api` (default) = refresh from market quotes. */
+  priceSource?: AssetPriceSource;
   costBasis?: number;
   /** Chain for this position when the section is wallet-based (e.g. Base, Ethereum). */
   network?: string;

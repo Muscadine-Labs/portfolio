@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
+import { roundMoney } from "@/lib/utils";
+import type { AssetPriceSource } from "@/types";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isCryptoAssetSection } from "@/lib/asset-sections";
 import type { Asset } from "@/types";
@@ -31,6 +33,7 @@ const assetSchema = z.object({
   price: z.number().min(0),
   quantity: z.number().min(0),
   costBasis: z.number().optional(),
+  priceSource: z.enum(["api", "manual"]),
 });
 
 type AssetFormValues = z.infer<typeof assetSchema>;
@@ -64,10 +67,12 @@ export function AssetDrawer({
       price: 0,
       quantity: 0,
       costBasis: undefined,
+      priceSource: "api" as AssetPriceSource,
     },
   });
 
   const sectionId = useWatch({ control, name: "sectionId" });
+  const priceSource = useWatch({ control, name: "priceSource" });
   const selectedSection = assetSections.find((s) => s.id === sectionId);
   const showPositionFields =
     (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
@@ -88,6 +93,7 @@ export function AssetDrawer({
           price: asset.price,
           quantity: asset.quantity,
           costBasis: asset.costBasis,
+          priceSource: asset.priceSource ?? "api",
         };
       }
       return {
@@ -99,6 +105,7 @@ export function AssetDrawer({
         price: 0,
         quantity: 0,
         costBasis: undefined,
+        priceSource: "api" as const,
       };
     },
     [asset?.id, defaultSectionId, assetSections.length]
@@ -110,9 +117,10 @@ export function AssetDrawer({
       symbol: values.symbol,
       name: values.name,
       sectionId: values.sectionId,
-      price: values.price,
+      price: roundMoney(values.price),
       quantity: values.quantity,
-      costBasis: values.costBasis,
+      priceSource: values.priceSource,
+      costBasis: values.costBasis != null ? roundMoney(values.costBasis) : undefined,
       network: values.network || undefined,
       protocol: values.protocol || undefined,
     });
@@ -150,7 +158,7 @@ export function AssetDrawer({
           {showPositionFields ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Optional per position — chain and where it is held (exchange, wallet, or protocol).
+                Optional per position — chain and where it is held (protocol, wallet, or custodian).
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -158,19 +166,41 @@ export function AssetDrawer({
                   <Input id="network" {...register("network")} placeholder="e.g. Base, Ethereum, Bitcoin" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="protocol">Exchange</Label>
-                  <Input id="protocol" {...register("protocol")} placeholder="e.g. Coinbase, Kraken, Ledger" />
+                  <Label htmlFor="protocol">Protocol</Label>
+                  <Input id="protocol" {...register("protocol")} placeholder="e.g. Aave, Morpho, Coinbase" />
                 </div>
               </div>
             </div>
           ) : null}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/15 px-3 py-2.5">
+            <div>
+              <p className="text-sm font-medium">Price source</p>
+              <p className="text-xs text-muted-foreground">
+                API uses Finnhub with yfinance fallback on the home server.
+              </p>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={priceSource === "manual"}
+                onChange={(e) =>
+                  setValue("priceSource", e.target.checked ? "manual" : "api", {
+                    shouldDirty: true,
+                  })
+                }
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <span>Manual price</span>
+            </label>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="price">Price</Label>
               <Input
                 id="price"
                 type="number"
-                step="any"
+                step="0.01"
+                disabled={priceSource === "api"}
                 {...register("price", { valueAsNumber: true })}
               />
             </div>
@@ -188,7 +218,7 @@ export function AssetDrawer({
               <Input
                 id="costBasis"
                 type="number"
-                step="any"
+                step="0.01"
                 {...register("costBasis", { valueAsNumber: true })}
               />
             </div>

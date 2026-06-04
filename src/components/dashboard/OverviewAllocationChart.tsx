@@ -10,50 +10,43 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface OverviewAllocationChartProps {
   snapshot: OverviewSnapshot;
+  /** When true, only asset sections (no cash or liabilities). */
+  assetsOnly?: boolean;
 }
 
 type Slice = { name: string; value: number; color: string; href: string };
 
-function buildSlices(snapshot: OverviewSnapshot): Slice[] {
-  const slices: Slice[] = [];
-  const addRows = (
-    rows: OverviewSnapshot["assets"],
-    fallbackColor: string,
-    fallbackHref: string
-  ) => {
-    for (const row of rows) {
-      const items = row.children?.length ? row.children : [row];
-      for (const item of items) {
-        if (item.value > 0) {
+function addSectionSlices(rows: OverviewSnapshot["assets"], slices: Slice[]) {
+  for (const row of rows) {
+    if (row.isGroup && row.children?.length) {
+      for (const child of row.children) {
+        if (child.value > 0) {
           slices.push({
-            name: item.label,
-            value: item.value,
-            color: item.color,
-            href: item.href,
+            name: child.label,
+            value: child.value,
+            color: row.color,
+            href: child.href,
           });
         }
       }
-    }
-    void fallbackColor;
-    void fallbackHref;
-  };
-
-  addRows(snapshot.assets, "#34d399", "/assets");
-  addRows(snapshot.cash, "#60a5fa", "/cash");
-  for (const row of snapshot.liabilities) {
-    const items = row.children?.length ? row.children : [row];
-    for (const item of items) {
-      if (item.value > 0) {
-        slices.push({
-          name: item.label,
-          value: item.value,
-          color: item.color,
-          href: item.href,
-        });
-      }
+    } else if (row.value > 0) {
+      slices.push({
+        name: row.label,
+        value: row.value,
+        color: row.color,
+        href: row.href,
+      });
     }
   }
+}
 
+function buildSlices(snapshot: OverviewSnapshot, assetsOnly: boolean): Slice[] {
+  const slices: Slice[] = [];
+  addSectionSlices(snapshot.assets, slices);
+  if (!assetsOnly) {
+    addSectionSlices(snapshot.cash, slices);
+    addSectionSlices(snapshot.liabilities, slices);
+  }
   return slices.sort((a, b) => b.value - a.value);
 }
 
@@ -74,8 +67,11 @@ function AllocationTooltip({
   );
 }
 
-function OverviewAllocationChartPlot({ snapshot }: OverviewAllocationChartProps) {
-  const slices = useMemo(() => buildSlices(snapshot), [snapshot]);
+function OverviewAllocationChartPlot({
+  snapshot,
+  assetsOnly = false,
+}: OverviewAllocationChartProps) {
+  const slices = useMemo(() => buildSlices(snapshot, assetsOnly), [snapshot, assetsOnly]);
   const total = useMemo(() => slices.reduce((s, x) => s + x.value, 0), [slices]);
 
   if (slices.length === 0) {
@@ -143,17 +139,22 @@ function OverviewAllocationChartPlot({ snapshot }: OverviewAllocationChartProps)
   );
 }
 
-export function OverviewAllocationChart({ snapshot }: OverviewAllocationChartProps) {
+export function OverviewAllocationChart({
+  snapshot,
+  assetsOnly = false,
+}: OverviewAllocationChartProps) {
   return (
     <Card className="border-border/50 bg-card/70 shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Allocation</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {assetsOnly ? "Asset allocation" : "Allocation"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         <ClientOnly
           fallback={<div className="h-[200px] animate-pulse rounded-lg bg-muted/20" />}
         >
-          <OverviewAllocationChartPlot snapshot={snapshot} />
+          <OverviewAllocationChartPlot snapshot={snapshot} assetsOnly={assetsOnly} />
         </ClientOnly>
       </CardContent>
     </Card>

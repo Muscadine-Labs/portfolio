@@ -28,7 +28,7 @@ import { AddSectionButton } from "@/components/sections/SectionHeader";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isDemoTenant } from "@/lib/demo-constants";
 import {
-  formatCurrency,
+  formatMoneyColumn,
   formatPercent,
   getAverageCost,
   getCostBasis,
@@ -39,6 +39,7 @@ import {
 import {
   isCryptoAssetSection,
 } from "@/lib/asset-sections";
+import { compareAlphabeticalDeferred } from "@/lib/position-sort";
 import { sumAssetSectionTotals } from "@/lib/section-totals";
 import {
   buildPageSectionLayout,
@@ -135,7 +136,7 @@ const COLUMN_LABELS: Record<AssetColumnKey, string> = {
   price: "Price",
   qty: "Qty",
   network: "Network",
-  protocol: "Exchange",
+  protocol: "Protocol",
   costBasis: "Cost",
   avgCost: "Avg",
   marketValue: "Mkt val",
@@ -250,7 +251,9 @@ export function AssetTable() {
       const rows = assets.filter(
         (a) => a.sectionId === section.id && matchesSearch(a, search)
       );
-      bySection[section.id] = rows;
+      bySection[section.id] = [...rows].sort((a, b) =>
+        compareAlphabeticalDeferred(a.symbol, b.symbol)
+      );
       count += rows.length;
     }
     return { resultCount: count, assetsBySection: bySection };
@@ -357,7 +360,7 @@ export function AssetTable() {
         )}
         {col("price") && (
           <TableCell className={cn(panel.dataCell, "text-right")}>
-            {formatCurrency(asset.price)}
+            {formatMoneyColumn(asset.price)}
           </TableCell>
         )}
         {col("qty") && (
@@ -371,22 +374,22 @@ export function AssetTable() {
         )}
         {col("costBasis") && (
           <TableCell className={cn(panel.dataCell, "text-right")}>
-            {costBasis != null ? formatCurrency(costBasis) : "—"}
+            {costBasis != null ? formatMoneyColumn(costBasis) : "—"}
           </TableCell>
         )}
         {col("avgCost") && (
           <TableCell className={cn(panel.mutedCell, "text-right")}>
-            {avgCost != null ? formatCurrency(avgCost) : "—"}
+            {avgCost != null ? formatMoneyColumn(avgCost) : "—"}
           </TableCell>
         )}
         {col("marketValue") && (
           <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
-            {formatCurrency(mv)}
+            {formatMoneyColumn(mv)}
           </TableCell>
         )}
         {col("gainDollars") && (
           <TableCell className={cn(panel.dataCell, "text-right", getGainColor(gain.dollars))}>
-            {formatCurrency(gain.dollars)}
+            {formatMoneyColumn(gain.dollars)}
           </TableCell>
         )}
         {col("gainPercent") && (

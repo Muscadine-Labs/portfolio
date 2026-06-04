@@ -64,18 +64,18 @@ function sectionRow(
 function sortOverviewRowsByValue(rows: OverviewRow[]): OverviewRow[] {
   return [...rows]
     .sort((a, b) => b.value - a.value)
-    .map((row, index) => ({
-      ...row,
-      color: sectionColor(index),
-      children: row.children
-        ? [...row.children]
-            .sort((a, b) => b.value - a.value)
-            .map((child, childIndex) => ({
-              ...child,
-              color: sectionColor(index + childIndex + 1),
-            }))
-        : undefined,
-    }));
+    .map((row, index) => {
+      const color = sectionColor(index);
+      return {
+        ...row,
+        color,
+        children: row.children
+          ? [...row.children]
+              .sort((a, b) => b.value - a.value)
+              .map((child) => ({ ...child, color }))
+          : undefined,
+      };
+    });
 }
 
 function buildGroupedSectionRows(

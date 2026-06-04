@@ -30,7 +30,8 @@ import {
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalCash } from "@/lib/mock-data";
 import { sumCashSectionTotals } from "@/lib/section-totals";
-import { formatCurrency } from "@/lib/utils";
+import { compareAlphabeticalDeferred } from "@/lib/position-sort";
+import { formatCurrency, formatMoneyColumn } from "@/lib/utils";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import {
   buildPageSectionLayout,
@@ -138,7 +139,9 @@ export function CashPageContent() {
       const rows = cashAccounts.filter(
         (a) => a.sectionId === section.id && matchesSearch(a, search)
       );
-      bySection[section.id] = rows;
+      bySection[section.id] = [...rows].sort((a, b) =>
+        compareAlphabeticalDeferred(a.name, b.name)
+      );
       count += rows.length;
     }
     return { resultCount: count, accountsBySection: bySection };
@@ -250,7 +253,7 @@ export function CashPageContent() {
                 )}
                 {col("balance") && (
                   <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
-                    {formatCurrency(account.balance)}
+                    {formatMoneyColumn(account.balance)}
                   </TableCell>
                 )}
                 {col("originalAmount") && (

@@ -89,7 +89,7 @@ export async function exportPortfolioToXlsx(
     "Gain $",
     "Gain %",
     "Network",
-    "Exchange",
+    "Protocol",
   ];
 
   for (const section of assetSections) {

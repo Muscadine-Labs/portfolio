@@ -50,8 +50,7 @@ export function OverviewSummary({
           </span>
           {periodChange.percent != null ? (
             <span className="text-muted-foreground">
-              ({periodChange.delta >= 0 ? "+" : ""}
-              {formatPercent(periodChange.percent)})
+              ({formatPercent(periodChange.percent, 2, { signed: true })})
             </span>
           ) : null}
           <span className="font-normal text-muted-foreground">{periodChange.label}</span>

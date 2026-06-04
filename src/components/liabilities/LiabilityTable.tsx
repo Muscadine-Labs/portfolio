@@ -30,7 +30,8 @@ import {
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalLiabilities } from "@/lib/mock-data";
 import { sumLiabilitySectionTotals } from "@/lib/section-totals";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { compareAlphabeticalDeferred } from "@/lib/position-sort";
+import { formatCurrency, formatMoneyColumn, formatPercent } from "@/lib/utils";
 import { LtvBar } from "@/components/liabilities/LtvBar";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import {
@@ -153,7 +154,9 @@ export function LiabilityTable() {
       const rows = liabilities.filter(
         (l) => l.sectionId === section.id && matchesSearch(l, search)
       );
-      bySection[section.id] = rows;
+      bySection[section.id] = [...rows].sort((a, b) =>
+        compareAlphabeticalDeferred(a.name, b.name)
+      );
       count += rows.length;
     }
     return { resultCount: count, itemsBySection: bySection };
@@ -281,7 +284,7 @@ export function LiabilityTable() {
                 {col("name") && <TableCell className={panel.symbolCell}>{l.name}</TableCell>}
                 {col("totalDebt") && (
                   <TableCell className={cn(panel.dataCell, "text-right", debtCell)}>
-                    {formatCurrency(l.balance)}
+                    {formatMoneyColumn(l.balance)}
                   </TableCell>
                 )}
                 {col("initialBalance") && (

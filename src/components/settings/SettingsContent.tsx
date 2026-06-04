@@ -7,7 +7,7 @@ import { DataImportExportCard } from "@/components/settings/DataImportExportCard
 import { NetWorthHistorySettingsCard } from "@/components/settings/NetWorthHistorySettingsCard";
 import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
 import { OverviewChartSettingsCard } from "@/components/settings/OverviewChartSettingsCard";
-import { OverviewDashboardSettingsCard } from "@/components/settings/OverviewDashboardSettingsCard";
+import { PortfolioVersionsCard } from "@/components/settings/PortfolioVersionsCard";
 import { SettingsFooter } from "@/components/settings/SettingsFooter";
 import { SettingsNav } from "@/components/settings/SettingsNav";
 import {
@@ -52,7 +52,6 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
             <section aria-labelledby="settings-display" className="space-y-4">
               <SettingsPanelHeader sectionId="display" />
               <AppearanceSettingsCard />
-              <OverviewDashboardSettingsCard />
               <OverviewChartSettingsCard />
             </section>
           )}
@@ -69,6 +68,7 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
               <SettingsPanelHeader sectionId="data" />
               <NetWorthHistorySettingsCard />
               <DataImportExportCard />
+              <PortfolioVersionsCard />
               <SettingsFooter />
             </section>
           )}

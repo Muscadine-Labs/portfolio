@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
+import {
+  DEFAULT_OVERVIEW_WIDGET_ORDER,
+  OVERVIEW_WIDGET_LABELS,
+} from "@/lib/overview-widgets";
 import {
   formatNavSummary,
   NAV_PAGE_LABELS,
@@ -16,11 +21,20 @@ import {
 import { cn } from "@/lib/utils";
 
 export function NavigationSettingsCard() {
-  const { uiPreferences, setNavPageVisible, setPlanTabVisible } = usePortfolio();
+  const {
+    uiPreferences,
+    setNavPageVisible,
+    setPlanTabVisible,
+    setOverviewWidgetVisible,
+    moveOverviewWidget,
+  } = usePortfolio();
   const [open, setOpen] = useState(false);
   const summary = formatNavSummary(uiPreferences);
   const planEnabled = uiPreferences.navPages.plan;
   const incomeHidden = planEnabled && !uiPreferences.planTabs.income;
+  const widgets = uiPreferences.overviewWidgets;
+  const widgetOrder =
+    widgets.order.length > 0 ? widgets.order : DEFAULT_OVERVIEW_WIDGET_ORDER;
 
   return (
     <Card className="border-border/60 bg-card/80">
@@ -105,6 +119,57 @@ export function NavigationSettingsCard() {
               Hidden sidebar pages are removed from the menu and Overview. Sections with $0 are
               omitted on Overview.
             </p>
+
+            <div className="border-t border-border/40 pt-3">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Overview dashboard</p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Net worth summary always shows first. Reorder other widgets with the arrows.
+              </p>
+              <ul className="space-y-2">
+                {widgetOrder.map((id, index) => (
+                  <li
+                    key={id}
+                    className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/15 px-2 py-1.5"
+                  >
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={widgets[id]}
+                        onChange={(e) => setOverviewWidgetVisible(id, e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-input accent-primary"
+                      />
+                      <Label className="cursor-pointer font-normal">
+                        {OVERVIEW_WIDGET_LABELS[id]}
+                      </Label>
+                    </label>
+                    <div className="flex shrink-0 gap-0.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={index === 0}
+                        onClick={() => moveOverviewWidget(id, "up")}
+                        aria-label={`Move ${OVERVIEW_WIDGET_LABELS[id]} up`}
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={index === widgetOrder.length - 1}
+                        onClick={() => moveOverviewWidget(id, "down")}
+                        aria-label={`Move ${OVERVIEW_WIDGET_LABELS[id]} down`}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </CardContent>

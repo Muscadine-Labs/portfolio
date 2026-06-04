@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
+import { roundMoney } from "@/lib/utils";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import type { Liability, PortfolioSection } from "@/types";
 
@@ -116,9 +117,17 @@ export function LiabilityDrawer({
       id: liability?.id ?? createEntityId("lia"),
       name: values.name,
       sectionId: values.sectionId,
-      balance: values.balance,
-      initialBalance: showOptional ? optionalNumber(values.initialBalance) : undefined,
-      interestAccrued: showOptional ? optionalNumber(values.interestAccrued) : undefined,
+      balance: roundMoney(values.balance),
+      initialBalance: showOptional
+        ? optionalNumber(
+            values.initialBalance != null ? roundMoney(values.initialBalance) : undefined
+          )
+        : undefined,
+      interestAccrued: showOptional
+        ? optionalNumber(
+            values.interestAccrued != null ? roundMoney(values.interestAccrued) : undefined
+          )
+        : undefined,
       apy: showOptional ? optionalNumber(values.apy) : undefined,
       address: isDefi ? values.address || undefined : undefined,
       collateral: isDefi ? optionalNumber(values.collateral) : undefined,
