@@ -28,12 +28,11 @@ export type NavPageKey =
   | "wallets"
   | "plan";
 
-export type OverviewWidgetId = "insights" | "chart" | "allocation" | "breakdown";
+export type OverviewWidgetId = "insights" | "chart" | "breakdown";
 
 export interface OverviewWidgetsPreferences {
   insights: boolean;
   chart: boolean;
-  allocation: boolean;
   breakdown: boolean;
   order: OverviewWidgetId[];
 }

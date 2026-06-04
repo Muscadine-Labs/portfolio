@@ -96,12 +96,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const OVERVIEW_WIDGET_IDS: OverviewWidgetId[] = [
-  "insights",
-  "chart",
-  "allocation",
-  "breakdown",
-];
+const OVERVIEW_WIDGET_IDS: OverviewWidgetId[] = ["insights", "chart", "breakdown"];
 
 function parseOverviewWidgets(
   raw: unknown
@@ -122,7 +117,6 @@ function parseOverviewWidgets(
   return {
     insights: typeof raw.insights === "boolean" ? raw.insights : undefined,
     chart: typeof raw.chart === "boolean" ? raw.chart : undefined,
-    allocation: typeof raw.allocation === "boolean" ? raw.allocation : undefined,
     breakdown: typeof raw.breakdown === "boolean" ? raw.breakdown : undefined,
     order: order.length > 0 ? order : undefined,
   };

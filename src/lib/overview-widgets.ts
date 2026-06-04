@@ -3,21 +3,18 @@ import type { OverviewWidgetId, OverviewWidgetsPreferences } from "@/types";
 export const OVERVIEW_WIDGET_LABELS: Record<OverviewWidgetId, string> = {
   insights: "Insight chips",
   chart: "Net worth chart",
-  allocation: "Allocation donut",
   breakdown: "Category cards",
 };
 
 export const DEFAULT_OVERVIEW_WIDGET_ORDER: OverviewWidgetId[] = [
   "insights",
   "chart",
-  "allocation",
   "breakdown",
 ];
 
 export const DEFAULT_OVERVIEW_WIDGETS: OverviewWidgetsPreferences = {
   insights: true,
   chart: true,
-  allocation: true,
   breakdown: true,
   order: [...DEFAULT_OVERVIEW_WIDGET_ORDER],
 };
@@ -38,7 +35,6 @@ export function normalizeOverviewWidgets(
   return {
     insights: merged.insights !== false,
     chart: merged.chart !== false,
-    allocation: merged.allocation !== false,
     breakdown: merged.breakdown !== false,
     order,
   };

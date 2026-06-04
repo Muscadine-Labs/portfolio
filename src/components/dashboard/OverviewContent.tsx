@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { OverviewAllocationChart } from "@/components/dashboard/OverviewAllocationChart";
 import { OverviewCategoriesColumn } from "@/components/dashboard/OverviewCategoriesColumn";
 import { OverviewInsights } from "@/components/dashboard/OverviewInsights";
 import { OverviewNetWorthChart } from "@/components/dashboard/OverviewNetWorthChart";
@@ -66,26 +65,32 @@ export function OverviewContent() {
     const defs = [
       {
         key: "assets" as const,
-        title: "Assets",
+        title: "Total Assets",
         rows: snapshot.assets,
         total: snapshot.totalAssets,
+        totalLabel: "Total Assets",
         href: "/assets",
+        valueHeader: "Asset Value",
         accent: "assets" as const,
       },
       {
         key: "liabilities" as const,
-        title: "Liabilities",
+        title: "Total Liabilities",
         rows: snapshot.liabilities,
         total: snapshot.totalLiabilities,
+        totalLabel: "Total Liabilities",
         href: "/liabilities",
+        valueHeader: "Liabilities",
         accent: "liabilities" as const,
       },
       {
         key: "cash" as const,
-        title: "Cash",
+        title: "Total Cash",
         rows: snapshot.cash,
         total: snapshot.totalCash,
+        totalLabel: "Total Cash",
         href: "/cash",
+        valueHeader: "Cash Value",
         accent: "cash" as const,
       },
     ];
@@ -97,9 +102,6 @@ export function OverviewContent() {
         total: p.rows.reduce((sum, r) => sum + r.value, 0),
       }));
   }, [snapshot, uiPreferences]);
-
-  const embedAllocationInAssets =
-    uiPreferences.overviewWidgets.breakdown && uiPreferences.overviewWidgets.allocation;
 
   const hasPositions =
     snapshot.totalAssets > 0 || snapshot.totalCash > 0 || snapshot.totalLiabilities > 0;
@@ -117,22 +119,9 @@ export function OverviewContent() {
             onPeriodChange={setChartPeriod}
           />
         );
-      case "allocation":
-        if (embedAllocationInAssets) return null;
-        return hasPositions ? (
-          <OverviewAllocationChart key={id} snapshot={snapshot} assetsOnly />
-        ) : null;
       case "breakdown":
         return hasPositions && panels.length > 0 ? (
-          <OverviewCategoriesColumn
-            key={id}
-            panels={panels.map((p) => ({
-              ...p,
-              totalLabel: `Total ${p.title.toLowerCase()}`,
-            }))}
-            snapshot={snapshot}
-            showAllocation={embedAllocationInAssets}
-          />
+          <OverviewCategoriesColumn key={id} panels={panels} />
         ) : null;
       default:
         return null;

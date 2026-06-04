@@ -178,7 +178,11 @@ export function OverviewBreakdownPanel({
           </TableBody>
         </Table>
 
-        {rows.length > 0 && <div className="px-3 pb-3"><OverviewStackedBar rows={rows} total={total} /></div>}
+        {rows.length > 0 ? (
+          <div className="px-3 pb-3">
+            <OverviewStackedBar rows={rows} total={total} />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

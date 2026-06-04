@@ -1,9 +1,9 @@
 "use client";
 
-import { OverviewAllocationChart } from "@/components/dashboard/OverviewAllocationChart";
 import { OverviewBreakdownPanel } from "@/components/dashboard/OverviewBreakdownPanel";
 import type { OverviewSnapshot } from "@/lib/overview";
 import type { PortfolioAccent } from "@/lib/portfolio-panel";
+import { cn } from "@/lib/utils";
 
 type PanelDef = {
   key: "assets" | "liabilities" | "cash";
@@ -13,54 +13,25 @@ type PanelDef = {
   href: string;
   accent: PortfolioAccent;
   totalLabel: string;
+  nameHeader?: string;
+  valueHeader?: string;
 };
 
 interface OverviewCategoriesColumnProps {
   panels: PanelDef[];
-  snapshot: OverviewSnapshot;
-  showAllocation: boolean;
 }
 
-export function OverviewCategoriesColumn({
-  panels,
-  snapshot,
-  showAllocation,
-}: OverviewCategoriesColumnProps) {
-  const assetsPanel = panels.find((p) => p.key === "assets");
-  const rest = panels.filter((p) => p.key !== "assets");
+export function OverviewCategoriesColumn({ panels }: OverviewCategoriesColumnProps) {
+  const gridClass =
+    panels.length >= 3
+      ? "lg:grid-cols-3"
+      : panels.length === 2
+        ? "lg:grid-cols-2"
+        : "lg:grid-cols-1";
 
   return (
-    <div className="space-y-4">
-      {assetsPanel ? (
-        <div className="space-y-4">
-          {showAllocation ? (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)] lg:items-start">
-              <OverviewBreakdownPanel
-                title={assetsPanel.title}
-                rows={assetsPanel.rows}
-                total={assetsPanel.total}
-                totalLabel={assetsPanel.totalLabel}
-                href={assetsPanel.href}
-                accent={assetsPanel.accent}
-                nameHeader="Section"
-              />
-              <OverviewAllocationChart snapshot={snapshot} assetsOnly />
-            </div>
-          ) : (
-            <OverviewBreakdownPanel
-              title={assetsPanel.title}
-              rows={assetsPanel.rows}
-              total={assetsPanel.total}
-              totalLabel={assetsPanel.totalLabel}
-              href={assetsPanel.href}
-              accent={assetsPanel.accent}
-              nameHeader="Section"
-            />
-          )}
-        </div>
-      ) : null}
-
-      {rest.map((panel) => (
+    <div className={cn("grid items-start gap-4", gridClass)}>
+      {panels.map((panel) => (
         <OverviewBreakdownPanel
           key={panel.key}
           title={panel.title}
@@ -68,8 +39,9 @@ export function OverviewCategoriesColumn({
           total={panel.total}
           totalLabel={panel.totalLabel}
           href={panel.href}
+          nameHeader={panel.nameHeader ?? "Category"}
+          valueHeader={panel.valueHeader ?? "Value"}
           accent={panel.accent}
-          nameHeader="Section"
         />
       ))}
     </div>

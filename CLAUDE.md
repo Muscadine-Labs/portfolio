@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.0.10** — Settings API health returns JSON via NextResponse (fixes empty-body “Offline” on Vercel).
+**Release v1.1.0** — Remove overview asset allocation chart; v1.0.2-style category cards only.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
