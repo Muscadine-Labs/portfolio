@@ -1,18 +1,6 @@
 # Portfolio — roadmap
 
-Possibiltiy, dont focus on now:
-## Google Sheets integration
-
-- [ ] **Read path** — Import positions or net worth history from a Google Sheet (service account or OAuth; document required scopes in `SECURITY.md`)
-- [ ] **Write path (optional)** — Export snapshot or monthly summary row to a sheet tab
-- [ ] **Mapping** — Configurable column map (symbol, qty, price, period label) validated like `portfolio-data.ts`
-- [ ] **Home API** — Run sync on mini PC (`api-portfolio`): cron or manual `POST /api/import` from sheet fetcher; secrets only in `.env`
-- [ ] **UI** — Settings → Data: connect sheet URL, test import, last sync time
-
-**Notes:** Keep SQLite as source of truth after import; sheet is input/export, not live DB. Align period labels with `parsePeriodSortKey` in `src/lib/net-worth-history.ts` (`YYYY-MM`, `Q1 2023`, `Jan '26`, etc.).
-
 What to work on:
-- delete dead code, we built alot, some things are unused.
 - Redesign overview page where chart of assets includes all of the sections, so assets isnt in it twice.
 - On Allocation on overview, have each overview section the same color on the chart. Improve the assets, liabilties and cash ui so I can view the sections better instead of small tiny blocks. Lets have it like it was before at around 1.0.0, it can be in a single column, but assets can be at the top with the chart, while liability and cash underneith.
 - on assets for each overview section, group them by market value of each section. While in each section, have it in alphebetical order for each stock/token. Same goes with cash and liabilties.
@@ -21,4 +9,9 @@ What to work on:
 - THe same applys with liabiltiy and cash for these changes.
 - On overview on allocations, dont include cash or liabilties on the chart.
 - on the overivew (dashbaord) what is ++2059.92%) all time? seems like numbers are off for user nick.
-- 
+- on the bottom on settings on data, add what version the portfolio is on, and what version api-portfolio is on and on the api-portfolio version link api-portfolio.muscadine.io on it, also have a green button next to it if its connected to our system, red if not.
+- On settings on display migrate overview dashbaord settings to navigation.
+- Run lint, build and tests for both repos, than delete any dead or unused code for both repos, tell me before you delete anything.
+
+
+Possibiltiy, dont focus on now: Google Sheets integration
