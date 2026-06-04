@@ -11,6 +11,7 @@ interface SectionGroupBlockProps {
   total: number;
   accent?: PortfolioAccent;
   collapsed?: boolean;
+  sectionCount?: number;
   onToggleCollapse?: () => void;
   onEditGroup?: () => void;
   onDeleteGroup?: (mode: "ungroup" | "deleteAll") => void;
@@ -22,15 +23,22 @@ export function SectionGroupBlock({
   total,
   accent = "neutral",
   collapsed = false,
+  sectionCount = 0,
   onToggleCollapse,
   onEditGroup,
   onDeleteGroup,
   children,
 }: SectionGroupBlockProps) {
   const panel = portfolioPanel(accent);
+  const isEmptyGroup = sectionCount === 0;
 
   const handleDelete = () => {
     if (!onDeleteGroup) return;
+    if (isEmptyGroup) {
+      if (!window.confirm(`Delete empty group "${group.name}"?`)) return;
+      onDeleteGroup("ungroup");
+      return;
+    }
     if (
       !window.confirm(
         `Remove group "${group.name}"? You can keep the sections or delete them with the group.`

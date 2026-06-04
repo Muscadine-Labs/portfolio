@@ -47,6 +47,7 @@ import {
   sectionFilterMatches,
 } from "@/lib/section-groups";
 import { isFinnhubEligible, type MarketQuotesResponse } from "@/lib/finnhub";
+import { metalPriceColumnLabel } from "@/lib/metals";
 import { apiErrorMessage } from "@/lib/format-error";
 import { toast } from "sonner";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
@@ -336,7 +337,7 @@ export function AssetTable() {
         key={key}
         className={cn(panel.headCell, RIGHT_ALIGNED.has(key) && "text-right")}
       >
-        {COLUMN_LABELS[key]}
+        {key === "price" ? metalPriceColumnLabel(section) : COLUMN_LABELS[key]}
       </TableHead>
     );
   };
@@ -546,7 +547,8 @@ export function AssetTable() {
   const refreshPrices = async () => {
     if (finnhubEligibleCount === 0) {
       toast.message("No stock/ETF/metal assets to refresh", {
-        description: "Finnhub + Yahoo fallback for symbols without wallet or on-chain metadata.",
+        description:
+          "Turn off manual price on holdings you want updated. Metals use USD/troy oz via Yahoo futures.",
       });
       return;
     }
@@ -650,11 +652,12 @@ export function AssetTable() {
         <div className={panel.sectionStack}>
           {pageLayout.map((block) => {
             if (block.kind === "group") {
+              const isEmptyGroup = block.sections.length === 0;
               const visibleMembers = block.sections.filter((section) => {
                 const rows = assetsBySection[section.id] ?? [];
                 return rows.length > 0 || showEmptySections;
               });
-              if (visibleMembers.length === 0) return null;
+              if (!isEmptyGroup && visibleMembers.length === 0) return null;
 
               return (
                 <SectionGroupBlock
@@ -662,13 +665,21 @@ export function AssetTable() {
                   group={block.group}
                   total={block.total}
                   accent="assets"
+                  sectionCount={block.sections.length}
                   onEditGroup={() => {
                     setEditingGroup(block.group);
                     setGroupDrawerOpen(true);
                   }}
                   onDeleteGroup={(mode) => deleteSectionGroup(block.group.id, mode)}
                 >
-                  {block.sections.map((section) => renderAssetSectionBlock(section))}
+                  {isEmptyGroup ? (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                      No sections in this group. Use the trash icon to remove it, or add a
+                      section below.
+                    </p>
+                  ) : (
+                    block.sections.map((section) => renderAssetSectionBlock(section))
+                  )}
                 </SectionGroupBlock>
               );
             }

@@ -22,6 +22,7 @@ import { roundMoney } from "@/lib/utils";
 import type { AssetPriceSource } from "@/types";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isCryptoAssetSection } from "@/lib/asset-sections";
+import { isMetalsSection } from "@/lib/metals";
 import type { Asset } from "@/types";
 
 const assetSchema = z.object({
@@ -77,6 +78,7 @@ export function AssetDrawer({
   const showPositionFields =
     (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
     Boolean(asset?.network || asset?.protocol);
+  const metalsSection = selectedSection != null && isMetalsSection(selectedSection);
 
   useDrawerFormReset(
     open,
@@ -176,7 +178,9 @@ export function AssetDrawer({
             <div>
               <p className="text-sm font-medium">Price source</p>
               <p className="text-xs text-muted-foreground">
-                API uses Finnhub with yfinance fallback on the home server.
+                {metalsSection
+                  ? "Metals refresh to USD per troy oz (Yahoo futures on the home server)."
+                  : "API uses Finnhub with yfinance fallback on the home server."}
               </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -195,7 +199,7 @@ export function AssetDrawer({
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
+              <Label htmlFor="price">{metalsSection ? "Price (USD / oz)" : "Price"}</Label>
               <Input
                 id="price"
                 type="number"

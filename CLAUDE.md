@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.0** — Remove overview asset allocation chart; v1.0.2-style category cards only.
+**Release v1.1.1** — Overview tooltip fix, empty group delete, metals price (oz) labels.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

@@ -60,7 +60,6 @@ export function buildPageSectionLayout(
 
   for (const group of pageGroups) {
     const members = pageSections.filter((section) => section.groupId === group.id);
-    if (members.length === 0) continue;
     const total = members.reduce((sum, section) => sum + valueOf(section.id), 0);
     layout.push({ kind: "group", group, sections: members, total });
   }

@@ -441,11 +441,12 @@ export function LiabilityTable() {
       <div className={panel.sectionStack}>
         {pageLayout.map((block) => {
           if (block.kind === "group") {
+            const isEmptyGroup = block.sections.length === 0;
             const visibleMembers = block.sections.filter((section) => {
               const rows = itemsBySection[section.id] ?? [];
               return rows.length > 0 || showEmptySections;
             });
-            if (visibleMembers.length === 0) return null;
+            if (!isEmptyGroup && visibleMembers.length === 0) return null;
 
             return (
               <SectionGroupBlock
@@ -453,13 +454,20 @@ export function LiabilityTable() {
                 group={block.group}
                 total={block.total}
                 accent="liabilities"
+                sectionCount={block.sections.length}
                 onEditGroup={() => {
                   setEditingGroup(block.group);
                   setGroupDrawerOpen(true);
                 }}
                 onDeleteGroup={(mode) => deleteSectionGroup(block.group.id, mode)}
               >
-                {block.sections.map((section) => renderLiabilitySectionBlock(section))}
+                {isEmptyGroup ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    No sections in this group. Use the trash icon to remove it.
+                  </p>
+                ) : (
+                  block.sections.map((section) => renderLiabilitySectionBlock(section))
+                )}
               </SectionGroupBlock>
             );
           }

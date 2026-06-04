@@ -138,7 +138,12 @@ export function OverviewBreakdownPanel({
   };
 
   return (
-    <Card className={cn("h-auto self-start overflow-visible", panel.panel)}>
+    <Card
+      className={cn(
+        panel.panel,
+        "relative z-0 h-auto self-start overflow-visible hover:z-20"
+      )}
+    >
       <CardHeader className="border-b border-border/60 px-4 py-3">
         <CardTitle className="text-sm font-semibold uppercase tracking-wide">
           <Link href={href} className="hover:text-primary hover:underline">
@@ -146,7 +151,7 @@ export function OverviewBreakdownPanel({
           </Link>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 p-0">
+      <CardContent className="space-y-3 overflow-visible p-0">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

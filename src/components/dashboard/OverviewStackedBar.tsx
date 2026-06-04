@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 import type { OverviewRow } from "@/lib/overview";
@@ -10,20 +11,27 @@ interface OverviewStackedBarProps {
   total: number;
 }
 
+type TooltipState = {
+  row: OverviewRow;
+  x: number;
+  y: number;
+};
+
 export function OverviewStackedBar({ rows, total }: OverviewStackedBarProps) {
-  const [active, setActive] = useState<OverviewRow | null>(null);
-  const [tooltipX, setTooltipX] = useState(0);
-  const barRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const segments = rows.filter((row) => row.value > 0);
 
-  const positionTooltip = (element: HTMLElement) => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const seg = element.getBoundingClientRect();
-    const barRect = bar.getBoundingClientRect();
-    setTooltipX(seg.left - barRect.left + seg.width / 2);
-  };
+  const showTooltip = useCallback((element: HTMLElement, row: OverviewRow) => {
+    const rect = element.getBoundingClientRect();
+    setTooltip({
+      row,
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+    });
+  }, []);
+
+  const hideTooltip = useCallback(() => setTooltip(null), []);
 
   if (segments.length === 0) {
     return (
@@ -35,30 +43,33 @@ export function OverviewStackedBar({ rows, total }: OverviewStackedBarProps) {
 
   const barTotal = total > 0 ? total : segments.reduce((s, r) => s + r.value, 0);
 
-  return (
-    <div className="relative">
-      {active && (
-        <div
-          className="pointer-events-none absolute bottom-full z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border/60 bg-popover px-2.5 py-1.5 text-xs shadow-md"
-          style={{ left: tooltipX }}
-          role="tooltip"
-        >
-          <span className="font-medium text-foreground">{active.label}</span>
-          <span className="mx-1.5 text-muted-foreground">·</span>
-          <span className="tabular-nums text-foreground">{formatCurrency(active.value)}</span>
-          {barTotal > 0 && (
-            <span className="ml-1 text-muted-foreground">
-              ({((active.value / barTotal) * 100).toFixed(1)}%)
+  const tooltipNode =
+    tooltip && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="pointer-events-none fixed z-[200] -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border/60 bg-popover px-2.5 py-1.5 text-xs shadow-md"
+            style={{ left: tooltip.x, top: tooltip.y - 6 }}
+            role="tooltip"
+          >
+            <span className="font-medium text-foreground">{tooltip.row.label}</span>
+            <span className="mx-1.5 text-muted-foreground">·</span>
+            <span className="tabular-nums text-foreground">
+              {formatCurrency(tooltip.row.value)}
             </span>
-          )}
-        </div>
-      )}
+            {barTotal > 0 ? (
+              <span className="ml-1 text-muted-foreground">
+                ({((tooltip.row.value / barTotal) * 100).toFixed(1)}%)
+              </span>
+            ) : null}
+          </div>,
+          document.body
+        )
+      : null;
 
-      <div
-        ref={barRef}
-        className="flex h-4 w-full overflow-hidden rounded-sm"
-        onMouseLeave={() => setActive(null)}
-      >
+  return (
+    <>
+      {tooltipNode}
+      <div className="flex h-4 w-full overflow-hidden rounded-sm">
         {segments.map((row) => (
           <Link
             key={row.sectionId}
@@ -68,20 +79,15 @@ export function OverviewStackedBar({ rows, total }: OverviewStackedBarProps) {
               width: `${barTotal > 0 ? (row.value / barTotal) * 100 : 0}%`,
               backgroundColor: row.color,
             }}
-            onMouseEnter={(e) => {
-              setActive(row);
-              positionTooltip(e.currentTarget);
-            }}
-            onMouseMove={(e) => positionTooltip(e.currentTarget)}
-            onFocus={(e) => {
-              setActive(row);
-              positionTooltip(e.currentTarget);
-            }}
-            onBlur={() => setActive(null)}
+            onMouseEnter={(e) => showTooltip(e.currentTarget, row)}
+            onMouseMove={(e) => showTooltip(e.currentTarget, row)}
+            onMouseLeave={hideTooltip}
+            onFocus={(e) => showTooltip(e.currentTarget, row)}
+            onBlur={hideTooltip}
             aria-label={`${row.label}: ${formatCurrency(row.value)}`}
           />
         ))}
       </div>
-    </div>
+    </>
   );
 }
