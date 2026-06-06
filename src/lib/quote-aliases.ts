@@ -14,6 +14,12 @@ export const QUOTE_SYMBOL_ALIASES: Record<string, string> = {
   WETH: "ETH",
 };
 
+export const CRYPTO_FINNHUB_SYMBOLS: Record<string, string> = {
+  BTC: "BINANCE:BTCUSDT",
+  ETH: "BINANCE:ETHUSDT",
+  SOL: "BINANCE:SOLUSDT",
+};
+
 export const MORPHO_VAULT_SHARE_SYMBOLS = new Set([
   "MPCBTC",
   "MPWETH",
@@ -26,6 +32,24 @@ export const MORPHO_VAULT_SHARE_SYMBOLS = new Set([
 export function normalizeQuoteSymbol(symbol: string): string {
   const upper = symbol.trim().toUpperCase();
   return QUOTE_SYMBOL_ALIASES[upper] ?? upper;
+}
+
+export function isCryptoSpotSymbol(symbol: string): boolean {
+  const normalized = normalizeQuoteSymbol(symbol.trim().toUpperCase());
+  return normalized in CRYPTO_FINNHUB_SYMBOLS;
+}
+
+export function getFinnhubQuoteSymbol(symbol: string): string {
+  const normalized = normalizeQuoteSymbol(symbol.trim().toUpperCase());
+  return CRYPTO_FINNHUB_SYMBOLS[normalized] ?? normalized;
+}
+
+export function resolveSpotTicker(symbol: string): string | null {
+  const upper = symbol.trim().toUpperCase();
+  if (isMorphoVaultShareSymbol(upper)) return null;
+  const normalized = normalizeQuoteSymbol(upper);
+  if (normalized in CRYPTO_FINNHUB_SYMBOLS) return normalized;
+  return null;
 }
 
 export function getFixedUsdPrice(symbol: string): number | null {
@@ -44,6 +68,7 @@ export function hasQuoteAlias(symbol: string): boolean {
   return (
     STABLECOIN_USD_SYMBOLS.has(upper) ||
     upper in QUOTE_SYMBOL_ALIASES ||
+    isCryptoSpotSymbol(upper) ||
     getFixedUsdPrice(upper) != null
   );
 }

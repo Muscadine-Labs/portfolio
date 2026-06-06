@@ -527,6 +527,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
         ? normalizeAssetNetwork(networkRaw) ?? networkRaw
         : undefined,
       protocol: optionalString(raw.protocol),
+      walletId: optionalString(raw.walletId),
     });
   }
 
@@ -571,6 +572,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       network: cashNetworkRaw
         ? normalizeAssetNetwork(cashNetworkRaw) ?? cashNetworkRaw
         : undefined,
+      walletId: optionalString(raw.walletId),
     });
   }
 
@@ -620,6 +622,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
         : undefined,
       protocol: optionalString(raw.protocol),
       address: optionalString(raw.address),
+      walletId: optionalString(raw.walletId),
     });
   }
 

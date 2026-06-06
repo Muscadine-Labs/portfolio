@@ -3,7 +3,7 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMobileNav } from "@/components/layout/MobileNavContext";
-import { HeaderAddMenu } from "@/components/layout/HeaderAddMenu";
+import { HeaderSaveButton } from "@/components/layout/HeaderSaveButton";
 import { HeaderNetWorthPill } from "@/components/layout/HeaderNetWorthPill";
 import type { BreadcrumbItem } from "@/components/layout/PageBreadcrumbs";
 import { PageBreadcrumbs } from "@/components/layout/PageBreadcrumbs";
@@ -63,7 +63,7 @@ export function Header({ title, description, compact = false, breadcrumbs, meta 
 
         <div className="flex shrink-0 items-center gap-2">
           <HeaderNetWorthPill />
-          <HeaderAddMenu />
+          <HeaderSaveButton />
         </div>
       </div>
 

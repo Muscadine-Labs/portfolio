@@ -45,7 +45,7 @@ import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfoli
 import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
 import { isDemoTenant } from "@/lib/demo-constants";
 import { isFinnhubEligible } from "@/lib/finnhub";
-import { getFixedUsdPrice } from "@/lib/quote-aliases";
+import { getFixedUsdPrice, resolveSpotTicker } from "@/lib/quote-aliases";
 import type {
   AllocationNode,
   Asset,
@@ -124,6 +124,8 @@ interface PortfolioContextValue {
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
   savePortfolioNow: () => void;
+  /** Immediate save with success/error toast (header Save button). */
+  savePortfolio: () => Promise<boolean>;
   account: User;
   updateAccount: (patch: Partial<User>) => void;
 }
@@ -270,6 +272,67 @@ export function PortfolioProvider({
     saveNowRef.current = true;
   }, []);
 
+  const savePortfolio = useCallback(async (): Promise<boolean> => {
+    if (account.tenant === "demo") {
+      toast.message("Demo mode — nothing saved");
+      return false;
+    }
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    saveNowRef.current = false;
+    const payload = buildPortfolioPayload({
+      sections,
+      sectionGroups,
+      assets,
+      cashAccounts,
+      liabilities,
+      planningItems,
+      spendingItems,
+      allocationNodes,
+      incomePlan,
+      walletMapNodes,
+      uiPreferences,
+      monthlyIncome,
+      netWorthHistory,
+    });
+    latestPayloadRef.current = payload;
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown };
+        toast.error(apiErrorMessage(errorBody.error, `Save failed (${res.status})`));
+        return false;
+      }
+      toast.success("Portfolio saved");
+      return true;
+    } catch {
+      toast.error("Could not reach the server — changes not saved");
+      return false;
+    }
+  }, [
+    account.tenant,
+    sections,
+    sectionGroups,
+    assets,
+    cashAccounts,
+    liabilities,
+    planningItems,
+    spendingItems,
+    allocationNodes,
+    incomePlan,
+    walletMapNodes,
+    uiPreferences,
+    monthlyIncome,
+    netWorthHistory,
+  ]);
+
   const updateAccount = useCallback((patch: Partial<User>) => {
     setAccount((prev) => ({ ...prev, ...patch }));
   }, []);
@@ -409,7 +472,9 @@ export function PortfolioProvider({
             return { ...asset, price: fixed };
           }
           if (!isFinnhubEligible(asset)) return asset;
-          const price = pricesBySymbol[asset.symbol.toUpperCase()];
+          const raw = asset.symbol.toUpperCase();
+          const priceKey = resolveSpotTicker(raw) ?? raw;
+          const price = pricesBySymbol[priceKey] ?? pricesBySymbol[raw];
           if (price == null || price <= 0 || price === asset.price) return asset;
           updated += 1;
           return { ...asset, price };
@@ -865,6 +930,7 @@ export function PortfolioProvider({
       applyAssetPrices,
       replacePortfolioData,
       savePortfolioNow,
+      savePortfolio,
       account,
       updateAccount,
     }),
@@ -923,6 +989,7 @@ export function PortfolioProvider({
       applyAssetPrices,
       replacePortfolioData,
       savePortfolioNow,
+      savePortfolio,
       account,
       updateAccount,
     ]

@@ -24,8 +24,10 @@ import { PortfolioPageToolbar, type PortfolioSectionNavItem } from "@/components
 import { PortfolioSectionBlock } from "@/components/shared/PortfolioSectionBlock";
 import {
   DEFAULT_LIABILITY_COLUMNS,
-  getLiabilityColumnOptions,
+  getLiabilityFilterColumnOptions,
+  LIABILITY_CORE_COLUMNS,
   LIABILITY_DEFI_COLUMNS,
+  LIABILITY_OPTIONAL_COLUMNS,
   LIABILITY_POSITION_COLUMNS,
   type LiabilityColumnKey,
 } from "@/components/liabilities/liability-columns";
@@ -68,16 +70,24 @@ function showLiabilityColumn(
   section: PortfolioSection,
   visibleColumns: Set<LiabilityColumnKey>
 ): boolean {
-  if (!visibleColumns.has(key)) return false;
+  if (LIABILITY_CORE_COLUMNS.has(key)) return true;
+
+  if (LIABILITY_DEFI_COLUMNS.has(key)) {
+    return isDefiLiabilitySection(section);
+  }
+
   if (LIABILITY_POSITION_COLUMNS.has(key)) {
     if (!isPositionLiabilitySection(section)) return false;
     if (key === "network") return sectionShowsNetworkColumn(section);
     if (key === "protocol") return sectionShowsProtocolColumn(section);
+    return false;
   }
-  if (LIABILITY_DEFI_COLUMNS.has(key)) {
-    return isDefiLiabilitySection(section);
+
+  if (LIABILITY_OPTIONAL_COLUMNS.has(key)) {
+    return visibleColumns.has(key);
   }
-  return true;
+
+  return visibleColumns.has(key);
 }
 
 function fmtMoney(value: number | undefined): string {
@@ -160,27 +170,7 @@ export function LiabilityTable() {
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
 
-  const showPositionInPicker = useMemo(
-    () =>
-      sections.some(
-        (section) =>
-          isPositionLiabilitySection(section) &&
-          (sectionShowsNetworkColumn(section) || sectionShowsProtocolColumn(section))
-      ),
-    [sections]
-  );
-  const showDefiInPicker = useMemo(
-    () => sections.some((section) => isDefiLiabilitySection(section)),
-    [sections]
-  );
-  const liabilityColumnOptions = useMemo(
-    () =>
-      getLiabilityColumnOptions({
-        showPositionColumns: showPositionInPicker,
-        showDefiColumns: showDefiInPicker,
-      }),
-    [showPositionInPicker, showDefiInPicker]
-  );
+  const liabilityFilterOptions = useMemo(() => getLiabilityFilterColumnOptions(), []);
 
   const panel = portfolioPanel("liabilities");
 
@@ -381,7 +371,7 @@ export function LiabilityTable() {
                 )}
                 {showCol("collateral") && (
                   <TableCell className={cn(panel.dataCell, "text-right")}>
-                    {fmtMoney(l.collateral)}
+                    {l.collateral != null ? formatMoneyColumn(l.collateral) : "—"}
                   </TableCell>
                 )}
                 {showCol("lltv") && (
@@ -392,7 +382,9 @@ export function LiabilityTable() {
                 )}
                 {showCol("liquidationPrice") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
-                    {fmtMoney(l.liquidationPrice)}
+                    {l.liquidationPrice != null
+                      ? formatMoneyColumn(l.liquidationPrice)
+                      : "—"}
                   </TableCell>
                 )}
                 <TableCell>
@@ -473,7 +465,6 @@ export function LiabilityTable() {
         </Table>
 
         {isDefi &&
-          showCol("ltv") &&
           items.map(
             (l) =>
               l.ltv != null && (
@@ -502,7 +493,7 @@ export function LiabilityTable() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Name or address…"
-        columnOptions={liabilityColumnOptions}
+        columnOptions={liabilityFilterOptions}
         visibleColumns={visibleColumns}
         onToggleColumn={(key) =>
           setVisibleColumns((prev) => toggleColumnInSet(prev, key))

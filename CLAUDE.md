@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.3** — Crypto section sorting, optional cost basis, network/protocol column toggles, Morpho liability fields (collateral/LTV/liquidation), 2-decimal prices.
+**Release v1.1.4** — Header **Save** button (manual persist), BTC/cbBTC Finnhub spot quotes, Morpho liability sync persistence, portfolio revision backups.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
