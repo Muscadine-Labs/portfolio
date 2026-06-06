@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ import { apiErrorMessage } from "@/lib/format-error";
 import {
   filterWalletSyncSections,
 } from "@/lib/wallet-sync-sections";
+import {
+  defaultMorphoSectionId,
+  normalizeMorphoMappings,
+  sectionMatchesMorphoTarget,
+} from "@/lib/morpho-mapping-utils";
 import type {
   Asset,
   CashAccount,
@@ -52,15 +57,44 @@ function defaultTarget(kind: MorphoPositionKind): MorphoPositionTarget {
   return "assets";
 }
 
+function networkFromMappingKey(key: string): string {
+  return key.split(":")[0]?.trim() || "ethereum";
+}
+
+function mappingToPreviewItem(mapping: MorphoPositionMapping): MorphoPreviewItem {
+  const kind = mapping.kind ?? "vault";
+  return {
+    key: mapping.key,
+    kind,
+    network: networkFromMappingKey(mapping.key),
+    label: mapping.label ?? mapping.key,
+    symbol: "",
+    underlyingSymbol: "",
+    quantity: 0,
+    underlyingQuantity: 0,
+    priceUsd: 0,
+    underlyingPriceUsd: 0,
+    usdValue: 0,
+    vaultAddress: "",
+    version: "v1",
+  };
+}
+
+/** Vault/collateral → assets or cash; debt → liabilities only. */
+function targetOptionsForKind(kind: MorphoPositionKind): typeof TARGET_OPTIONS {
+  if (kind === "debt") {
+    return TARGET_OPTIONS.filter((option) => option.value === "liabilities");
+  }
+  return TARGET_OPTIONS.filter((option) => option.value !== "liabilities");
+}
+
 function defaultSectionId(
   target: MorphoPositionTarget,
   assetSections: PortfolioSection[],
   liabilitySections: PortfolioSection[],
   cashSections: PortfolioSection[]
 ): string {
-  if (target === "assets") return filterWalletSyncSections(assetSections)[0]?.id ?? "";
-  if (target === "liabilities") return filterWalletSyncSections(liabilitySections)[0]?.id ?? "";
-  return filterWalletSyncSections(cashSections)[0]?.id ?? "";
+  return defaultMorphoSectionId(target, assetSections, liabilitySections, cashSections);
 }
 
 export function WalletMorphoMappingPanel({
@@ -108,6 +142,34 @@ export function WalletMorphoMappingPanel({
     [mappings]
   );
 
+  /** Saved mappings + latest scan — edit target/section without re-scanning. */
+  const displayItems = useMemo(() => {
+    const byKey = new Map<string, MorphoPreviewItem>();
+    for (const mapping of mappings) {
+      byKey.set(mapping.key, mappingToPreviewItem(mapping));
+    }
+    for (const item of positions) {
+      byKey.set(item.key, item);
+    }
+    return [...byKey.values()];
+  }, [mappings, positions]);
+
+  useEffect(() => {
+    if (mappings.length === 0) return;
+    const normalized = normalizeMorphoMappings(
+      mappings,
+      assetSections,
+      liabilitySections,
+      cashSections
+    );
+    const changed = normalized.some(
+      (mapping, index) =>
+        mapping.sectionId !== mappings[index]?.sectionId ||
+        mapping.rowId !== mappings[index]?.rowId
+    );
+    if (changed) onChange(normalized);
+  }, [mappings, assetSections, liabilitySections, cashSections, onChange]);
+
   if (!hasEvm) return null;
 
   const rowOptions = (target: MorphoPositionTarget, sectionId: string) => {
@@ -138,16 +200,14 @@ export function WalletMorphoMappingPanel({
   };
 
   const resolveSectionId = (target: MorphoPositionTarget, sectionId: string | undefined) => {
-    if (!sectionId) return defaultSectionId(target, assetSections, liabilitySections, cashSections);
-    const list =
-      target === "assets"
-        ? syncAssetSections
-        : target === "liabilities"
-          ? syncLiabilitySections
-          : syncCashSections;
-    return list.some((s) => s.id === sectionId)
-      ? sectionId
-      : defaultSectionId(target, assetSections, liabilitySections, cashSections);
+    if (sectionId && sectionMatchesMorphoTarget(sectionId, target, [
+      ...assetSections,
+      ...liabilitySections,
+      ...cashSections,
+    ])) {
+      return sectionId;
+    }
+    return defaultSectionId(target, assetSections, liabilitySections, cashSections);
   };
 
   const updateMapping = (key: string, patch: Partial<MorphoPositionMapping>) => {
@@ -228,10 +288,11 @@ export function WalletMorphoMappingPanel({
         </Button>
       </div>
 
-      {positions.length === 0 ? (
+      {displayItems.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No scan yet — click Scan to load vault, collateral, and debt positions from Morpho.
-          Mark sections as crypto or DeFi in Assets / Liabilities / Cash settings to use them here.
+          No Morpho positions yet — click Scan to load vault, collateral, and debt positions from
+          Morpho. Mark sections as crypto or DeFi in Assets / Liabilities / Cash settings to use
+          them here.
         </p>
       ) : syncAssetSections.length === 0 &&
         syncLiabilitySections.length === 0 &&
@@ -242,11 +303,14 @@ export function WalletMorphoMappingPanel({
         </p>
       ) : (
         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
-          {positions.map((item) => {
+          {displayItems.map((item) => {
             const mapping = mappingByKey.get(item.key);
             if (!mapping) return null;
+            const kind = mapping.kind ?? item.kind;
             const target = mapping.target;
             const sectionId = mapping.sectionId ?? "";
+            const targetOptions = targetOptionsForKind(kind);
+            const scanned = positions.some((p) => p.key === item.key);
             return (
               <div key={item.key} className="space-y-2 rounded-md border border-border/50 p-2">
                 <label className="flex cursor-pointer items-start gap-2">
@@ -261,7 +325,9 @@ export function WalletMorphoMappingPanel({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{item.label}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.kind} · {item.network} · {fmtUsd(item.usdValue)}
+                      {kind} · {item.network}
+                      {scanned && item.usdValue > 0 ? ` · ${fmtUsd(item.usdValue)}` : null}
+                      {!scanned ? " · re-scan to refresh USD value" : null}
                     </p>
                   </div>
                 </label>
@@ -283,7 +349,8 @@ export function WalletMorphoMappingPanel({
                           rowId: undefined,
                         });
                       }}
-                      options={TARGET_OPTIONS}
+                      options={targetOptions}
+                      disabled={targetOptions.length <= 1}
                     />
                   </div>
                   <div className="space-y-1">

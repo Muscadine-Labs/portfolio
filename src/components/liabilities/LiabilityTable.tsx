@@ -43,7 +43,6 @@ import { computeTotalLiabilities } from "@/lib/mock-data";
 import { sumLiabilitySectionTotals } from "@/lib/section-totals";
 import { sortLiabilitiesInSection } from "@/lib/position-sort";
 import { formatCurrency, formatMoneyColumn, formatPercent } from "@/lib/utils";
-import { LtvBar } from "@/components/liabilities/LtvBar";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import {
   buildPageSectionLayout,
@@ -251,7 +250,6 @@ export function LiabilityTable() {
 
   const renderLiabilitySectionBlock = (section: PortfolioSection) => {
     const items = itemsBySection[section.id] ?? [];
-    const isDefi = section.metadata?.isDefi ?? false;
     const showCol = (key: LiabilityColumnKey) => col(key, section);
     if (items.length === 0 && !showEmptySections) return null;
     const sectionTotals = items.length > 0 ? sumLiabilitySectionTotals(items) : null;
@@ -463,17 +461,6 @@ export function LiabilityTable() {
             </TableFooter>
           ) : null}
         </Table>
-
-        {isDefi &&
-          items.map(
-            (l) =>
-              l.ltv != null && (
-                <div key={`ltv-${l.id}`} className="mt-2 border-t border-border/40 px-3 py-2">
-                  <p className="mb-1.5 text-xs font-medium">{l.name}</p>
-                  <LtvBar ltv={l.ltv} />
-                </div>
-              )
-          )}
       </PortfolioSectionBlock>
     );
   };

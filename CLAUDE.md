@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.4** — Header **Save** button (manual persist), BTC/cbBTC Finnhub spot quotes, Morpho liability sync persistence, portfolio revision backups.
+**Release v1.1.5** — Morpho vault→cash mapping (auto sectionId), header Save button, remove DeFi LTV bar chart, BTC/cbBTC spot quotes.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

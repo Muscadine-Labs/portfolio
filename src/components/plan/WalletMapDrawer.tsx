@@ -29,6 +29,7 @@ import {
   walletLegacyFieldsFromEntries,
 } from "@/lib/wallet-entries";
 import { isWalletSyncSection } from "@/lib/wallet-sync-sections";
+import { normalizeMorphoMappings } from "@/lib/morpho-mapping-utils";
 import type { MorphoPositionMapping, WalletAddressEntry, WalletMapNode } from "@/types";
 
 const schema = z.object({
@@ -116,20 +117,25 @@ export function WalletMapDrawer({
       setEvmAddress(initialEvmAddress(node));
       setSyncEnabled(node?.syncEnabled ?? false);
       setMorphoMappings(
-        (node?.morphoMappings ?? []).map((mapping) => {
-          if (!mapping.sectionId) return mapping;
-          const page =
-            mapping.target === "assets"
-              ? "assets"
-              : mapping.target === "liabilities"
-                ? "liabilities"
-                : "cash";
-          const section = [...assetSections, ...liabilitySections, ...cashSections].find(
-            (s) => s.id === mapping.sectionId && s.page === page
-          );
-          if (section && isWalletSyncSection(section)) return mapping;
-          return { ...mapping, sectionId: undefined, rowId: undefined };
-        })
+        normalizeMorphoMappings(
+          (node?.morphoMappings ?? []).map((mapping) => {
+            if (!mapping.sectionId) return mapping;
+            const page =
+              mapping.target === "assets"
+                ? "assets"
+                : mapping.target === "liabilities"
+                  ? "liabilities"
+                  : "cash";
+            const section = [...assetSections, ...liabilitySections, ...cashSections].find(
+              (s) => s.id === mapping.sectionId && s.page === page
+            );
+            if (section && isWalletSyncSection(section)) return mapping;
+            return { ...mapping, sectionId: undefined, rowId: undefined };
+          }),
+          assetSections,
+          liabilitySections,
+          cashSections
+        )
       );
       return {
         label: node?.label ?? "",
@@ -155,13 +161,19 @@ export function WalletMapDrawer({
     }
 
     const legacy = walletLegacyFieldsFromEntries(entries);
+    const normalizedMappings = normalizeMorphoMappings(
+      morphoMappings,
+      assetSections,
+      liabilitySections,
+      cashSections
+    );
 
     if (syncEnabled) {
       if (!trimmed) {
         toast.error("Add an Ethereum address before enabling sync.");
         return;
       }
-      const activeMappings = morphoMappings.filter((m) => m.enabled && m.sectionId);
+      const activeMappings = normalizedMappings.filter((m) => m.enabled && m.sectionId);
       if (activeMappings.length === 0) {
         toast.error("Scan Morpho and map at least one position to a section.");
         return;
@@ -193,7 +205,7 @@ export function WalletMapDrawer({
       address: legacy.address,
       networks: legacy.networks,
       addresses: entries.length ? entries : undefined,
-      morphoMappings: morphoMappings.length ? morphoMappings : undefined,
+      morphoMappings: normalizedMappings.length ? normalizedMappings : undefined,
       syncEnabled: syncEnabled || undefined,
       status: values.status,
       notes: values.notes?.trim() || undefined,
