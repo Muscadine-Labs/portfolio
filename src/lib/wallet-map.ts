@@ -2,6 +2,11 @@ import {
   detectWalletNetworks,
   normalizeWalletNetworks,
 } from "@/lib/wallet-address";
+import {
+  createWalletAddressEntryId,
+  getWalletAddressEntries,
+  walletLegacyFieldsFromEntries,
+} from "@/lib/wallet-entries";
 import type { WalletChain, WalletMapNode } from "@/types";
 
 export function getWalletChildren(
@@ -26,14 +31,35 @@ type LegacyConnectedWallet = {
 export function normalizeWalletMapNode(
   node: WalletMapNode & { chain?: WalletChain }
 ): WalletMapNode {
-  const address = node.address?.trim() || node.identifier?.trim() || undefined;
-  let networks = node.networks?.length ? normalizeWalletNetworks(node.networks) : undefined;
-  if (!networks?.length && node.chain) {
-    networks = [node.chain];
+  let addresses = node.addresses?.length
+    ? node.addresses.map((entry) => ({
+        id: entry.id || createWalletAddressEntryId(),
+        address: entry.address.trim(),
+        networks: normalizeWalletNetworks(entry.networks ?? []),
+        label: entry.label?.trim() || undefined,
+      }))
+    : undefined;
+
+  const legacyAddress = node.address?.trim() || node.identifier?.trim() || undefined;
+  if (!addresses?.length && legacyAddress) {
+    let networks = node.networks?.length ? normalizeWalletNetworks(node.networks) : undefined;
+    if (!networks?.length && node.chain) {
+      networks = [node.chain];
+    }
+    if (!networks?.length) {
+      networks = detectWalletNetworks(legacyAddress);
+    }
+    addresses = [
+      {
+        id: createWalletAddressEntryId(),
+        address: legacyAddress,
+        networks,
+        label: undefined,
+      },
+    ];
   }
-  if (!networks?.length && address) {
-    networks = detectWalletNetworks(address);
-  }
+
+  const legacy = walletLegacyFieldsFromEntries(addresses ?? []);
 
   return {
     id: node.id,
@@ -42,9 +68,12 @@ export function normalizeWalletMapNode(
     order: node.order,
     owner: node.owner,
     walletType: node.walletType,
-    address,
-    networks: networks?.length ? networks : undefined,
+    address: legacy.address,
+    networks: legacy.networks,
+    addresses: addresses?.length ? addresses : undefined,
     links: node.links,
+    syncEnabled: node.syncEnabled,
+    morphoMappings: node.morphoMappings,
     status: node.status,
     notes: node.notes,
   };
@@ -84,6 +113,7 @@ export function mergeLegacyConnectedWallets(
         ...existing,
         address: existing.address || normalized.address,
         networks: existing.networks?.length ? existing.networks : normalized.networks,
+        addresses: existing.addresses?.length ? existing.addresses : normalized.addresses,
         links: existing.links ?? normalized.links,
         notes: existing.notes ?? normalized.notes,
       });
@@ -97,5 +127,5 @@ export function mergeLegacyConnectedWallets(
 }
 
 export function isOnChainWallet(node: WalletMapNode): boolean {
-  return Boolean(node.address?.trim());
+  return getWalletAddressEntries(node).length > 0;
 }

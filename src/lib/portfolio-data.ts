@@ -152,14 +152,71 @@ function optionalString(value: unknown): string | undefined {
 
 function parseWalletLinks(raw: unknown): WalletMapNode["links"] | undefined {
   if (!isRecord(raw)) return undefined;
+  const assetIds = Array.isArray(raw.assetIds)
+    ? raw.assetIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    : undefined;
+  const liabilityIds = Array.isArray(raw.liabilityIds)
+    ? raw.liabilityIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    : undefined;
   const links = {
     assetsSectionId: optionalString(raw.assetsSectionId),
     cashSectionId: optionalString(raw.cashSectionId),
     liabilitiesSectionId: optionalString(raw.liabilitiesSectionId),
+    assetIds: assetIds?.length ? assetIds : undefined,
+    liabilityIds: liabilityIds?.length ? liabilityIds : undefined,
   };
-  return links.assetsSectionId || links.cashSectionId || links.liabilitiesSectionId
+  return links.assetsSectionId ||
+    links.cashSectionId ||
+    links.liabilitiesSectionId ||
+    links.assetIds?.length ||
+    links.liabilityIds?.length
     ? links
     : undefined;
+}
+
+function parseMorphoMappings(raw: unknown): WalletMapNode["morphoMappings"] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const targets = new Set(["assets", "liabilities", "cash"]);
+  const kinds = new Set(["vault", "debt", "collateral"]);
+  const mappings: NonNullable<WalletMapNode["morphoMappings"]> = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const key = optionalString(item.key);
+    const target = optionalString(item.target);
+    if (!key || !target || !targets.has(target)) continue;
+    mappings.push({
+      key,
+      enabled: item.enabled !== false,
+      target: target as "assets" | "liabilities" | "cash",
+      sectionId: optionalString(item.sectionId),
+      rowId: optionalString(item.rowId),
+      label: optionalString(item.label),
+      kind:
+        typeof item.kind === "string" && kinds.has(item.kind)
+          ? (item.kind as "vault" | "debt" | "collateral")
+          : undefined,
+    });
+  }
+  return mappings.length > 0 ? mappings : undefined;
+}
+
+function parseWalletAddresses(raw: unknown): WalletMapNode["addresses"] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const entries: NonNullable<WalletMapNode["addresses"]> = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const id = optionalString(item.id);
+    const address = optionalString(item.address);
+    const networks = parseWalletNetworks(item.networks);
+    if (!id || !address || !networks?.length) continue;
+    entries.push({
+      id,
+      address,
+      networks,
+      label: optionalString(item.label),
+    });
+  }
+  return entries.length > 0 ? entries : undefined;
 }
 
 function parseWalletNetworks(raw: unknown): WalletChain[] | undefined {
@@ -792,7 +849,10 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
             (typeof raw.chain === "string"
               ? parseWalletNetworks([raw.chain])
               : undefined),
+          addresses: parseWalletAddresses(raw.addresses),
           links: parseWalletLinks(raw.links),
+          morphoMappings: parseMorphoMappings(raw.morphoMappings),
+          syncEnabled: raw.syncEnabled === true,
           status,
           notes: optionalString(raw.notes),
         });
@@ -901,6 +961,12 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
             netWorthSnapshotCadence: normalizeNetWorthSnapshotCadence(
               body.uiPreferences.netWorthSnapshotCadence
             ),
+            morphoVaultDisplayMode:
+              body.uiPreferences.morphoVaultDisplayMode === "underlying"
+                ? "underlying"
+                : body.uiPreferences.morphoVaultDisplayMode === "share_price"
+                  ? "share_price"
+                  : undefined,
             overviewWidgets: normalizeOverviewWidgets(
               parseOverviewWidgets(body.uiPreferences.overviewWidgets)
             ),

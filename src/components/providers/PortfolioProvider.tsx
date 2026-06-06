@@ -45,6 +45,7 @@ import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfoli
 import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
 import { isDemoTenant } from "@/lib/demo-constants";
 import { isFinnhubEligible } from "@/lib/finnhub";
+import { getFixedUsdPrice } from "@/lib/quote-aliases";
 import type {
   AllocationNode,
   Asset,
@@ -118,6 +119,7 @@ interface PortfolioContextValue {
   setMonthlyAutoSnapshot: (enabled: boolean) => void;
   setNetWorthSnapshotCadence: (cadence: UiPreferences["netWorthSnapshotCadence"]) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
+  setMorphoVaultDisplayMode: (mode: NonNullable<UiPreferences["morphoVaultDisplayMode"]>) => void;
   setSidebarCompact: (compact: boolean) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
@@ -378,6 +380,13 @@ export function PortfolioProvider({
     }));
   }, []);
 
+  const setMorphoVaultDisplayMode = useCallback(
+    (mode: NonNullable<UiPreferences["morphoVaultDisplayMode"]>) => {
+      setUiPreferences((prev) => ({ ...prev, morphoVaultDisplayMode: mode }));
+    },
+    []
+  );
+
   const setSidebarCompact = useCallback(
     (compact: boolean) => {
       writeSidebarCompactToStorage(account.tenant, compact);
@@ -391,14 +400,21 @@ export function PortfolioProvider({
       if (isDemoTenant(account.tenant)) return 0;
       let updated = 0;
       setAssets((prev) =>
-      prev.map((asset) => {
-        if (!isFinnhubEligible(asset)) return asset;
-        const price = pricesBySymbol[asset.symbol.toUpperCase()];
-        if (price == null || price <= 0 || price === asset.price) return asset;
-        updated += 1;
-        return { ...asset, price };
-      })
-    );
+        prev.map((asset) => {
+          if (asset.priceSource === "manual") return asset;
+          const fixed = getFixedUsdPrice(asset.symbol);
+          if (fixed != null) {
+            if (asset.price === fixed) return asset;
+            updated += 1;
+            return { ...asset, price: fixed };
+          }
+          if (!isFinnhubEligible(asset)) return asset;
+          const price = pricesBySymbol[asset.symbol.toUpperCase()];
+          if (price == null || price <= 0 || price === asset.price) return asset;
+          updated += 1;
+          return { ...asset, price };
+        })
+      );
       return updated;
     },
     [account.tenant]
@@ -844,6 +860,7 @@ export function PortfolioProvider({
       setMonthlyAutoSnapshot,
       setNetWorthSnapshotCadence,
       setThemePreference,
+      setMorphoVaultDisplayMode,
       setSidebarCompact,
       applyAssetPrices,
       replacePortfolioData,
@@ -901,6 +918,7 @@ export function PortfolioProvider({
       setMonthlyAutoSnapshot,
       setNetWorthSnapshotCadence,
       setThemePreference,
+      setMorphoVaultDisplayMode,
       setSidebarCompact,
       applyAssetPrices,
       replacePortfolioData,

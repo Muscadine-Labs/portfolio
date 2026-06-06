@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.1** — Overview tooltip fix, empty group delete, metals price (oz) labels.
+**Release v1.1.2** — Multi-address wallets, Morpho position picker, wallet sync settings.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
@@ -76,13 +76,34 @@ Finnhub keys stay on the home API only. Build: `env -u NODE_ENV npm run build` i
 
 ---
 
+## Wallet sync (UI)
+
+Wallet editing lives under **Plan → Wallets** (`WalletMapDrawer.tsx`).
+
+| Feature | Path |
+|---------|------|
+| Multi-address rows | `src/lib/wallet-entries.ts`, `WalletMapDrawer.tsx` |
+| Morpho scan + map to assets/liabilities/cash | `WalletMorphoMappingPanel.tsx` |
+| Sync settings (Morpho display mode) | `WalletSyncSettingsCard.tsx` |
+| Proxy routes | `src/app/api/wallets/sync`, `morpho-preview` |
+
+**Syncable chains (backend):** Ethereum, Base (Morpho), Bitcoin (electrs). Solana addresses are supported in the UI but not auto-synced.
+
+Each wallet can have `addresses[]` with per-row networks, plus optional `morphoMappings[]` to pick which Morpho vaults/debt/collateral rows merge into which portfolio sections.
+
+---
+
 ## Key paths
 
 ```
 src/app/                      Pages + /api route handlers
 src/components/providers/PortfolioProvider.tsx
+src/components/plan/WalletMapDrawer.tsx
+src/components/plan/WalletMorphoMappingPanel.tsx
 src/lib/home-api.ts           proxyToHomeApi()
 src/lib/portfolio-data.ts     Validation — keep in sync with api-portfolio
+src/lib/wallet-entries.ts     Multi-address helpers
+src/lib/wallet-address.ts     Address format validation
 src/lib/overview-period.ts    Net worth chart periods (All default)
 src/lib/demo-constants.ts     Client-safe demo tenant check
 src/proxy.ts                  Auth middleware

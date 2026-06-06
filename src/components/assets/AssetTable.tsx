@@ -46,10 +46,7 @@ import {
   formatSectionDisplayLabel,
   sectionFilterMatches,
 } from "@/lib/section-groups";
-import { isFinnhubEligible, type MarketQuotesResponse } from "@/lib/finnhub";
 import { metalPriceColumnLabel } from "@/lib/metals";
-import { apiErrorMessage } from "@/lib/format-error";
-import { toast } from "sonner";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import type { Asset, PortfolioSection, SectionGroup } from "@/types";
 
@@ -171,7 +168,6 @@ export function AssetTable() {
     deleteAsset,
     upsertSection,
     deleteSection,
-    applyAssetPrices,
     account,
   } = usePortfolio();
   const isDemo = isDemoTenant(account.tenant);
@@ -198,15 +194,8 @@ export function AssetTable() {
   const [editingGroup, setEditingGroup] = useState<SectionGroup | null>(null);
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
-  const [refreshingPrices, setRefreshingPrices] = useState(false);
-  const [lastPriceRefresh, setLastPriceRefresh] = useState<Date | null>(null);
   const isMobile = useMediaQuery("(max-width: 767px)", true);
   const [mobileCardView, setMobileCardView] = useState(true);
-
-  const finnhubEligibleCount = useMemo(
-    () => assets.filter(isFinnhubEligible).length,
-    [assets]
-  );
 
   const walletSectionIds = useMemo(
     () => new Set(sections.filter(isCryptoAssetSection).map((s) => s.id)),
@@ -544,52 +533,6 @@ export function AssetTable() {
     );
   };
 
-  const refreshPrices = async () => {
-    if (finnhubEligibleCount === 0) {
-      toast.message("No stock/ETF/metal assets to refresh", {
-        description:
-          "Turn off manual price on holdings you want updated. Metals use USD/troy oz via Yahoo futures.",
-      });
-      return;
-    }
-
-    setRefreshingPrices(true);
-    try {
-      const res = await fetch("/api/market/quotes", { method: "POST" });
-      const data = (await res.json()) as MarketQuotesResponse;
-      if (!res.ok) {
-        toast.error("Price refresh failed", {
-          description: apiErrorMessage(data.error, "Unknown error"),
-        });
-        return;
-      }
-
-      const prices = data.prices ?? {};
-      const updated = applyAssetPrices(prices);
-      const parts: string[] = [];
-      if (updated > 0) parts.push(`${updated} price${updated === 1 ? "" : "s"} updated`);
-      if ((data.notFound?.length ?? 0) > 0) {
-        parts.push(`${data.notFound!.length} symbol(s) not found`);
-      }
-      if (typeof data.finnhubCalls === "number" && data.finnhubCalls > 0) {
-        parts.push(`${data.finnhubCalls} Finnhub call${data.finnhubCalls === 1 ? "" : "s"}`);
-      } else if (typeof data.apiCalls === "number" && data.apiCalls > 0) {
-        parts.push(`${data.apiCalls} Finnhub call${data.apiCalls === 1 ? "" : "s"}`);
-      }
-      if (typeof data.yfinanceSymbols === "number" && data.yfinanceSymbols > 0) {
-        parts.push(`Yahoo fallback (${data.yfinanceSymbols} symbol${data.yfinanceSymbols === 1 ? "" : "s"})`);
-      }
-      setLastPriceRefresh(new Date());
-      toast.success("Prices refreshed", {
-        description: parts.length > 0 ? parts.join(" · ") : data.message ?? "No changes",
-      });
-    } catch {
-      toast.error("Price refresh failed", { description: "Could not reach the server." });
-    } finally {
-      setRefreshingPrices(false);
-    }
-  };
-
   const breadcrumbItems = useMemo((): BreadcrumbItem[] => {
     const items: BreadcrumbItem[] = [
       { label: "Overview", href: "/dashboard" },
@@ -630,9 +573,6 @@ export function AssetTable() {
         columnOptions={getAssetColumnOptions(showWalletPositionColumns)}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
-        refreshingPrices={isDemo ? false : refreshingPrices}
-        onRefreshPrices={isDemo ? undefined : () => void refreshPrices()}
-        lastPriceRefresh={isDemo ? null : lastPriceRefresh}
         pricesNote={isDemo ? "Demo — sample prices are fixed" : undefined}
         mobileCardView={isMobile ? mobileCardView : undefined}
         onMobileCardViewChange={isMobile ? setMobileCardView : undefined}

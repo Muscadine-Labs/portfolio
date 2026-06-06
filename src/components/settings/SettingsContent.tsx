@@ -5,6 +5,8 @@ import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { AppearanceSettingsCard } from "@/components/settings/AppearanceSettingsCard";
 import { DataImportExportCard } from "@/components/settings/DataImportExportCard";
 import { NetWorthHistorySettingsCard } from "@/components/settings/NetWorthHistorySettingsCard";
+import { PriceRefreshSettingsCard } from "@/components/settings/PriceRefreshSettingsCard";
+import { WalletSyncSettingsCard } from "@/components/settings/WalletSyncSettingsCard";
 import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
 import { OverviewChartSettingsCard } from "@/components/settings/OverviewChartSettingsCard";
 import { PortfolioVersionsCard } from "@/components/settings/PortfolioVersionsCard";
@@ -68,6 +70,8 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
               <SettingsPanelHeader sectionId="data" />
               <NetWorthHistorySettingsCard />
               <DataImportExportCard />
+              <PriceRefreshSettingsCard />
+              <WalletSyncSettingsCard />
               <PortfolioVersionsCard />
               <SettingsFooter />
             </section>

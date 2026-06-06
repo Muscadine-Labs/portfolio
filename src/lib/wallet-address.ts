@@ -56,11 +56,6 @@ export function detectWalletNetworks(address: string): WalletChain[] {
   return getCompatibleWalletNetworks(address);
 }
 
-/** @deprecated Use detectWalletNetworks */
-export function detectWalletChain(address: string): WalletChain {
-  return detectWalletNetworks(address)[0] ?? "other";
-}
-
 export function isValidWalletAddress(address: string, chain: WalletChain): boolean {
   const trimmed = address.trim();
   if (!trimmed) return false;

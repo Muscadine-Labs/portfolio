@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { proxyToHomeApi } from "@/lib/home-api";
 
-/** GET — last price refresh time. POST — refresh asset prices via home API. */
-export async function GET(request: Request) {
-  const proxied = await proxyToHomeApi(request, "/api/market/quotes");
+/** POST — sync one wallet. PUT — sync all enabled wallets. */
+export async function POST(request: Request) {
+  const proxied = await proxyToHomeApi(request, "/api/wallets/sync");
   if (proxied) return proxied;
 
   return NextResponse.json(
@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   );
 }
 
-export async function POST(request: Request) {
-  const proxied = await proxyToHomeApi(request, "/api/market/quotes");
+export async function PUT(request: Request) {
+  const proxied = await proxyToHomeApi(request, "/api/wallets/sync");
   if (proxied) return proxied;
 
   return NextResponse.json(

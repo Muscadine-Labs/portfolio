@@ -57,6 +57,15 @@ export interface OverviewChartPreferences {
 
 export type WalletChain = "ethereum" | "base" | "bitcoin" | "solana" | "other";
 
+/** One on-chain address + chains it applies to (EVM can share an address; BTC/SOL differ). */
+export interface WalletAddressEntry {
+  id: string;
+  address: string;
+  networks: WalletChain[];
+  /** Optional label, e.g. "Ledger BTC" */
+  label?: string;
+}
+
 import type { ThemePreference } from "@/lib/theme-preference";
 
 export type { ThemePreference };
@@ -90,6 +99,8 @@ export interface UiPreferences {
   monthlyAutoSnapshot: boolean;
   /** Period labels for capture + auto-snapshot: month (`06-2026`) or quarter (`Q2-2026`). */
   netWorthSnapshotCadence: "month" | "quarter";
+  /** Morpho vault rows: share price × shares vs underlying asset qty × price. */
+  morphoVaultDisplayMode?: "share_price" | "underlying";
 }
 
 export type SectionGroupPage = "assets" | "cash" | "liabilities";
@@ -224,6 +235,22 @@ export interface AllocationNode {
   trackSectionId?: string;
 }
 
+export type MorphoPositionTarget = "assets" | "liabilities" | "cash";
+
+export type MorphoPositionKind = "vault" | "debt" | "collateral";
+
+/** Per-position Morpho sync routing configured in wallet edit. */
+export interface MorphoPositionMapping {
+  key: string;
+  enabled: boolean;
+  target: MorphoPositionTarget;
+  sectionId?: string;
+  /** Existing asset / liability / cash row id to merge into. */
+  rowId?: string;
+  label?: string;
+  kind?: MorphoPositionKind;
+}
+
 export type WalletType =
   | "family_master"
   | "person_master"
@@ -250,12 +277,22 @@ export interface WalletMapNode {
   identifier?: string;
   /** Chains this address is used on (e.g. Ethereum + Base for the same EVM address). */
   networks?: WalletChain[];
+  /** Multiple addresses when chains use different scripts (BTC vs SOL vs EVM). */
+  addresses?: WalletAddressEntry[];
   /** Target sections when running Morpho sync. */
   links?: {
     assetsSectionId?: string;
     cashSectionId?: string;
     liabilitiesSectionId?: string;
+    /** Existing assets to merge sync balances into (must be in assetsSectionId). */
+    assetIds?: string[];
+    /** Existing liabilities to merge Morpho debt into. */
+    liabilityIds?: string[];
   };
+  /** When enabled, sync tokens + Morpho positions from address into linked sections. */
+  syncEnabled?: boolean;
+  /** EVM Morpho position → section routing (from wallet edit scan). */
+  morphoMappings?: MorphoPositionMapping[];
   /** active = in use; planned = reserved slot not yet created */
   status: "active" | "planned";
   notes?: string;
