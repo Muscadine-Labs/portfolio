@@ -2,13 +2,18 @@
 
 ## Up next
 
-- Add coin-gecho api for crypto.
-- Fix api for tokens/stocks, it doesnt refresh and bitcoin price is wrong. Do this, have it so all assets on api-portfolio update atleast once a day (you can do like 30 updates a minute at 4 am so the rate limiting doesnt happen (for stocks and crypto that is not on manual). So than if a user has a stock/crypto, and another user has the same asset it doesnt need to be called twice, you can get it from the api-portfolio data. Also remember the constants we would use.  cbBTC = BTC price. And USDC = $1.00. And WETH = ETH. Use tickers for calls not names from the data.
-- Also lets make it so to refresh prices (if a manual refresh not the 4 am one) instead of having it on assets, go to settings, data, than on the bttom of data show the last time prices were updated, than an opertunnity to refresh prices. Currently if i try to refresh prices it fails.
-- On the /wallets, add the ability if a wallet is on BASE or Ethereum, to connect it to a sepcific section on assets or liability or cash or all. Than if turned on, this can use the coingecho api to fetch tokens in the wallet and post them (only if above 10 cents in price to get rid of scam). Also, use the morpho sdk/api to fetch morpho v1 or v2 vaults (note on grapgh ql they have diferent api routes), this can be fetched by wallet address, than the ticker can be the vault ticker, then the name of vault, than have on the settings ot have two options. Either A, have the price per share in $, than the total amount of vault tokens. Or B, have the price of the undernlying assets, aka bitcoin, weth or USDC (pegged to 1$), than the shares/tokens would be how much the user has the udnerlying tokens, not vault shares. And for the markets, the debt  can be in the liabilties section. Note the collateral can be in assets. Find the best way to have the ui for all of this information, think about all the ways this information is presented and the ability for the user to change perameters. Such as on wallet when all of the positions load, where should they be sorted or added?
+- make sure every $ amount everywhere in the repo has this format or number amount: 10,000,000.00 or $10,000,000.00
+- Market price refresh on settings, data fails "Price refresh failed" could not reach the server.
+- On goals, there is a bug where i connot connect to a asset section or liabilties directly when i add a goal, i have to first manually put a goal than change it to a assrt section or liabiltiy. Also make sure the liabilties the progress is less debt not more.
+- Seems like when I add another asset, its price is 0, make it so when added, it fetches a new price or get another price if its the same asset already the user or another user has. If no price can be reached than notify.
+- With this in mind, lets add the coingecho api so we can track crypto prices like wsteth and eth and sol, xrp and btc. Make the other apis back up for crypto. For crypto, keep morpho for morpho, while the other crypto tokens fetch prices by coingecho.
+- Review the manual save intergration at the top right on the banner and test to see if it actually saves to the server.
+- On cash, if a update the balance and i still have the intital $, update the interest, if i update the interest, than update the balance.
+- On cash make sure the interest accruted is also reflected on the site and add not in the cost basis. On assets, liabilties and cash, at the overivew of each page also include the cost basis and %,$ gain/loss.
+- As an admin, i cannot log in from login, it does not work and allow me to log in, but i can log in as a user.
 
-- Run lint, build and tests for both repos, then delete any dead or unused code for both repos — tell me before you delete anything.
+- Once All complete and fixed, go through the repo and find any bugs. Run lint, build and test and bump both repo versions. Put what you learned inside of claude.md. If there is any dead/unused code, tell me.
 
 ## Possibility (don't focus on now)
 
-- Google Sheets integration
+- Google Sheets / excel integration
