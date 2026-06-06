@@ -36,10 +36,18 @@ import {
   getGainColor,
   getMarketValue,
 } from "@/lib/utils";
+import { isCryptoAssetSection } from "@/lib/asset-sections";
 import {
-  isCryptoAssetSection,
-} from "@/lib/asset-sections";
-import { compareAlphabeticalDeferred } from "@/lib/position-sort";
+  sectionShowsNetworkColumn,
+  sectionShowsProtocolColumn,
+} from "@/lib/section-columns";
+import {
+  formatQuantityDisplay,
+  formatUnitPriceDisplay,
+  isCryptoAssetPosition,
+} from "@/lib/format-decimals";
+import { formatAssetNetworkLabel } from "@/lib/asset-network";
+import { sortAssetsInSection } from "@/lib/position-sort";
 import { sumAssetSectionTotals } from "@/lib/section-totals";
 import {
   buildPageSectionLayout,
@@ -64,7 +72,6 @@ const DEFAULT_VISIBLE_COLUMNS: AssetColumnKey[] = [
   "gainPercent",
 ];
 
-const WALLET_POSITION_COLUMNS = new Set<AssetColumnKey>(["network", "protocol"]);
 
 function formatAllocationPercent(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -78,7 +85,8 @@ function matchesSearch(asset: Asset, query: string): boolean {
     asset.symbol.toLowerCase().includes(q) ||
     asset.name.toLowerCase().includes(q) ||
     (asset.protocol?.toLowerCase().includes(q) ?? false) ||
-    (asset.network?.toLowerCase().includes(q) ?? false)
+    (formatAssetNetworkLabel(asset.network).toLowerCase().includes(q) ||
+      (asset.network?.toLowerCase().includes(q) ?? false))
   );
 }
 
@@ -88,7 +96,12 @@ function showColumn(
   visibleColumns: Set<AssetColumnKey>
 ): boolean {
   if (!visibleColumns.has(key)) return false;
-  if (WALLET_POSITION_COLUMNS.has(key)) return isCryptoAssetSection(section);
+  if (key === "network") {
+    return isCryptoAssetSection(section) && sectionShowsNetworkColumn(section);
+  }
+  if (key === "protocol") {
+    return isCryptoAssetSection(section) && sectionShowsProtocolColumn(section);
+  }
   return true;
 }
 
@@ -197,24 +210,14 @@ export function AssetTable() {
   const isMobile = useMediaQuery("(max-width: 767px)", true);
   const [mobileCardView, setMobileCardView] = useState(true);
 
-  const walletSectionIds = useMemo(
-    () => new Set(sections.filter(isCryptoAssetSection).map((s) => s.id)),
+  const showNetworkInPicker = useMemo(
+    () => sections.some((section) => isCryptoAssetSection(section) && sectionShowsNetworkColumn(section)),
     [sections]
   );
-
-  const showWalletPositionColumns = useMemo(() => {
-    if (sectionFilter !== "all") {
-      if (sectionFilter.startsWith("group:")) {
-        const groupId = sectionFilter.slice("group:".length);
-        return sections.some(
-          (section) => section.groupId === groupId && isCryptoAssetSection(section)
-        );
-      }
-      const section = sections.find((s) => s.id === sectionFilter);
-      return section ? isCryptoAssetSection(section) : false;
-    }
-    return walletSectionIds.size > 0;
-  }, [sectionFilter, sections, walletSectionIds]);
+  const showProtocolInPicker = useMemo(
+    () => sections.some((section) => isCryptoAssetSection(section) && sectionShowsProtocolColumn(section)),
+    [sections]
+  );
 
   const sectionMVById = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -241,9 +244,7 @@ export function AssetTable() {
       const rows = assets.filter(
         (a) => a.sectionId === section.id && matchesSearch(a, search)
       );
-      bySection[section.id] = [...rows].sort((a, b) =>
-        compareAlphabeticalDeferred(a.symbol, b.symbol)
-      );
+      bySection[section.id] = sortAssetsInSection(section, rows);
       count += rows.length;
     }
     return { resultCount: count, assetsBySection: bySection };
@@ -337,6 +338,7 @@ export function AssetTable() {
     const gain = getGain(asset);
     const avgCost = getAverageCost(asset);
     const costBasis = getCostBasis(asset);
+    const isCrypto = isCryptoAssetPosition(asset, section);
 
     return (
       <TableRow key={asset.id} className={panel.dataRow}>
@@ -350,14 +352,18 @@ export function AssetTable() {
         )}
         {col("price") && (
           <TableCell className={cn(panel.dataCell, "text-right")}>
-            {formatMoneyColumn(asset.price)}
+            {formatUnitPriceDisplay(asset.price)}
           </TableCell>
         )}
         {col("qty") && (
-          <TableCell className={cn(panel.dataCell, "text-right")}>{asset.quantity}</TableCell>
+          <TableCell className={cn(panel.dataCell, "text-right")}>
+            {formatQuantityDisplay(asset.quantity, isCrypto)}
+          </TableCell>
         )}
         {col("network") && (
-          <TableCell className={panel.mutedCell}>{asset.network ?? "—"}</TableCell>
+          <TableCell className={panel.mutedCell}>
+            {formatAssetNetworkLabel(asset.network)}
+          </TableCell>
         )}
         {col("protocol") && (
           <TableCell className={panel.mutedCell}>{asset.protocol ?? "—"}</TableCell>
@@ -369,7 +375,7 @@ export function AssetTable() {
         )}
         {col("avgCost") && (
           <TableCell className={cn(panel.mutedCell, "text-right")}>
-            {avgCost != null ? formatMoneyColumn(avgCost) : "—"}
+            {avgCost != null ? formatUnitPriceDisplay(avgCost) : "—"}
           </TableCell>
         )}
         {col("marketValue") && (
@@ -378,13 +384,25 @@ export function AssetTable() {
           </TableCell>
         )}
         {col("gainDollars") && (
-          <TableCell className={cn(panel.dataCell, "text-right", getGainColor(gain.dollars))}>
-            {formatMoneyColumn(gain.dollars)}
+          <TableCell
+            className={cn(
+              panel.dataCell,
+              "text-right",
+              gain != null ? getGainColor(gain.dollars) : undefined
+            )}
+          >
+            {gain != null ? formatMoneyColumn(gain.dollars) : "—"}
           </TableCell>
         )}
         {col("gainPercent") && (
-          <TableCell className={cn(panel.dataCell, "text-right", getGainColor(gain.percent))}>
-            {formatPercent(gain.percent)}
+          <TableCell
+            className={cn(
+              panel.dataCell,
+              "text-right",
+              gain != null ? getGainColor(gain.percent) : undefined
+            )}
+          >
+            {gain != null ? formatPercent(gain.percent) : "—"}
           </TableCell>
         )}
         {col("pctOfAssets") && (
@@ -435,17 +453,35 @@ export function AssetTable() {
 
     const stats = sectionTotals
       ? [
-          { label: "Cost", value: formatSectionTotal(sectionTotals.costBasis) },
+          {
+            label: "Cost",
+            value:
+              sectionTotals.costBasis > 0
+                ? formatSectionTotal(sectionTotals.costBasis)
+                : "—",
+          },
           { label: "Mkt val", value: formatSectionTotal(sectionTotals.marketValue) },
           {
             label: "Gain",
-            value: formatSectionTotal(sectionTotals.gainDollars),
-            valueClassName: getGainColor(sectionTotals.gainDollars),
+            value:
+              sectionTotals.costBasis > 0
+                ? formatSectionTotal(sectionTotals.gainDollars)
+                : "—",
+            valueClassName:
+              sectionTotals.costBasis > 0
+                ? getGainColor(sectionTotals.gainDollars)
+                : undefined,
           },
           {
             label: "Gain %",
-            value: formatPercent(sectionTotals.gainPercent),
-            valueClassName: getGainColor(sectionTotals.gainPercent),
+            value:
+              sectionTotals.costBasis > 0
+                ? formatPercent(sectionTotals.gainPercent)
+                : "—",
+            valueClassName:
+              sectionTotals.costBasis > 0
+                ? getGainColor(sectionTotals.gainPercent)
+                : undefined,
           },
         ]
       : [];
@@ -570,7 +606,10 @@ export function AssetTable() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Symbol, name, protocol…"
-        columnOptions={getAssetColumnOptions(showWalletPositionColumns)}
+        columnOptions={getAssetColumnOptions({
+          showNetwork: showNetworkInPicker,
+          showProtocol: showProtocolInPicker,
+        })}
         visibleColumns={visibleColumns}
         onToggleColumn={toggleColumn}
         pricesNote={isDemo ? "Demo — sample prices are fixed" : undefined}

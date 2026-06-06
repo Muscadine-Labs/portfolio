@@ -25,10 +25,9 @@ export function WalletSyncSettingsCard() {
   return (
     <Card className="border-border/60 bg-card/80">
       <CardHeader>
-        <CardTitle>Wallet sync</CardTitle>
+        <CardTitle>Morpho sync</CardTitle>
         <CardDescription>
-          Morpho vault positions on Ethereum/Base sync via the Morpho API. Bitcoin uses
-          electrs when configured. Link sections and map Morpho positions in wallet edit.
+          How Morpho vault rows appear when synced (share price vs underlying asset).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

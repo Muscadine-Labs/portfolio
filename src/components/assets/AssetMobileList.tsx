@@ -34,9 +34,11 @@ export function AssetMobileList({ assets, totalPortfolioMV, onEdit }: AssetMobil
               <p className="mt-0.5 text-sm font-medium tabular-nums">{formatCurrency(mv)}</p>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {formatPercent(pctPort)} of portfolio
-                <span className={cn("ml-2", getGainColor(gain.dollars))}>
-                  · {formatCurrency(gain.dollars)} ({formatPercent(gain.percent)})
-                </span>
+                {gain != null ? (
+                  <span className={cn("ml-2", getGainColor(gain.dollars))}>
+                    · {formatCurrency(gain.dollars)} ({formatPercent(gain.percent)})
+                  </span>
+                ) : null}
               </p>
             </div>
             <Button

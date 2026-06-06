@@ -32,6 +32,8 @@ const sectionSchema = z.object({
   newGroupName: z.string().optional(),
   isDefi: z.boolean().optional(),
   isCrypto: z.boolean().optional(),
+  showNetworkColumn: z.boolean().optional(),
+  showProtocolColumn: z.boolean().optional(),
 });
 
 type SectionFormValues = z.infer<typeof sectionSchema>;
@@ -70,10 +72,15 @@ export function SectionDrawer({
       newGroupName: "",
       isDefi: false,
       isCrypto: false,
+      showNetworkColumn: true,
+      showProtocolColumn: true,
     },
   });
 
   const groupSelection = useWatch({ control, name: "groupSelection" });
+  const isCrypto = useWatch({ control, name: "isCrypto" });
+  const isDefi = useWatch({ control, name: "isDefi" });
+  const positionColumnsEnabled = Boolean(isCrypto || isDefi);
 
   useDrawerFormReset(
     open,
@@ -87,6 +94,8 @@ export function SectionDrawer({
           newGroupName: "",
           isDefi: section.metadata?.isDefi ?? false,
           isCrypto: section.metadata?.isCrypto ?? false,
+          showNetworkColumn: section.metadata?.showNetworkColumn !== false,
+          showProtocolColumn: section.metadata?.showProtocolColumn !== false,
         };
       }
       return {
@@ -96,6 +105,8 @@ export function SectionDrawer({
         newGroupName: "",
         isDefi: false,
         isCrypto: false,
+        showNetworkColumn: true,
+        showProtocolColumn: true,
       };
     },
     [section?.id, defaultGroupId]
@@ -105,6 +116,13 @@ export function SectionDrawer({
     const metadata: PortfolioSection["metadata"] = { ...section?.metadata };
     if (showDefiToggle) metadata.isDefi = values.isDefi;
     if (showCryptoToggle) metadata.isCrypto = values.isCrypto;
+    if (values.isCrypto || values.isDefi) {
+      metadata.showNetworkColumn = values.showNetworkColumn !== false;
+      metadata.showProtocolColumn = values.showProtocolColumn !== false;
+    } else {
+      delete metadata.showNetworkColumn;
+      delete metadata.showProtocolColumn;
+    }
     const account = values.account?.trim();
     if (account) metadata.account = account;
     else delete metadata.account;
@@ -125,6 +143,8 @@ export function SectionDrawer({
     const hasMeta =
       metadata.isDefi === true ||
       metadata.isCrypto === true ||
+      metadata.showNetworkColumn === false ||
+      metadata.showProtocolColumn === false ||
       (metadata.account != null && metadata.account !== "");
 
     onSave({
@@ -198,8 +218,29 @@ export function SectionDrawer({
                 className="rounded border-border"
                 {...register("isDefi")}
               />
-              DeFi section (show collateral / LTV columns)
+              DeFi section (collateral / LTV columns on liabilities)
             </label>
+          ) : null}
+          {positionColumnsEnabled ? (
+            <div className="ml-6 space-y-2 border-l border-border/60 pl-3">
+              <p className="text-xs text-muted-foreground">Position columns for this section</p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="rounded border-border"
+                  {...register("showNetworkColumn")}
+                />
+                Show network column
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="rounded border-border"
+                  {...register("showProtocolColumn")}
+                />
+                Show protocol column
+              </label>
+            </div>
           ) : null}
           </DrawerBody>
           <DrawerFooter>

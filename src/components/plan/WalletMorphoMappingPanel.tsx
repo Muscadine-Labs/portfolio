@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { apiErrorMessage } from "@/lib/format-error";
+import {
+  filterWalletSyncSections,
+} from "@/lib/wallet-sync-sections";
 import type {
   Asset,
   CashAccount,
@@ -51,20 +54,17 @@ function defaultTarget(kind: MorphoPositionKind): MorphoPositionTarget {
 
 function defaultSectionId(
   target: MorphoPositionTarget,
-  links: {
-    assetsSectionId?: string;
-    liabilitiesSectionId?: string;
-    cashSectionId?: string;
-  }
+  assetSections: PortfolioSection[],
+  liabilitySections: PortfolioSection[],
+  cashSections: PortfolioSection[]
 ): string {
-  if (target === "assets") return links.assetsSectionId ?? "";
-  if (target === "liabilities") return links.liabilitiesSectionId ?? "";
-  return links.cashSectionId ?? "";
+  if (target === "assets") return filterWalletSyncSections(assetSections)[0]?.id ?? "";
+  if (target === "liabilities") return filterWalletSyncSections(liabilitySections)[0]?.id ?? "";
+  return filterWalletSyncSections(cashSections)[0]?.id ?? "";
 }
 
 export function WalletMorphoMappingPanel({
   addressEntries,
-  links,
   assetSections,
   liabilitySections,
   cashSections,
@@ -75,11 +75,6 @@ export function WalletMorphoMappingPanel({
   onChange,
 }: {
   addressEntries: WalletAddressEntry[];
-  links: {
-    assetsSectionId?: string;
-    cashSectionId?: string;
-    liabilitiesSectionId?: string;
-  };
   assetSections: PortfolioSection[];
   liabilitySections: PortfolioSection[];
   cashSections: PortfolioSection[];
@@ -94,6 +89,19 @@ export function WalletMorphoMappingPanel({
   );
   const [scanning, setScanning] = useState(false);
   const [positions, setPositions] = useState<MorphoPreviewItem[]>([]);
+
+  const syncAssetSections = useMemo(
+    () => filterWalletSyncSections(assetSections),
+    [assetSections]
+  );
+  const syncLiabilitySections = useMemo(
+    () => filterWalletSyncSections(liabilitySections),
+    [liabilitySections]
+  );
+  const syncCashSections = useMemo(
+    () => filterWalletSyncSections(cashSections),
+    [cashSections]
+  );
 
   const mappingByKey = useMemo(
     () => new Map(mappings.map((m) => [m.key, m])),
@@ -122,11 +130,24 @@ export function WalletMorphoMappingPanel({
   const sectionOptions = (target: MorphoPositionTarget) => {
     const list =
       target === "assets"
-        ? assetSections
+        ? syncAssetSections
         : target === "liabilities"
-          ? liabilitySections
-          : cashSections;
+          ? syncLiabilitySections
+          : syncCashSections;
     return list.map((s) => ({ value: s.id, label: s.label }));
+  };
+
+  const resolveSectionId = (target: MorphoPositionTarget, sectionId: string | undefined) => {
+    if (!sectionId) return defaultSectionId(target, assetSections, liabilitySections, cashSections);
+    const list =
+      target === "assets"
+        ? syncAssetSections
+        : target === "liabilities"
+          ? syncLiabilitySections
+          : syncCashSections;
+    return list.some((s) => s.id === sectionId)
+      ? sectionId
+      : defaultSectionId(target, assetSections, liabilitySections, cashSections);
   };
 
   const updateMapping = (key: string, patch: Partial<MorphoPositionMapping>) => {
@@ -162,7 +183,11 @@ export function WalletMorphoMappingPanel({
           key: item.key,
           enabled: prev?.enabled ?? true,
           target,
-          sectionId: prev?.sectionId ?? defaultSectionId(target, links),
+          sectionId: resolveSectionId(
+            target,
+            prev?.sectionId ??
+              defaultSectionId(target, assetSections, liabilitySections, cashSections)
+          ),
           rowId: prev?.rowId,
           label: item.label,
           kind: item.kind,
@@ -186,7 +211,8 @@ export function WalletMorphoMappingPanel({
         <div>
           <p className="text-sm font-medium">Morpho positions</p>
           <p className="text-xs text-muted-foreground">
-            Scan Ethereum/Base addresses, then choose where each position syncs.
+            Scan Ethereum/Base addresses, then map each position to a crypto or DeFi section
+            (not brokerage, Roth, etc.).
           </p>
         </div>
         <Button
@@ -205,6 +231,14 @@ export function WalletMorphoMappingPanel({
       {positions.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No scan yet — click Scan to load vault, collateral, and debt positions from Morpho.
+          Mark sections as crypto or DeFi in Assets / Liabilities / Cash settings to use them here.
+        </p>
+      ) : syncAssetSections.length === 0 &&
+        syncLiabilitySections.length === 0 &&
+        syncCashSections.length === 0 ? (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          No crypto/DeFi sections found. Edit a section and enable the crypto or DeFi toggle before
+          mapping Morpho positions.
         </p>
       ) : (
         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
@@ -240,7 +274,12 @@ export function WalletMorphoMappingPanel({
                         const nextTarget = value as MorphoPositionTarget;
                         updateMapping(item.key, {
                           target: nextTarget,
-                          sectionId: defaultSectionId(nextTarget, links),
+                          sectionId: defaultSectionId(
+                            nextTarget,
+                            assetSections,
+                            liabilitySections,
+                            cashSections
+                          ),
                           rowId: undefined,
                         });
                       }}
@@ -250,12 +289,17 @@ export function WalletMorphoMappingPanel({
                   <div className="space-y-1">
                     <Label className="text-xs">Section</Label>
                     <NativeSelect
-                      value={sectionId}
+                      value={resolveSectionId(target, sectionId)}
                       onValueChange={(value) =>
                         updateMapping(item.key, { sectionId: value, rowId: undefined })
                       }
                       options={sectionOptions(target)}
-                      placeholder="Choose section"
+                      placeholder={
+                        sectionOptions(target).length
+                          ? "Choose section"
+                          : "No crypto/DeFi sections"
+                      }
+                      disabled={sectionOptions(target).length === 0}
                     />
                   </div>
                 </div>

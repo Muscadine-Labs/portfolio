@@ -19,9 +19,18 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
 import { roundMoney } from "@/lib/utils";
+import {
+  MAX_EDIT_DECIMALS,
+  sanitizeAssetDecimalInput,
+  sanitizeAssetPriceInput,
+} from "@/lib/format-decimals";
 import type { AssetPriceSource } from "@/types";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { isCryptoAssetSection } from "@/lib/asset-sections";
+import {
+  ASSET_NETWORK_SELECT_OPTIONS,
+  normalizeAssetNetwork,
+} from "@/lib/asset-network";
 import { isMetalsSection } from "@/lib/metals";
 import type { Asset } from "@/types";
 
@@ -33,7 +42,7 @@ const assetSchema = z.object({
   protocol: z.string().optional(),
   price: z.number().min(0),
   quantity: z.number().min(0),
-  costBasis: z.number().optional(),
+  costBasis: z.number().min(0).optional(),
   priceSource: z.enum(["api", "manual"]),
 });
 
@@ -74,6 +83,7 @@ export function AssetDrawer({
 
   const sectionId = useWatch({ control, name: "sectionId" });
   const priceSource = useWatch({ control, name: "priceSource" });
+  const network = useWatch({ control, name: "network" });
   const selectedSection = assetSections.find((s) => s.id === sectionId);
   const showPositionFields =
     (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
@@ -90,7 +100,7 @@ export function AssetDrawer({
           symbol: asset.symbol,
           name: asset.name,
           sectionId: asset.sectionId,
-          network: asset.network ?? "",
+          network: normalizeAssetNetwork(asset.network) ?? "",
           protocol: asset.protocol ?? "",
           price: asset.price,
           quantity: asset.quantity,
@@ -114,18 +124,24 @@ export function AssetDrawer({
   );
 
   const onSubmit = (values: AssetFormValues) => {
-    onSave({
+    const isCrypto =
+      (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
+      Boolean(values.network?.trim() || values.protocol?.trim() || asset?.walletId);
+    const saved: Asset = {
       id: asset?.id ?? createEntityId("asset"),
       symbol: values.symbol,
       name: values.name,
       sectionId: values.sectionId,
-      price: roundMoney(values.price),
-      quantity: values.quantity,
+      price: sanitizeAssetPriceInput(values.price),
+      quantity: sanitizeAssetDecimalInput(values.quantity, isCrypto),
       priceSource: values.priceSource,
-      costBasis: values.costBasis != null ? roundMoney(values.costBasis) : undefined,
-      network: values.network || undefined,
-      protocol: values.protocol || undefined,
-    });
+      network: normalizeAssetNetwork(values.network),
+      protocol: values.protocol?.trim() || undefined,
+    };
+    if (values.costBasis != null && Number.isFinite(values.costBasis)) {
+      saved.costBasis = roundMoney(values.costBasis);
+    }
+    onSave(saved);
     onOpenChange(false);
   };
 
@@ -165,7 +181,13 @@ export function AssetDrawer({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="network">Network</Label>
-                  <Input id="network" {...register("network")} placeholder="e.g. Base, Ethereum, Bitcoin" />
+                  <NativeSelect
+                    id="network"
+                    value={network ?? ""}
+                    onValueChange={(v) => setValue("network", v)}
+                    options={ASSET_NETWORK_SELECT_OPTIONS}
+                    placeholder="Select network"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="protocol">Protocol</Label>
@@ -203,7 +225,7 @@ export function AssetDrawer({
               <Input
                 id="price"
                 type="number"
-                step="0.01"
+                step="any"
                 disabled={priceSource === "api"}
                 {...register("price", { valueAsNumber: true })}
               />
@@ -216,14 +238,26 @@ export function AssetDrawer({
                 step="any"
                 {...register("quantity", { valueAsNumber: true })}
               />
+              <p className="text-xs text-muted-foreground">
+                {showPositionFields
+                  ? `Up to ${MAX_EDIT_DECIMALS} decimals on save; table shows ${MAX_EDIT_DECIMALS}.`
+                  : "Any precision on save; table shows up to 3 decimals."}
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="costBasis">Cost Basis</Label>
+              <Label htmlFor="costBasis">Cost basis (optional)</Label>
               <Input
                 id="costBasis"
                 type="number"
                 step="0.01"
-                {...register("costBasis", { valueAsNumber: true })}
+                placeholder="Optional"
+                {...register("costBasis", {
+                  setValueAs: (value) => {
+                    if (value === "" || value == null) return undefined;
+                    const parsed = Number(value);
+                    return Number.isFinite(parsed) ? parsed : undefined;
+                  },
+                })}
               />
             </div>
           </div>

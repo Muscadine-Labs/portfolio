@@ -37,8 +37,12 @@ export const WALLET_POSITION_COLUMN_OPTIONS: ColumnOption<AssetColumnKey>[] = [
 /** @deprecated Use WALLET_POSITION_COLUMN_OPTIONS */
 export const DEFI_ASSET_COLUMN_OPTIONS = WALLET_POSITION_COLUMN_OPTIONS;
 
-export function getAssetColumnOptions(showWalletPositionColumns: boolean) {
-  return showWalletPositionColumns
-    ? [...ASSET_COLUMN_OPTIONS, ...WALLET_POSITION_COLUMN_OPTIONS]
-    : ASSET_COLUMN_OPTIONS;
+export function getAssetColumnOptions(options: {
+  showNetwork: boolean;
+  showProtocol: boolean;
+}) {
+  const position: ColumnOption<AssetColumnKey>[] = [];
+  if (options.showNetwork) position.push({ key: "network", label: "Network" });
+  if (options.showProtocol) position.push({ key: "protocol", label: "Protocol" });
+  return [...ASSET_COLUMN_OPTIONS, ...position];
 }

@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.2** — Multi-address wallets, Morpho position picker, wallet sync settings.
+**Release v1.1.3** — Crypto section sorting, optional cost basis, network/protocol column toggles, Morpho liability fields (collateral/LTV/liquidation), 2-decimal prices.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
@@ -88,6 +88,10 @@ Wallet editing lives under **Plan → Wallets** (`WalletMapDrawer.tsx`).
 | Proxy routes | `src/app/api/wallets/sync`, `morpho-preview` |
 
 **Syncable chains (backend):** Ethereum, Base (Morpho), Bitcoin (electrs). Solana addresses are supported in the UI but not auto-synced.
+
+Wallet sync only maps to sections with **Crypto** or **DeFi** metadata (`src/lib/wallet-sync-sections.ts`).
+
+Crypto/DeFi sections: sort rows by **network → protocol → market value**; section edit toggles **show network/protocol column**; Filter picker controls visibility. Assets: optional cost basis, 2-decimal prices, network dropdown (Bitcoin/Base/Ethereum/Solana). Liabilities: Filter exposes Morpho fields (collateral, LLTV, LTV, liq. price) on DeFi sections.
 
 Each wallet can have `addresses[]` with per-row networks, plus optional `morphoMappings[]` to pick which Morpho vaults/debt/collateral rows merge into which portfolio sections.
 

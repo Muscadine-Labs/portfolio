@@ -1,3 +1,4 @@
+import { normalizeAssetNetwork } from "@/lib/asset-network";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
 import { normalizeNetWorthSnapshotCadence } from "@/lib/net-worth-history";
@@ -200,6 +201,15 @@ function parseMorphoMappings(raw: unknown): WalletMapNode["morphoMappings"] | un
   return mappings.length > 0 ? mappings : undefined;
 }
 
+function parseWalletNetworks(raw: unknown): WalletChain[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "solana", "other"];
+  const networks = raw.filter(
+    (value): value is WalletChain => typeof value === "string" && chains.includes(value as WalletChain)
+  );
+  return networks.length > 0 ? networks : undefined;
+}
+
 function parseWalletAddresses(raw: unknown): WalletMapNode["addresses"] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const entries: NonNullable<WalletMapNode["addresses"]> = [];
@@ -217,15 +227,6 @@ function parseWalletAddresses(raw: unknown): WalletMapNode["addresses"] | undefi
     });
   }
   return entries.length > 0 ? entries : undefined;
-}
-
-function parseWalletNetworks(raw: unknown): WalletChain[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const chains: WalletChain[] = ["ethereum", "base", "bitcoin", "solana", "other"];
-  const networks = raw.filter(
-    (value): value is WalletChain => typeof value === "string" && chains.includes(value as WalletChain)
-  );
-  return networks.length > 0 ? networks : undefined;
 }
 
 function collectDuplicateIds(ids: string[], label: string, errors: string[]): void {
@@ -512,6 +513,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       raw.priceSource === "manual" || raw.priceSource === "api"
         ? raw.priceSource
         : undefined;
+    const networkRaw = optionalString(raw.network);
     assets.push({
       id: raw.id,
       symbol: raw.symbol.trim(),
@@ -521,7 +523,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       quantity,
       priceSource,
       costBasis,
-      network: optionalString(raw.network),
+      network: networkRaw
+        ? normalizeAssetNetwork(networkRaw) ?? networkRaw
+        : undefined,
       protocol: optionalString(raw.protocol),
     });
   }
@@ -554,6 +558,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       errors.push(`cashAccounts[${index}].name is required.`);
       continue;
     }
+    const cashNetworkRaw = optionalString(raw.network);
     cashAccounts.push({
       id: raw.id,
       name: raw.name.trim(),
@@ -563,6 +568,9 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       interest: optionalFiniteNumber(raw.interest),
       protocol: optionalString(raw.protocol),
       address: optionalString(raw.address),
+      network: cashNetworkRaw
+        ? normalizeAssetNetwork(cashNetworkRaw) ?? cashNetworkRaw
+        : undefined,
     });
   }
 
@@ -594,6 +602,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       errors.push(`liabilities[${index}].name is required.`);
       continue;
     }
+    const liabilityNetworkRaw = optionalString(raw.network);
     liabilities.push({
       id: raw.id,
       name: raw.name.trim(),
@@ -606,6 +615,10 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       lltv: optionalFiniteNumber(raw.lltv),
       ltv: optionalFiniteNumber(raw.ltv),
       liquidationPrice: optionalFiniteNumber(raw.liquidationPrice),
+      network: liabilityNetworkRaw
+        ? normalizeAssetNetwork(liabilityNetworkRaw) ?? liabilityNetworkRaw
+        : undefined,
+      protocol: optionalString(raw.protocol),
       address: optionalString(raw.address),
     });
   }

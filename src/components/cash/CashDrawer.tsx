@@ -62,12 +62,8 @@ export function CashDrawer({
   const [showOptional, setShowOptional] = useState(
     () => account?.originalAmount != null || account?.interest != null
   );
-  const isDefi =
-    cashSections.find((s) => s.id === sectionId)?.id === "defi" ||
-    cashSections
-      .find((s) => s.id === sectionId)
-      ?.label.toLowerCase()
-      .includes("defi");
+  const section = cashSections.find((s) => s.id === sectionId);
+  const isDefi = section?.metadata?.isDefi === true || section?.metadata?.isCrypto === true;
 
   useDrawerFormReset(
     open,

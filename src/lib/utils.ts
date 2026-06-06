@@ -68,11 +68,11 @@ export function getAverageCost(asset: Asset): number | null {
   return asset.costBasis / asset.quantity;
 }
 
-export function getGain(asset: Asset): { dollars: number; percent: number } {
+export function getGain(asset: Asset): { dollars: number; percent: number } | null {
+  if (asset.costBasis == null) return null;
   const marketValue = getMarketValue(asset);
-  const costBasis = asset.costBasis ?? marketValue;
-  const dollars = marketValue - costBasis;
-  const percent = costBasis === 0 ? 0 : (dollars / costBasis) * 100;
+  const dollars = marketValue - asset.costBasis;
+  const percent = asset.costBasis === 0 ? 0 : (dollars / asset.costBasis) * 100;
   return { dollars, percent };
 }
 

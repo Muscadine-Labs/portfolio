@@ -1,3 +1,4 @@
+import { formatAssetNetworkLabel } from "@/lib/asset-network";
 import writeExcelFile from "write-excel-file/browser";
 import { computeOverviewSnapshot } from "@/lib/overview";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
@@ -106,9 +107,9 @@ export async function exportPortfolioToXlsx(
         asset.costBasis ?? null,
         avg ?? null,
         getMarketValue(asset),
-        gain.dollars,
-        formatPercent(gain.percent),
-        asset.network ?? null,
+        gain?.dollars ?? null,
+        gain != null ? formatPercent(gain.percent) : null,
+        asset.network ? formatAssetNetworkLabel(asset.network) : null,
         asset.protocol ?? null,
       ]);
     }

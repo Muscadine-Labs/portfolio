@@ -118,6 +118,10 @@ export interface SectionMetadata {
   isDefi?: boolean;
   /** Show network / exchange columns for crypto asset sections */
   isCrypto?: boolean;
+  /** When crypto/DeFi: show network column (default true) */
+  showNetworkColumn?: boolean;
+  /** When crypto/DeFi: show protocol column (default true) */
+  showProtocolColumn?: boolean;
   /**
    * @deprecated Wallet linking removed — ignored on save
    */
@@ -163,6 +167,7 @@ export interface CashAccount {
   balance: number;
   originalAmount?: number;
   interest?: number;
+  network?: string;
   protocol?: string;
   address?: string;
   walletId?: string;
@@ -182,6 +187,8 @@ export interface Liability {
   lltv?: number;
   ltv?: number;
   liquidationPrice?: number;
+  network?: string;
+  protocol?: string;
   address?: string;
   walletId?: string;
 }

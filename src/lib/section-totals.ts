@@ -15,10 +15,12 @@ export function sumAssetSectionTotals(assets: Asset[]): AssetSectionTotals {
 
   for (const asset of assets) {
     const mv = getMarketValue(asset);
-    const gain = getGain(asset);
     marketValue += mv;
-    gainDollars += gain.dollars;
-    costBasis += getCostBasis(asset) ?? mv;
+    const basis = getCostBasis(asset);
+    if (basis == null) continue;
+    costBasis += basis;
+    const gain = getGain(asset);
+    if (gain) gainDollars += gain.dollars;
   }
 
   const gainPercent = costBasis > 0 ? (gainDollars / costBasis) * 100 : 0;

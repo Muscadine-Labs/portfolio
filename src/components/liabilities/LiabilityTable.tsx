@@ -24,13 +24,22 @@ import { PortfolioPageToolbar, type PortfolioSectionNavItem } from "@/components
 import { PortfolioSectionBlock } from "@/components/shared/PortfolioSectionBlock";
 import {
   DEFAULT_LIABILITY_COLUMNS,
-  LIABILITY_COLUMN_OPTIONS,
+  getLiabilityColumnOptions,
+  LIABILITY_DEFI_COLUMNS,
+  LIABILITY_POSITION_COLUMNS,
   type LiabilityColumnKey,
 } from "@/components/liabilities/liability-columns";
+import { formatAssetNetworkLabel } from "@/lib/asset-network";
+import {
+  isDefiLiabilitySection,
+  isPositionLiabilitySection,
+  sectionShowsNetworkColumn,
+  sectionShowsProtocolColumn,
+} from "@/lib/section-columns";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalLiabilities } from "@/lib/mock-data";
 import { sumLiabilitySectionTotals } from "@/lib/section-totals";
-import { compareAlphabeticalDeferred } from "@/lib/position-sort";
+import { sortLiabilitiesInSection } from "@/lib/position-sort";
 import { formatCurrency, formatMoneyColumn, formatPercent } from "@/lib/utils";
 import { LtvBar } from "@/components/liabilities/LtvBar";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
@@ -48,8 +57,27 @@ function matchesSearch(liability: Liability, query: string): boolean {
   const q = query.trim().toLowerCase();
   return (
     liability.name.toLowerCase().includes(q) ||
-    (liability.address?.toLowerCase().includes(q) ?? false)
+    (liability.address?.toLowerCase().includes(q) ?? false) ||
+    (liability.protocol?.toLowerCase().includes(q) ?? false) ||
+    formatAssetNetworkLabel(liability.network).toLowerCase().includes(q)
   );
+}
+
+function showLiabilityColumn(
+  key: LiabilityColumnKey,
+  section: PortfolioSection,
+  visibleColumns: Set<LiabilityColumnKey>
+): boolean {
+  if (!visibleColumns.has(key)) return false;
+  if (LIABILITY_POSITION_COLUMNS.has(key)) {
+    if (!isPositionLiabilitySection(section)) return false;
+    if (key === "network") return sectionShowsNetworkColumn(section);
+    if (key === "protocol") return sectionShowsProtocolColumn(section);
+  }
+  if (LIABILITY_DEFI_COLUMNS.has(key)) {
+    return isDefiLiabilitySection(section);
+  }
+  return true;
 }
 
 function fmtMoney(value: number | undefined): string {
@@ -63,6 +91,8 @@ function fmtPct(value: number | undefined): string {
 const LIABILITY_COLUMN_ORDER: LiabilityColumnKey[] = [
   "name",
   "totalDebt",
+  "network",
+  "protocol",
   "initialBalance",
   "interestAccrued",
   "apy",
@@ -80,10 +110,13 @@ const LIABILITY_SUM_COLUMNS = new Set<LiabilityColumnKey>([
   "collateral",
 ]);
 
-function liabilityFooterLabelColSpan(col: (key: LiabilityColumnKey) => boolean): number {
+function liabilityFooterLabelColSpan(
+  section: PortfolioSection,
+  visibleColumns: Set<LiabilityColumnKey>
+): number {
   let span = 0;
   for (const key of LIABILITY_COLUMN_ORDER) {
-    if (!col(key)) continue;
+    if (!showLiabilityColumn(key, section, visibleColumns)) continue;
     if (LIABILITY_SUM_COLUMNS.has(key)) break;
     span++;
   }
@@ -127,6 +160,28 @@ export function LiabilityTable() {
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
 
+  const showPositionInPicker = useMemo(
+    () =>
+      sections.some(
+        (section) =>
+          isPositionLiabilitySection(section) &&
+          (sectionShowsNetworkColumn(section) || sectionShowsProtocolColumn(section))
+      ),
+    [sections]
+  );
+  const showDefiInPicker = useMemo(
+    () => sections.some((section) => isDefiLiabilitySection(section)),
+    [sections]
+  );
+  const liabilityColumnOptions = useMemo(
+    () =>
+      getLiabilityColumnOptions({
+        showPositionColumns: showPositionInPicker,
+        showDefiColumns: showDefiInPicker,
+      }),
+    [showPositionInPicker, showDefiInPicker]
+  );
+
   const panel = portfolioPanel("liabilities");
 
   const sectionDebtById = useMemo(() => {
@@ -154,9 +209,7 @@ export function LiabilityTable() {
       const rows = liabilities.filter(
         (l) => l.sectionId === section.id && matchesSearch(l, search)
       );
-      bySection[section.id] = [...rows].sort((a, b) =>
-        compareAlphabeticalDeferred(a.name, b.name)
-      );
+      bySection[section.id] = sortLiabilitiesInSection(section, rows);
       count += rows.length;
     }
     return { resultCount: count, itemsBySection: bySection };
@@ -198,7 +251,8 @@ export function LiabilityTable() {
     }
   };
 
-  const col = (key: LiabilityColumnKey) => visibleColumns.has(key);
+  const col = (key: LiabilityColumnKey, section: PortfolioSection) =>
+    showLiabilityColumn(key, section, visibleColumns);
 
   const handleSectionNavSelect = (sectionId: string) => {
     setSectionFilter(sectionId);
@@ -208,6 +262,7 @@ export function LiabilityTable() {
   const renderLiabilitySectionBlock = (section: PortfolioSection) => {
     const items = itemsBySection[section.id] ?? [];
     const isDefi = section.metadata?.isDefi ?? false;
+    const showCol = (key: LiabilityColumnKey) => col(key, section);
     if (items.length === 0 && !showEmptySections) return null;
     const sectionTotals = items.length > 0 ? sumLiabilitySectionTotals(items) : null;
     const stats = sectionTotals
@@ -249,30 +304,36 @@ export function LiabilityTable() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {col("name") && <TableHead className={panel.headCell}>Name</TableHead>}
-              {col("totalDebt") && (
+              {showCol("name") && <TableHead className={panel.headCell}>Name</TableHead>}
+              {showCol("totalDebt") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Debt</TableHead>
               )}
-              {col("initialBalance") && (
+              {showCol("network") && (
+                <TableHead className={panel.headCell}>Network</TableHead>
+              )}
+              {showCol("protocol") && (
+                <TableHead className={panel.headCell}>Protocol</TableHead>
+              )}
+              {showCol("initialBalance") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Initial</TableHead>
               )}
-              {col("interestAccrued") && (
+              {showCol("interestAccrued") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Interest</TableHead>
               )}
-              {col("apy") && (
+              {showCol("apy") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>APY</TableHead>
               )}
-              {col("address") && <TableHead className={panel.headCell}>Address</TableHead>}
-              {col("collateral") && (
+              {showCol("address") && <TableHead className={panel.headCell}>Address</TableHead>}
+              {showCol("collateral") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Collateral</TableHead>
               )}
-              {col("lltv") && (
+              {showCol("lltv") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>LLTV</TableHead>
               )}
-              {col("ltv") && (
+              {showCol("ltv") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>LTV</TableHead>
               )}
-              {col("liquidationPrice") && (
+              {showCol("liquidationPrice") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Liq. price</TableHead>
               )}
               <TableHead className={cn(panel.headCell, "w-14 text-right")} />
@@ -281,26 +342,34 @@ export function LiabilityTable() {
           <TableBody>
             {items.map((l) => (
               <TableRow key={l.id} className={panel.dataRow}>
-                {col("name") && <TableCell className={panel.symbolCell}>{l.name}</TableCell>}
-                {col("totalDebt") && (
+                {showCol("name") && <TableCell className={panel.symbolCell}>{l.name}</TableCell>}
+                {showCol("totalDebt") && (
                   <TableCell className={cn(panel.dataCell, "text-right", debtCell)}>
                     {formatMoneyColumn(l.balance)}
                   </TableCell>
                 )}
-                {col("initialBalance") && (
+                {showCol("network") && (
+                  <TableCell className={panel.mutedCell}>
+                    {formatAssetNetworkLabel(l.network)}
+                  </TableCell>
+                )}
+                {showCol("protocol") && (
+                  <TableCell className={panel.mutedCell}>{l.protocol ?? "—"}</TableCell>
+                )}
+                {showCol("initialBalance") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {fmtMoney(l.initialBalance)}
                   </TableCell>
                 )}
-                {col("interestAccrued") && (
+                {showCol("interestAccrued") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {fmtMoney(l.interestAccrued)}
                   </TableCell>
                 )}
-                {col("apy") && (
+                {showCol("apy") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.apy)}</TableCell>
                 )}
-                {col("address") && (
+                {showCol("address") && (
                   <TableCell
                     className={cn(
                       panel.mutedCell,
@@ -310,18 +379,18 @@ export function LiabilityTable() {
                     {l.address ?? "—"}
                   </TableCell>
                 )}
-                {col("collateral") && (
+                {showCol("collateral") && (
                   <TableCell className={cn(panel.dataCell, "text-right")}>
                     {fmtMoney(l.collateral)}
                   </TableCell>
                 )}
-                {col("lltv") && (
+                {showCol("lltv") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.lltv)}</TableCell>
                 )}
-                {col("ltv") && (
+                {showCol("ltv") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>{fmtPct(l.ltv)}</TableCell>
                 )}
-                {col("liquidationPrice") && (
+                {showCol("liquidationPrice") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {fmtMoney(l.liquidationPrice)}
                   </TableCell>
@@ -359,42 +428,44 @@ export function LiabilityTable() {
             <TableFooter>
               <TableRow className={panel.footerRow}>
                 <TableCell
-                  colSpan={liabilityFooterLabelColSpan(col)}
+                  colSpan={liabilityFooterLabelColSpan(section, visibleColumns)}
                   className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground"
                 >
                   Section total
                 </TableCell>
-                {col("totalDebt") && (
+                {showCol("totalDebt") && (
                   <TableCell className={cn(panel.dataCell, "text-right font-medium", debtCell)}>
                     {formatSectionTotal(sectionTotals.totalDebt)}
                   </TableCell>
                 )}
-                {col("initialBalance") && (
+                {showCol("network") && <TableCell />}
+                {showCol("protocol") && <TableCell />}
+                {showCol("initialBalance") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {formatSectionTotal(sectionTotals.initialBalance)}
                   </TableCell>
                 )}
-                {col("interestAccrued") && (
+                {showCol("interestAccrued") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {formatSectionTotal(sectionTotals.interestAccrued)}
                   </TableCell>
                 )}
-                {col("apy") && <TableCell />}
-                {col("address") && <TableCell />}
-                {col("collateral") && (
+                {showCol("apy") && <TableCell />}
+                {showCol("address") && <TableCell />}
+                {showCol("collateral") && (
                   <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
                     {formatSectionTotal(sectionTotals.collateral)}
                   </TableCell>
                 )}
-                {col("lltv") && <TableCell />}
-                {col("ltv") && (
+                {showCol("lltv") && <TableCell />}
+                {showCol("ltv") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {sectionTotals.collateral > 0
                       ? formatPercent((sectionTotals.totalDebt / sectionTotals.collateral) * 100)
                       : "—"}
                   </TableCell>
                 )}
-                {col("liquidationPrice") && <TableCell />}
+                {showCol("liquidationPrice") && <TableCell />}
                 <TableCell />
               </TableRow>
             </TableFooter>
@@ -402,7 +473,7 @@ export function LiabilityTable() {
         </Table>
 
         {isDefi &&
-          col("ltv") &&
+          showCol("ltv") &&
           items.map(
             (l) =>
               l.ltv != null && (
@@ -431,7 +502,7 @@ export function LiabilityTable() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Name or address…"
-        columnOptions={LIABILITY_COLUMN_OPTIONS}
+        columnOptions={liabilityColumnOptions}
         visibleColumns={visibleColumns}
         onToggleColumn={(key) =>
           setVisibleColumns((prev) => toggleColumnInSet(prev, key))
@@ -514,6 +585,7 @@ export function LiabilityTable() {
         defaultGroupId={defaultGroupId}
         onSave={saveSection}
         showDefiToggle
+        showCryptoToggle
       />
       <SectionGroupDrawer
         open={groupDrawerOpen}

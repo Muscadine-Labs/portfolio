@@ -23,14 +23,21 @@ import { toggleColumnInSet } from "@/components/shared/ColumnPickerPopover";
 import { PortfolioPageToolbar, type PortfolioSectionNavItem } from "@/components/shared/PortfolioPageToolbar";
 import { PortfolioSectionBlock } from "@/components/shared/PortfolioSectionBlock";
 import {
-  CASH_COLUMN_OPTIONS,
+  CASH_POSITION_COLUMNS,
   DEFAULT_CASH_COLUMNS,
+  getCashColumnOptions,
   type CashColumnKey,
 } from "@/components/cash/cash-columns";
+import { formatAssetNetworkLabel } from "@/lib/asset-network";
+import { isCryptoAssetSection } from "@/lib/asset-sections";
+import {
+  sectionShowsNetworkColumn,
+  sectionShowsProtocolColumn,
+} from "@/lib/section-columns";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalCash } from "@/lib/mock-data";
 import { sumCashSectionTotals } from "@/lib/section-totals";
-import { compareAlphabeticalDeferred } from "@/lib/position-sort";
+import { sortCashInSection } from "@/lib/position-sort";
 import { formatCurrency, formatMoneyColumn } from "@/lib/utils";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import {
@@ -46,8 +53,23 @@ function matchesSearch(account: CashAccount, query: string): boolean {
   return (
     account.name.toLowerCase().includes(q) ||
     (account.protocol?.toLowerCase().includes(q) ?? false) ||
+    formatAssetNetworkLabel(account.network).toLowerCase().includes(q) ||
     (account.address?.toLowerCase().includes(q) ?? false)
   );
+}
+
+function showCashColumn(
+  key: CashColumnKey,
+  section: PortfolioSection,
+  visibleColumns: Set<CashColumnKey>
+): boolean {
+  if (!visibleColumns.has(key)) return false;
+  if (CASH_POSITION_COLUMNS.has(key)) {
+    if (!isCryptoAssetSection(section)) return false;
+    if (key === "network") return sectionShowsNetworkColumn(section);
+    if (key === "protocol") return sectionShowsProtocolColumn(section);
+  }
+  return true;
 }
 
 function fmtOptional(value: number | undefined): string {
@@ -57,18 +79,22 @@ function fmtOptional(value: number | undefined): string {
 const CASH_COLUMN_ORDER: CashColumnKey[] = [
   "name",
   "balance",
+  "network",
+  "protocol",
   "originalAmount",
   "interest",
-  "protocol",
   "address",
 ];
 
 const CASH_SUM_COLUMNS = new Set<CashColumnKey>(["balance", "originalAmount", "interest"]);
 
-function cashFooterLabelColSpan(col: (key: CashColumnKey) => boolean): number {
+function cashFooterLabelColSpan(
+  section: PortfolioSection,
+  visibleColumns: Set<CashColumnKey>
+): number {
   let span = 0;
   for (const key of CASH_COLUMN_ORDER) {
-    if (!col(key)) continue;
+    if (!showCashColumn(key, section, visibleColumns)) continue;
     if (CASH_SUM_COLUMNS.has(key)) break;
     span++;
   }
@@ -112,6 +138,20 @@ export function CashPageContent() {
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
 
+  const showPositionInPicker = useMemo(
+    () =>
+      sections.some(
+        (section) =>
+          isCryptoAssetSection(section) &&
+          (sectionShowsNetworkColumn(section) || sectionShowsProtocolColumn(section))
+      ),
+    [sections]
+  );
+  const cashColumnOptions = useMemo(
+    () => getCashColumnOptions(showPositionInPicker),
+    [showPositionInPicker]
+  );
+
   const panel = portfolioPanel("cash");
 
   const sectionBalanceById = useMemo(() => {
@@ -139,9 +179,7 @@ export function CashPageContent() {
       const rows = cashAccounts.filter(
         (a) => a.sectionId === section.id && matchesSearch(a, search)
       );
-      bySection[section.id] = [...rows].sort((a, b) =>
-        compareAlphabeticalDeferred(a.name, b.name)
-      );
+      bySection[section.id] = sortCashInSection(section, rows);
       count += rows.length;
     }
     return { resultCount: count, accountsBySection: bySection };
@@ -184,7 +222,8 @@ export function CashPageContent() {
     }
   };
 
-  const col = (key: CashColumnKey) => visibleColumns.has(key);
+  const col = (key: CashColumnKey, section: PortfolioSection) =>
+    showCashColumn(key, section, visibleColumns);
 
   const handleSectionNavSelect = (sectionId: string) => {
     setSectionFilter(sectionId);
@@ -193,6 +232,7 @@ export function CashPageContent() {
 
   const renderCashSectionBlock = (section: PortfolioSection) => {
     const accounts = accountsBySection[section.id] ?? [];
+    const showCol = (key: CashColumnKey) => col(key, section);
     if (accounts.length === 0 && !showEmptySections) return null;
     const sectionTotals = accounts.length > 0 ? sumCashSectionTotals(accounts) : null;
     const stats = sectionTotals
@@ -230,46 +270,52 @@ export function CashPageContent() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {col("name") && <TableHead className={panel.headCell}>Name</TableHead>}
-              {col("balance") && (
+              {showCol("name") && <TableHead className={panel.headCell}>Name</TableHead>}
+              {showCol("balance") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Balance</TableHead>
               )}
-              {col("originalAmount") && (
+              {showCol("network") && <TableHead className={panel.headCell}>Network</TableHead>}
+              {showCol("protocol") && <TableHead className={panel.headCell}>Protocol</TableHead>}
+              {showCol("originalAmount") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Initial</TableHead>
               )}
-              {col("interest") && (
+              {showCol("interest") && (
                 <TableHead className={cn(panel.headCell, "text-right")}>Interest</TableHead>
               )}
-              {col("protocol") && <TableHead className={panel.headCell}>Protocol</TableHead>}
-              {col("address") && <TableHead className={panel.headCell}>Address</TableHead>}
+              {showCol("address") && <TableHead className={panel.headCell}>Address</TableHead>}
               <TableHead className={cn(panel.headCell, "w-14 text-right")} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {accounts.map((account) => (
               <TableRow key={account.id} className={panel.dataRow}>
-                {col("name") && (
+                {showCol("name") && (
                   <TableCell className={panel.symbolCell}>{account.name}</TableCell>
                 )}
-                {col("balance") && (
+                {showCol("balance") && (
                   <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
                     {formatMoneyColumn(account.balance)}
                   </TableCell>
                 )}
-                {col("originalAmount") && (
+                {showCol("network") && (
+                  <TableCell className={panel.mutedCell}>
+                    {formatAssetNetworkLabel(account.network)}
+                  </TableCell>
+                )}
+                {showCol("protocol") && (
+                  <TableCell className={panel.mutedCell}>{account.protocol ?? "—"}</TableCell>
+                )}
+                {showCol("originalAmount") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {fmtOptional(account.originalAmount)}
                   </TableCell>
                 )}
-                {col("interest") && (
+                {showCol("interest") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {fmtOptional(account.interest)}
                   </TableCell>
                 )}
-                {col("protocol") && (
-                  <TableCell className={panel.mutedCell}>{account.protocol ?? "—"}</TableCell>
-                )}
-                {col("address") && (
+                {showCol("address") && (
                   <TableCell
                     className={cn(
                       panel.mutedCell,
@@ -312,28 +358,29 @@ export function CashPageContent() {
             <TableFooter>
               <TableRow className={panel.footerRow}>
                 <TableCell
-                  colSpan={cashFooterLabelColSpan(col)}
+                  colSpan={cashFooterLabelColSpan(section, visibleColumns)}
                   className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground"
                 >
                   Section total
                 </TableCell>
-                {col("balance") && (
+                {showCol("balance") && (
                   <TableCell className={cn(panel.dataCell, "text-right font-medium")}>
                     {formatSectionTotal(sectionTotals.balance)}
                   </TableCell>
                 )}
-                {col("originalAmount") && (
+                {showCol("network") && <TableCell />}
+                {showCol("protocol") && <TableCell />}
+                {showCol("originalAmount") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {formatSectionTotal(sectionTotals.originalAmount)}
                   </TableCell>
                 )}
-                {col("interest") && (
+                {showCol("interest") && (
                   <TableCell className={cn(panel.mutedCell, "text-right")}>
                     {formatSectionTotal(sectionTotals.interest)}
                   </TableCell>
                 )}
-                {col("protocol") && <TableCell />}
-                {col("address") && <TableCell />}
+                {showCol("address") && <TableCell />}
                 <TableCell />
               </TableRow>
             </TableFooter>
@@ -358,7 +405,7 @@ export function CashPageContent() {
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Name, protocol, or address…"
-        columnOptions={CASH_COLUMN_OPTIONS}
+        columnOptions={cashColumnOptions}
         visibleColumns={visibleColumns}
         onToggleColumn={(key) =>
           setVisibleColumns((prev) => toggleColumnInSet(prev, key))
@@ -440,6 +487,8 @@ export function CashPageContent() {
         page="cash"
         defaultGroupId={defaultGroupId}
         onSave={saveSection}
+        showDefiToggle
+        showCryptoToggle
       />
       <SectionGroupDrawer
         open={groupDrawerOpen}

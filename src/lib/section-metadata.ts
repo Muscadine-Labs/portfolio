@@ -6,6 +6,10 @@ export function parseSectionMetadata(raw: unknown): SectionMetadata | undefined 
   const metadata: SectionMetadata = {};
   if (raw.isDefi === true) metadata.isDefi = true;
   if (raw.isCrypto === true) metadata.isCrypto = true;
+  if (raw.showNetworkColumn === false) metadata.showNetworkColumn = false;
+  if (raw.showNetworkColumn === true) metadata.showNetworkColumn = true;
+  if (raw.showProtocolColumn === false) metadata.showProtocolColumn = false;
+  if (raw.showProtocolColumn === true) metadata.showProtocolColumn = true;
   if (typeof raw.walletId === "string" && raw.walletId.trim()) {
     metadata.walletId = raw.walletId.trim();
   }
