@@ -13,7 +13,7 @@
 - Review the mobile layout and fix the assets page to be like how liabilties and cash. Explore any other ways mobile view is laking or if there are any bugs.
 - As an admin, I cannot log in from login, it does not work and allow me to log in, but i can log in as a user. Review why this is happening. 
 
-## Once All tasks are complete and fixed, go through the repo and find any bugs. Run lint, build, test and bump both repo versions. Put what you learned inside of claude.md. If there is any dead/unused code, tell me.
+## Once All tasks are complete and fixed, go through the repo and find any bugs. Run lint, build, test and bump both repo versions using the guidelines descrbed on how to bump. Put what you learned inside of CLAUDE.md and AGENTS.md. If there is any dead/unused code, tell me.
 
 # Future (don't focus on now)
 
