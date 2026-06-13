@@ -13,7 +13,16 @@ async function toProxyResponse(upstream: Response): Promise<Response> {
   const headers = new Headers();
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (lower === "set-cookie" || lower === "content-length") return;
+    // fetch already decompressed the body — forwarding content-encoding would
+    // make clients try to decompress plain JSON and fail to read the response.
+    if (
+      lower === "set-cookie" ||
+      lower === "content-length" ||
+      lower === "content-encoding" ||
+      lower === "transfer-encoding"
+    ) {
+      return;
+    }
     headers.set(key, value);
   });
 
@@ -48,6 +57,9 @@ export async function proxyToHomeApi(
     headers.delete("host");
     headers.delete("connection");
     headers.delete("content-length");
+    // Let Node's fetch negotiate encodings it can decode itself. Forwarding the
+    // browser's accept-encoding (e.g. zstd) can yield bodies fetch cannot decompress.
+    headers.delete("accept-encoding");
 
     const init: RequestInit = {
       method: request.method,

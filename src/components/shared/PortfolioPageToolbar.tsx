@@ -29,6 +29,18 @@ export type PortfolioSectionNavItem = {
   assetCount: number;
 };
 
+export type PortfolioToolbarStat = {
+  label: string;
+  value: string;
+  tone?: "positive" | "negative" | "neutral";
+};
+
+function toolbarStatToneClass(tone?: PortfolioToolbarStat["tone"]): string {
+  if (tone === "positive") return "text-emerald-400";
+  if (tone === "negative") return "text-red-400";
+  return "text-foreground";
+}
+
 type ViewMode = "sections" | "all";
 
 interface PortfolioPageToolbarProps<K extends string = string> {
@@ -38,6 +50,8 @@ interface PortfolioPageToolbarProps<K extends string = string> {
   countLabel: string;
   count: number;
   resultCount: number;
+  /** Extra page totals (e.g. cost basis, gain/loss) shown beside the headline total. */
+  stats?: PortfolioToolbarStat[];
   sectionItems?: PortfolioSectionNavItem[];
   activeSectionId?: string;
   onSectionSelect?: (sectionId: string) => void;
@@ -67,6 +81,7 @@ export function PortfolioPageToolbar<K extends string = string>({
   countLabel,
   count,
   resultCount,
+  stats = [],
   sectionItems = [],
   activeSectionId = "all",
   onSectionSelect,
@@ -135,6 +150,19 @@ export function PortfolioPageToolbar<K extends string = string>({
               <AnimatedNumber value={totalValue} />
             </p>
           </div>
+          {stats.map((stat) => (
+            <div key={stat.label}>
+              <p className={panel.label}>{stat.label}</p>
+              <p
+                className={cn(
+                  "text-sm font-semibold tabular-nums",
+                  toolbarStatToneClass(stat.tone)
+                )}
+              >
+                {stat.value}
+              </p>
+            </div>
+          ))}
         </div>
 
         <div className="hidden h-8 w-px bg-border/80 sm:block" />

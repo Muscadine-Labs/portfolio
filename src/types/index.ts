@@ -53,6 +53,13 @@ export interface OverviewChartPreferences {
   lineType: OverviewChartLineType;
   showCostBasisLine: boolean;
   costBasisLineColor: string;
+  /** Per-category history lines (assets / cash / liabilities) — default on. */
+  showAssetsLine: boolean;
+  showCashLine: boolean;
+  showLiabilitiesLine: boolean;
+  assetsLineColor: string;
+  cashLineColor: string;
+  liabilitiesLineColor: string;
 }
 
 export type WalletChain = "ethereum" | "base" | "bitcoin" | "solana" | "other";
@@ -309,6 +316,7 @@ export interface NetWorthSnapshot {
   period: string;
   netWorth: number;
   totalAssets?: number;
+  totalCash?: number;
   totalLiabilities?: number;
   /** Sum of asset cost basis at snapshot time (investments only). */
   totalCostBasis?: number;

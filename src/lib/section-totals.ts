@@ -42,6 +42,50 @@ export function sumCashSectionTotals(accounts: CashAccount[]): CashSectionTotals
   };
 }
 
+/**
+ * Cash cost basis = money put in (initial balance), never accrued interest.
+ * Falls back to balance − interest, then balance, when no initial amount is set.
+ */
+export function getCashCostBasis(account: CashAccount): number {
+  if (account.originalAmount != null) return account.originalAmount;
+  if (account.interest != null) return account.balance - account.interest;
+  return account.balance;
+}
+
+export interface CashPageTotals {
+  balance: number;
+  costBasis: number;
+  gainDollars: number;
+  gainPercent: number;
+}
+
+export function sumCashPageTotals(accounts: CashAccount[]): CashPageTotals {
+  const balance = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const costBasis = accounts.reduce((sum, a) => sum + getCashCostBasis(a), 0);
+  const gainDollars = balance - costBasis;
+  const gainPercent = costBasis > 0 ? (gainDollars / costBasis) * 100 : 0;
+  return { balance, costBasis, gainDollars, gainPercent };
+}
+
+export interface LiabilityPageTotals {
+  totalDebt: number;
+  initialDebt: number;
+  /** Positive = debt paid down (good); negative = debt grew. */
+  paidDownDollars: number;
+  paidDownPercent: number;
+}
+
+export function sumLiabilityPageTotals(liabilities: Liability[]): LiabilityPageTotals {
+  const totalDebt = liabilities.reduce((sum, l) => sum + l.balance, 0);
+  const initialDebt = liabilities.reduce(
+    (sum, l) => sum + (l.initialBalance ?? l.balance),
+    0
+  );
+  const paidDownDollars = initialDebt - totalDebt;
+  const paidDownPercent = initialDebt > 0 ? (paidDownDollars / initialDebt) * 100 : 0;
+  return { totalDebt, initialDebt, paidDownDollars, paidDownPercent };
+}
+
 export interface LiabilitySectionTotals {
   totalDebt: number;
   initialBalance: number;

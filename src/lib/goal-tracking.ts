@@ -76,8 +76,13 @@ export function getLinkedSectionLabel(
 
 export function goalProgressPercent(
   current: number | undefined,
-  target: number | undefined
+  target: number | undefined,
+  trackPage?: GoalTrackPage
 ): number | undefined {
   if (target == null || target <= 0 || current == null) return undefined;
+  if (trackPage === "liabilities") {
+    // Debt paydown: target is the starting debt; progress grows as debt shrinks.
+    return Math.max(0, Math.min(100, ((target - current) / target) * 100));
+  }
   return Math.min(100, (current / target) * 100);
 }

@@ -53,10 +53,11 @@ export function CashDrawer({
   const { getSections } = usePortfolio();
   const cashSections = getSections("cash");
 
-  const { register, control, handleSubmit, reset, setValue } = useForm<CashFormValues>({
-    resolver: zodResolver(cashSchema),
-    defaultValues: { name: "", sectionId: "", balance: 0 },
-  });
+  const { register, control, handleSubmit, reset, setValue, getValues } =
+    useForm<CashFormValues>({
+      resolver: zodResolver(cashSchema),
+      defaultValues: { name: "", sectionId: "", balance: 0 },
+    });
 
   const sectionId = useWatch({ control, name: "sectionId" });
   const [showOptional, setShowOptional] = useState(
@@ -98,6 +99,34 @@ export function CashDrawer({
 
   const optionalNumber = (v: number | undefined) =>
     v != null && !Number.isNaN(v) ? v : undefined;
+
+  const getValuesSafe = () => ({
+    balance: optionalNumber(getValues("balance")),
+    originalAmount: optionalNumber(getValues("originalAmount")),
+    interest: optionalNumber(getValues("interest")),
+  });
+
+  /** balance = initial + interest — editing one side keeps the others in sync. */
+  const syncFromBalance = () => {
+    if (!showOptional) return;
+    const { balance, originalAmount } = getValuesSafe();
+    if (balance == null || originalAmount == null) return;
+    setValue("interest", roundMoney(balance - originalAmount));
+  };
+
+  const syncFromInterest = () => {
+    if (!showOptional) return;
+    const { originalAmount, interest } = getValuesSafe();
+    if (originalAmount == null || interest == null) return;
+    setValue("balance", roundMoney(originalAmount + interest));
+  };
+
+  const syncFromOriginalAmount = () => {
+    if (!showOptional) return;
+    const { balance, originalAmount } = getValuesSafe();
+    if (balance == null || originalAmount == null) return;
+    setValue("interest", roundMoney(balance - originalAmount));
+  };
 
   const onSubmit = (values: CashFormValues) => {
     onSave({
@@ -146,7 +175,10 @@ export function CashDrawer({
               id="balance"
               type="number"
               step="any"
-              {...register("balance", { valueAsNumber: true })}
+              {...register("balance", {
+                valueAsNumber: true,
+                onChange: syncFromBalance,
+              })}
             />
           </div>
           {(isDefi || account?.protocol) && (
@@ -174,6 +206,10 @@ export function CashDrawer({
           ) : (
             <div className="space-y-3 rounded-lg border border-dashed border-border/50 bg-muted/20 p-3">
               <p className="text-xs text-muted-foreground">Optional — for savings / interest-bearing accounts</p>
+              <p className="text-xs text-muted-foreground">
+                Balance = initial + interest. Editing balance updates interest; editing
+                interest updates balance.
+              </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="originalAmount">Initial balance</Label>
@@ -182,7 +218,10 @@ export function CashDrawer({
                     type="number"
                     step="any"
                     placeholder="Optional"
-                    {...register("originalAmount", { valueAsNumber: true })}
+                    {...register("originalAmount", {
+                      valueAsNumber: true,
+                      onChange: syncFromOriginalAmount,
+                    })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -192,7 +231,10 @@ export function CashDrawer({
                     type="number"
                     step="any"
                     placeholder="Optional"
-                    {...register("interest", { valueAsNumber: true })}
+                    {...register("interest", {
+                      valueAsNumber: true,
+                      onChange: syncFromInterest,
+                    })}
                   />
                 </div>
               </div>

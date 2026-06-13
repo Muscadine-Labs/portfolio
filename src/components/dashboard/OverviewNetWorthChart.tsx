@@ -13,6 +13,7 @@ import {
 import {
   formatNetWorthAxisTick,
   hasNetWorthCostBasisSeries,
+  hasNetWorthSeries,
   netWorthChartScale,
 } from "@/lib/overview-chart";
 import { cn, formatCurrency, getGainColor } from "@/lib/utils";
@@ -84,14 +85,27 @@ function NetWorthTooltip({
   const label = row?.period;
   let netWorth: number | undefined;
   let totalCostBasis: number | undefined;
+  let totalAssets: number | undefined;
+  let totalCash: number | undefined;
+  let totalLiabilities: number | undefined;
 
   for (const entry of payload) {
     if (entry.dataKey === "netWorth") netWorth = Number(entry.value ?? 0);
     if (entry.dataKey === "totalCostBasis") totalCostBasis = Number(entry.value ?? 0);
+    if (entry.dataKey === "totalAssets") totalAssets = Number(entry.value ?? 0);
+    if (entry.dataKey === "totalCash") totalCash = Number(entry.value ?? 0);
+    if (entry.dataKey === "totalLiabilities") totalLiabilities = Number(entry.value ?? 0);
   }
 
   const gain =
     netWorth != null && totalCostBasis != null ? netWorth - totalCostBasis : undefined;
+
+  const rows: Array<{ label: string; value: number } | null> = [
+    totalAssets != null ? { label: "Assets", value: totalAssets } : null,
+    totalCash != null ? { label: "Cash", value: totalCash } : null,
+    totalLiabilities != null ? { label: "Liabilities", value: totalLiabilities } : null,
+    totalCostBasis != null ? { label: "Cost basis", value: totalCostBasis } : null,
+  ];
 
   return (
     <div className="min-w-[11rem] rounded border border-border/80 bg-popover px-3 py-2 font-mono shadow-md">
@@ -104,12 +118,14 @@ function NetWorthTooltip({
           <span className="font-semibold tabular-nums">{formatCurrency(netWorth)}</span>
         </div>
       ) : null}
-      {totalCostBasis != null ? (
-        <div className="mt-1 flex justify-between gap-6 text-xs">
-          <span className="text-muted-foreground">Cost basis</span>
-          <span className="tabular-nums">{formatCurrency(totalCostBasis)}</span>
-        </div>
-      ) : null}
+      {rows.map((item) =>
+        item ? (
+          <div key={item.label} className="mt-1 flex justify-between gap-6 text-xs">
+            <span className="text-muted-foreground">{item.label}</span>
+            <span className="tabular-nums">{formatCurrency(item.value)}</span>
+          </div>
+        ) : null
+      )}
       {gain != null ? (
         <div className="mt-1 flex justify-between gap-6 text-xs">
           <span className="text-muted-foreground">Gain</span>
@@ -122,14 +138,14 @@ function NetWorthTooltip({
   );
 }
 
+type LegendLine = { label: string; color: string };
+
 function ChartLegend({
   barColor,
-  costBasisColor,
-  showCostBasis,
+  lines,
 }: {
   barColor: string;
-  costBasisColor: string;
-  showCostBasis: boolean;
+  lines: LegendLine[];
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-4 px-2 pb-1 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -137,15 +153,15 @@ function ChartLegend({
         <span className="inline-block h-3 w-2 rounded-sm" style={{ backgroundColor: barColor }} />
         Net worth
       </span>
-      {showCostBasis ? (
-        <span className="inline-flex items-center gap-1.5">
+      {lines.map((line) => (
+        <span key={line.label} className="inline-flex items-center gap-1.5">
           <span
             className="inline-block h-0 w-5 border-t-2"
-            style={{ borderColor: costBasisColor }}
+            style={{ borderColor: line.color }}
           />
-          Cost basis
+          {line.label}
         </span>
-      ) : null}
+      ))}
     </div>
   );
 }
@@ -216,6 +232,27 @@ function OverviewNetWorthChartPlot({
 
   const showCostBasis =
     chart.showCostBasisLine && hasNetWorthCostBasisSeries(filteredData);
+  const showAssets =
+    chart.showAssetsLine && hasNetWorthSeries(filteredData, "totalAssets");
+  const showCash = chart.showCashLine && hasNetWorthSeries(filteredData, "totalCash");
+  const showLiabilities =
+    chart.showLiabilitiesLine && hasNetWorthSeries(filteredData, "totalLiabilities");
+
+  const categoryLines: Array<{
+    key: "totalAssets" | "totalCash" | "totalLiabilities";
+    label: string;
+    color: string;
+    visible: boolean;
+  }> = [
+    { key: "totalAssets", label: "Assets", color: chart.assetsLineColor, visible: showAssets },
+    { key: "totalCash", label: "Cash", color: chart.cashLineColor, visible: showCash },
+    {
+      key: "totalLiabilities",
+      label: "Liabilities",
+      color: chart.liabilitiesLineColor,
+      visible: showLiabilities,
+    },
+  ];
   const scrollChart = isCompact && chartData.length > 8;
   const chartHeight = isCompact ? 268 : 340;
   const chartMinWidth = scrollChart ? Math.max(chartData.length * 46, 320) : undefined;
@@ -241,8 +278,14 @@ function OverviewNetWorthChartPlot({
       />
       <ChartLegend
         barColor={chart.barColor}
-        costBasisColor={chart.costBasisLineColor}
-        showCostBasis={showCostBasis}
+        lines={[
+          ...categoryLines
+            .filter((line) => line.visible)
+            .map((line) => ({ label: line.label, color: line.color })),
+          ...(showCostBasis
+            ? [{ label: "Cost basis", color: chart.costBasisLineColor }]
+            : []),
+        ]}
       />
       <div
         className={cn(
@@ -330,12 +373,39 @@ function OverviewNetWorthChartPlot({
                 isAnimationActive={false}
               />
 
+              {categoryLines.map((line) =>
+                line.visible ? (
+                  <Line
+                    key={line.key}
+                    type="monotone"
+                    dataKey={line.key}
+                    stroke={line.color}
+                    strokeWidth={2}
+                    connectNulls
+                    dot={{
+                      r: isCompact ? 2 : 2.5,
+                      fill: "var(--background)",
+                      stroke: line.color,
+                      strokeWidth: 1.5,
+                    }}
+                    activeDot={{
+                      r: isCompact ? 3 : 3.5,
+                      stroke: "var(--background)",
+                      strokeWidth: 2,
+                      fill: line.color,
+                    }}
+                    isAnimationActive={false}
+                  />
+                ) : null
+              )}
+
               {showCostBasis ? (
                 <Line
                   type="monotone"
                   dataKey="totalCostBasis"
                   stroke={chart.costBasisLineColor}
                   strokeWidth={2}
+                  connectNulls
                   dot={{
                     r: isCompact ? 2.5 : 3,
                     fill: "var(--background)",

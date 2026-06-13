@@ -28,6 +28,13 @@ const TRACK_PAGES: { value: GoalTrackPage; label: string }[] = [
   { value: "liabilities", label: "Liabilities" },
 ];
 
+/** Empty number inputs parse to undefined instead of NaN (which fails validation). */
+function parseOptionalNumber(value: unknown): number | undefined {
+  if (value === "" || value == null) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 const schema = z
   .object({
     title: z.string().min(1),
@@ -74,7 +81,14 @@ export function PlanningDrawer({
   const cashSections = getSections("cash");
   const liabilitySections = getSections("liabilities");
 
-  const { register, control, handleSubmit, reset, setValue } = useForm<FormValues>({
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: "",
@@ -121,9 +135,13 @@ export function PlanningDrawer({
         title: "",
         sectionId: fallbackSection,
         status: "not_started" as const,
+        targetAmount: undefined,
+        currentAmount: undefined,
         targetDate: "",
         notes: "",
         trackMode: "manual" as const,
+        trackPage: undefined,
+        trackSectionId: undefined,
       };
     },
     [item?.id, defaultSectionId, planningSections.length]
@@ -157,6 +175,9 @@ export function PlanningDrawer({
           <div className="space-y-2">
             <Label>Title</Label>
             <Input {...register("title")} />
+            {errors.title && (
+              <p className="text-xs text-destructive">Title is required</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="goal-section">Goal section</Label>
@@ -179,7 +200,21 @@ export function PlanningDrawer({
                   setValue("trackPage", undefined);
                   setValue("trackSectionId", undefined);
                 } else if (!trackPage) {
-                  setValue("trackPage", "assets");
+                  // Default to the first portfolio area that actually has sections.
+                  const firstPage: GoalTrackPage =
+                    assetSections.length > 0
+                      ? "assets"
+                      : cashSections.length > 0
+                        ? "cash"
+                        : "liabilities";
+                  const firstSections =
+                    firstPage === "assets"
+                      ? assetSections
+                      : firstPage === "cash"
+                        ? cashSections
+                        : liabilitySections;
+                  setValue("trackPage", firstPage);
+                  setValue("trackSectionId", firstSections[0]?.id);
                 }
               }}
               options={[
@@ -201,8 +236,15 @@ export function PlanningDrawer({
                   id="goal-track-page"
                   value={trackPage ?? ""}
                   onValueChange={(v) => {
-                    setValue("trackPage", v as GoalTrackPage);
-                    setValue("trackSectionId", undefined);
+                    const page = v as GoalTrackPage;
+                    const pageSections =
+                      page === "assets"
+                        ? assetSections
+                        : page === "cash"
+                          ? cashSections
+                          : liabilitySections;
+                    setValue("trackPage", page);
+                    setValue("trackSectionId", pageSections[0]?.id);
                   }}
                   options={TRACK_PAGES}
                   placeholder="Choose area"
@@ -221,7 +263,18 @@ export function PlanningDrawer({
                     }
                     disabled={linkableSections.length === 0}
                   />
+                  {errors.trackSectionId && (
+                    <p className="text-xs text-destructive">
+                      {errors.trackSectionId.message}
+                    </p>
+                  )}
                 </div>
+              )}
+              {trackPage === "liabilities" && (
+                <p className="text-xs text-muted-foreground">
+                  Debt goals count down: progress grows as the section&apos;s debt shrinks
+                  toward $0 of the target amount.
+                </p>
               )}
             </div>
           )}
@@ -229,7 +282,11 @@ export function PlanningDrawer({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Target Amount</Label>
-              <Input type="number" step="any" {...register("targetAmount", { valueAsNumber: true })} />
+              <Input
+                type="number"
+                step="any"
+                {...register("targetAmount", { setValueAs: parseOptionalNumber })}
+              />
             </div>
             {trackMode === "manual" ? (
               <div className="space-y-2">
@@ -237,7 +294,7 @@ export function PlanningDrawer({
                 <Input
                   type="number"
                   step="any"
-                  {...register("currentAmount", { valueAsNumber: true })}
+                  {...register("currentAmount", { setValueAs: parseOptionalNumber })}
                 />
               </div>
             ) : (

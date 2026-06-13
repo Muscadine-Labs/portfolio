@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { apiErrorMessage } from "@/lib/format-error";
+import { formatMoneyColumn } from "@/lib/utils";
 import {
   filterWalletSyncSections,
 } from "@/lib/wallet-sync-sections";
@@ -49,7 +50,7 @@ const TARGET_OPTIONS: { value: MorphoPositionTarget; label: string }[] = [
 ];
 
 function fmtUsd(value: number): string {
-  return Number.isFinite(value) ? `$${value.toFixed(2)}` : "—";
+  return Number.isFinite(value) ? formatMoneyColumn(value) : "—";
 }
 
 function defaultTarget(kind: MorphoPositionKind): MorphoPositionTarget {

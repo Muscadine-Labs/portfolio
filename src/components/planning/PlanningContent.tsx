@@ -109,7 +109,11 @@ export function PlanningContent() {
                   const linked = isGoalLinkedToPortfolio(item);
                   const current = resolveGoalCurrentAmount(item, portfolioData);
                   const linkLabel = getLinkedSectionLabel(sections, item);
-                  const progress = goalProgressPercent(current, item.targetAmount);
+                  const progress = goalProgressPercent(
+                    current,
+                    item.targetAmount,
+                    item.trackPage
+                  );
 
                   return (
                     <div

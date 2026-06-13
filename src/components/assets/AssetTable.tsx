@@ -56,6 +56,10 @@ import {
 } from "@/lib/section-groups";
 import { metalPriceColumnLabel } from "@/lib/metals";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
+import { isFinnhubEligible } from "@/lib/finnhub";
+import { getFixedUsdPrice, resolveSpotTicker } from "@/lib/quote-aliases";
+import { apiErrorMessage } from "@/lib/format-error";
+import { toast } from "sonner";
 import type { Asset, PortfolioSection, SectionGroup } from "@/types";
 
 const DEFAULT_VISIBLE_COLUMNS: AssetColumnKey[] = [
@@ -208,7 +212,9 @@ export function AssetTable() {
   const [defaultSectionId, setDefaultSectionId] = useState<string | undefined>();
   const [defaultGroupId, setDefaultGroupId] = useState<string | undefined>();
   const isMobile = useMediaQuery("(max-width: 767px)", true);
-  const [mobileCardView, setMobileCardView] = useState(true);
+  // Default to the sectioned table layout so mobile matches liabilities/cash;
+  // the toolbar toggle still offers the compact card list.
+  const [mobileCardView, setMobileCardView] = useState(false);
 
   const showNetworkInPicker = useMemo(
     () => sections.some((section) => isCryptoAssetSection(section) && sectionShowsNetworkColumn(section)),
@@ -255,6 +261,8 @@ export function AssetTable() {
     [assets]
   );
 
+  const pageTotals = useMemo(() => sumAssetSectionTotals(assets), [assets]);
+
   const sectionNavItems = useMemo(() => {
     const items = [
       ...groups.map((group) => {
@@ -295,6 +303,87 @@ export function AssetTable() {
       }
       return next;
     });
+  };
+
+  /** Spot-resolved symbol used to match assets that share a quote (e.g. ETH/WETH). */
+  const quoteKey = (symbol: string) => {
+    const upper = symbol.trim().toUpperCase();
+    return resolveSpotTicker(upper) ?? upper;
+  };
+
+  const fetchPriceForNewAsset = async (asset: Asset) => {
+    const upper = asset.symbol.trim().toUpperCase();
+    try {
+      const res = await fetch("/api/market/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols: [upper] }),
+      });
+      const data = (await res.json()) as {
+        prices?: Record<string, number>;
+        error?: unknown;
+      };
+      if (!res.ok) {
+        throw new Error(apiErrorMessage(data.error, "Price lookup failed"));
+      }
+      const price = data.prices?.[quoteKey(upper)] ?? data.prices?.[upper];
+      if (price != null && price > 0) {
+        upsertAsset({ ...asset, price });
+        toast.success(`${upper} price fetched`, {
+          description: formatMoneyColumn(price),
+        });
+      } else {
+        toast.warning(`No price found for ${upper}`, {
+          description:
+            "The symbol may be unsupported — set a manual price or check the ticker.",
+        });
+      }
+    } catch (err) {
+      toast.error(`Couldn't fetch a price for ${upper}`, {
+        description:
+          err instanceof Error && err.message !== "Price lookup failed"
+            ? err.message
+            : "Price server unreachable — set a manual price for now.",
+      });
+    }
+  };
+
+  const handleSaveAsset = (asset: Asset) => {
+    const isNew = !assets.some((a) => a.id === asset.id);
+    const needsPrice =
+      isNew && asset.priceSource !== "manual" && !(asset.price > 0);
+
+    if (!needsPrice || isDemo) {
+      upsertAsset(asset);
+      return;
+    }
+
+    const fixed = getFixedUsdPrice(asset.symbol);
+    if (fixed != null) {
+      upsertAsset({ ...asset, price: fixed });
+      return;
+    }
+
+    // Reuse a price an existing position already has for the same quote symbol.
+    const existing = assets.find(
+      (a) => a.price > 0 && quoteKey(a.symbol) === quoteKey(asset.symbol)
+    );
+    if (existing) {
+      upsertAsset({ ...asset, price: existing.price });
+      toast.info(`Using existing ${asset.symbol.toUpperCase()} price`, {
+        description: formatMoneyColumn(existing.price),
+      });
+      return;
+    }
+
+    upsertAsset(asset);
+    if (isFinnhubEligible(asset)) {
+      void fetchPriceForNewAsset(asset);
+    } else {
+      toast.warning(`No price source for ${asset.symbol.toUpperCase()}`, {
+        description: "Set a manual price, or add network/protocol mapping.",
+      });
+    }
   };
 
   const openAddAsset = (sectionId: string) => {
@@ -600,6 +689,19 @@ export function AssetTable() {
         countLabel="holdings"
         count={assets.length}
         resultCount={resultCount}
+        stats={[
+          { label: "Cost basis", value: formatMoneyColumn(pageTotals.costBasis) },
+          {
+            label: "Gain / loss",
+            value: `${pageTotals.gainDollars >= 0 ? "+" : ""}${formatMoneyColumn(pageTotals.gainDollars)} (${formatPercent(pageTotals.gainPercent)})`,
+            tone:
+              pageTotals.gainDollars > 0
+                ? "positive"
+                : pageTotals.gainDollars < 0
+                  ? "negative"
+                  : "neutral",
+          },
+        ]}
         sectionItems={sectionNavItems}
         activeSectionId={sectionFilter}
         onSectionSelect={handleSectionNavSelect}
@@ -703,7 +805,7 @@ export function AssetTable() {
         onOpenChange={setAssetDrawerOpen}
         asset={editingAsset}
         defaultSectionId={defaultSectionId}
-        onSave={upsertAsset}
+        onSave={handleSaveAsset}
       />
       <SectionDrawer
         open={sectionDrawerOpen}

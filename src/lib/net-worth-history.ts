@@ -8,14 +8,18 @@ export function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function roundOptionalMoney(value: number | undefined): number | undefined {
+  return value != null && Number.isFinite(value) ? roundMoney(value) : undefined;
+}
+
 export function normalizeNetWorthSnapshot(snapshot: NetWorthSnapshot): NetWorthSnapshot {
   return {
     ...snapshot,
     netWorth: roundMoney(snapshot.netWorth),
-    totalCostBasis:
-      snapshot.totalCostBasis != null
-        ? roundMoney(snapshot.totalCostBasis)
-        : undefined,
+    totalCostBasis: roundOptionalMoney(snapshot.totalCostBasis),
+    totalAssets: roundOptionalMoney(snapshot.totalAssets),
+    totalCash: roundOptionalMoney(snapshot.totalCash),
+    totalLiabilities: roundOptionalMoney(snapshot.totalLiabilities),
   };
 }
 

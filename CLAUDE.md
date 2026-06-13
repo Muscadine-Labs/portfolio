@@ -1,6 +1,6 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.5** — Morpho vault→cash mapping (auto sectionId), header Save button, remove DeFi LTV bar chart, BTC/cbBTC spot quotes.
+**Release v1.1.6** — Proxy fix (strip content-encoding; fixes admin login + price refresh), CoinGecko crypto quotes, price fetch on asset add, goals linking on add + liability paydown progress, cash balance↔interest sync, page-toolbar cost basis/gain stats, net-worth chart category lines, thousand separators everywhere, mobile assets sectioned layout.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
@@ -37,7 +37,7 @@ Personal finance dashboard at **portfolio.muscadine.io** (Vercel). User data liv
 | `portfolio.muscadine.io` | This repo — UI + `/api/*` proxy |
 | `api-portfolio.muscadine.io` | SQLite backend via tunnel |
 
-Login username = tenant slug (e.g. `nick`). Admin user → `/admin`.
+Login username = tenant slug. Admin user → `/admin`.
 
 ---
 
@@ -122,6 +122,29 @@ src/proxy.ts                  Auth middleware
 3. Keep `portfolio-data.ts` in sync with api-portfolio.
 4. Bump version after every push (see above).
 5. Read `README.md`, `SECURITY.md`, `AGENTS.md`.
+
+---
+
+## Gotchas learned (v1.1.6)
+
+- **Proxy must strip `content-encoding`/`transfer-encoding`** from upstream
+  responses and `accept-encoding` from upstream requests (`src/lib/home-api.ts`).
+  Node `fetch` decompresses bodies; re-forwarding the encoding header makes the
+  browser try to decompress plain JSON → `res.json()` fails → broken login /
+  "Could not reach the server". This broke admin login and price refresh.
+- **Money formatting**: use `formatMoneyColumn` / `formatCurrency` (thousand
+  separators) — never `value.toFixed(2)` for display. XLSX export uses native
+  Excel currency cells (`xlsx-portfolio.ts` `usd()` helper).
+- **Quote symbols**: `quote-aliases.ts` maps crypto tickers to CoinGecko IDs,
+  Finnhub pairs, and Yahoo `-USD` formats — keep mirrored with api-portfolio.
+- **New assets fetch a price on add** (`AssetTable.handleSaveAsset`): reuse an
+  existing position's price for the same spot ticker first, then POST
+  `/api/market/quotes` with `{ symbols: [...] }`, toast if unreachable.
+- **Net worth snapshots** now carry `totalAssets` / `totalCash` /
+  `totalLiabilities`; the overview chart draws per-category lines with
+  settings toggles (`overviewChart.show*Line`, default on).
+- **Liability-linked goals** measure paydown: `goalProgressPercent(current,
+  target, "liabilities")` inverts so less debt = more progress.
 
 ---
 

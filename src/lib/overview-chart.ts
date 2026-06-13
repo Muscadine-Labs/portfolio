@@ -17,6 +17,12 @@ export const DEFAULT_OVERVIEW_CHART: OverviewChartPreferences = {
   lineType: "monotone",
   showCostBasisLine: true,
   costBasisLineColor: "#94a3b8",
+  showAssetsLine: true,
+  showCashLine: true,
+  showLiabilitiesLine: true,
+  assetsLineColor: "#60a5fa",
+  cashLineColor: "#fbbf24",
+  liabilitiesLineColor: "#f87171",
 };
 
 function isValidChartColor(color: string | undefined): color is string {
@@ -46,6 +52,18 @@ export function normalizeOverviewChart(
       typeof merged.showCostBasisLine === "boolean"
         ? merged.showCostBasisLine
         : DEFAULT_OVERVIEW_CHART.showCostBasisLine,
+    showAssetsLine: merged.showAssetsLine !== false,
+    showCashLine: merged.showCashLine !== false,
+    showLiabilitiesLine: merged.showLiabilitiesLine !== false,
+    assetsLineColor: isValidChartColor(merged.assetsLineColor)
+      ? merged.assetsLineColor
+      : DEFAULT_OVERVIEW_CHART.assetsLineColor,
+    cashLineColor: isValidChartColor(merged.cashLineColor)
+      ? merged.cashLineColor
+      : DEFAULT_OVERVIEW_CHART.cashLineColor,
+    liabilitiesLineColor: isValidChartColor(merged.liabilitiesLineColor)
+      ? merged.liabilitiesLineColor
+      : DEFAULT_OVERVIEW_CHART.liabilitiesLineColor,
   };
 }
 
@@ -53,8 +71,13 @@ function chartValuePoints(data: NetWorthSnapshot[]): number[] {
   const values: number[] = [];
   for (const row of data) {
     values.push(row.netWorth);
-    if (row.totalCostBasis != null && Number.isFinite(row.totalCostBasis)) {
-      values.push(row.totalCostBasis);
+    for (const extra of [
+      row.totalCostBasis,
+      row.totalAssets,
+      row.totalCash,
+      row.totalLiabilities,
+    ]) {
+      if (extra != null && Number.isFinite(extra)) values.push(extra);
     }
   }
   return values;
@@ -76,16 +99,20 @@ function niceStep(roughStep: number): number {
 export function formatNetWorthAxisTick(value: number): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return "";
-  if (n >= 1_000_000) {
-    const millions = n / 1_000_000;
-    return millions % 1 === 0 ? `$${millions}M` : `$${millions.toFixed(1)}M`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) {
+    const millions = abs / 1_000_000;
+    const text =
+      millions % 1 === 0 ? millions.toLocaleString("en-US") : millions.toFixed(1);
+    return `${sign}$${text}M`;
   }
-  if (n >= 10_000) return `$${Math.round(n / 1000)}k`;
-  if (n >= 1_000) {
-    const thousands = n / 1000;
-    return thousands % 1 === 0 ? `$${thousands}k` : `$${thousands.toFixed(1)}k`;
+  if (abs >= 10_000) return `${sign}$${Math.round(abs / 1000)}k`;
+  if (abs >= 1_000) {
+    const thousands = abs / 1000;
+    return thousands % 1 === 0 ? `${sign}$${thousands}k` : `${sign}$${thousands.toFixed(1)}k`;
   }
-  return `$${n}`;
+  return `${sign}$${abs.toLocaleString("en-US")}`;
 }
 
 /** Y-axis domain + evenly spaced “nice” dollar ticks (~4–6 lines). */
@@ -133,4 +160,14 @@ export function hasNetWorthCostBasisSeries(data: NetWorthSnapshot[]): boolean {
   return data.some(
     (row) => row.totalCostBasis != null && Number.isFinite(row.totalCostBasis) && row.totalCostBasis > 0
   );
+}
+
+export function hasNetWorthSeries(
+  data: NetWorthSnapshot[],
+  key: "totalAssets" | "totalCash" | "totalLiabilities"
+): boolean {
+  return data.some((row) => {
+    const value = row[key];
+    return value != null && Number.isFinite(value) && value > 0;
+  });
 }

@@ -18,6 +18,21 @@ export const CRYPTO_FINNHUB_SYMBOLS: Record<string, string> = {
   BTC: "BINANCE:BTCUSDT",
   ETH: "BINANCE:ETHUSDT",
   SOL: "BINANCE:SOLUSDT",
+  XRP: "BINANCE:XRPUSDT",
+  WSTETH: "BINANCE:WSTETHUSDT",
+};
+
+/** CoinGecko coin ids — primary source for crypto spot prices (backend). */
+export const CRYPTO_COINGECKO_IDS: Record<string, string> = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  XRP: "ripple",
+  WSTETH: "wrapped-steth",
+  LINK: "chainlink",
+  AERO: "aerodrome-finance",
+  VIRTUAL: "virtual-protocol",
+  MORPHO: "morpho",
 };
 
 export const MORPHO_VAULT_SHARE_SYMBOLS = new Set([
@@ -36,7 +51,7 @@ export function normalizeQuoteSymbol(symbol: string): string {
 
 export function isCryptoSpotSymbol(symbol: string): boolean {
   const normalized = normalizeQuoteSymbol(symbol.trim().toUpperCase());
-  return normalized in CRYPTO_FINNHUB_SYMBOLS;
+  return normalized in CRYPTO_COINGECKO_IDS || normalized in CRYPTO_FINNHUB_SYMBOLS;
 }
 
 export function getFinnhubQuoteSymbol(symbol: string): string {
@@ -48,7 +63,7 @@ export function resolveSpotTicker(symbol: string): string | null {
   const upper = symbol.trim().toUpperCase();
   if (isMorphoVaultShareSymbol(upper)) return null;
   const normalized = normalizeQuoteSymbol(upper);
-  if (normalized in CRYPTO_FINNHUB_SYMBOLS) return normalized;
+  if (isCryptoSpotSymbol(normalized)) return normalized;
   return null;
 }
 

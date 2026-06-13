@@ -14,8 +14,8 @@ export function OverviewChartSettingsCard() {
       <CardHeader>
         <CardTitle className="text-base">Overview chart</CardTitle>
         <CardDescription>
-          Net worth history as bars with an optional cost basis benchmark line — the standard
-          wealth chart layout.
+          Net worth history as bars, with optional assets / cash / liabilities and cost
+          basis lines on the same scale.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -33,6 +33,61 @@ export function OverviewChartSettingsCard() {
             </span>
           </span>
         </label>
+
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Category lines</p>
+          <p className="text-xs text-muted-foreground">
+            Lines appear for periods that recorded the breakdown — new snapshots capture
+            assets, cash, and liabilities automatically.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                checked={chart.showAssetsLine}
+                onChange={(e) =>
+                  setOverviewChartPreferences({ showAssetsLine: e.target.checked })
+                }
+              />
+              <span
+                className="inline-block h-0 w-4 border-t-2"
+                style={{ borderColor: chart.assetsLineColor }}
+              />
+              Assets
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                checked={chart.showCashLine}
+                onChange={(e) =>
+                  setOverviewChartPreferences({ showCashLine: e.target.checked })
+                }
+              />
+              <span
+                className="inline-block h-0 w-4 border-t-2"
+                style={{ borderColor: chart.cashLineColor }}
+              />
+              Cash
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                checked={chart.showLiabilitiesLine}
+                onChange={(e) =>
+                  setOverviewChartPreferences({ showLiabilitiesLine: e.target.checked })
+                }
+              />
+              <span
+                className="inline-block h-0 w-4 border-t-2"
+                style={{ borderColor: chart.liabilitiesLineColor }}
+              />
+              Liabilities
+            </label>
+          </div>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -73,8 +128,8 @@ export function OverviewChartSettingsCard() {
             "rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
           )}
         >
-          Layout is fixed: bars = net worth at each period, line = cost basis. Edit values in
-          Settings → Data.
+          Bars = net worth at each period; lines = assets, cash, liabilities, and cost
+          basis. Edit values in Settings → Data.
         </div>
       </CardContent>
     </Card>

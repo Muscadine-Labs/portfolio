@@ -426,6 +426,9 @@ export function PortfolioProvider({
         normalizeNetWorthSnapshot({
           period: snapshot?.period ?? "",
           netWorth: snapshot?.netWorth ?? 0,
+          totalAssets: snapshot?.totalAssets,
+          totalCash: snapshot?.totalCash,
+          totalLiabilities: snapshot?.totalLiabilities,
           totalCostBasis: snapshot?.totalCostBasis,
         }),
       ])

@@ -40,7 +40,10 @@ import {
 } from "@/lib/section-columns";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalLiabilities } from "@/lib/mock-data";
-import { sumLiabilitySectionTotals } from "@/lib/section-totals";
+import {
+  sumLiabilityPageTotals,
+  sumLiabilitySectionTotals,
+} from "@/lib/section-totals";
 import { sortLiabilitiesInSection } from "@/lib/position-sort";
 import { formatCurrency, formatMoneyColumn, formatPercent } from "@/lib/utils";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
@@ -205,6 +208,7 @@ export function LiabilityTable() {
   }, [liabilities, visibleSections, search]);
 
   const total = computeTotalLiabilities(liabilities);
+  const pageTotals = useMemo(() => sumLiabilityPageTotals(liabilities), [liabilities]);
   const showEmptySections = search.trim() === "" && sectionFilter === "all";
 
   const sectionNavItems: PortfolioSectionNavItem[] = useMemo(() => {
@@ -474,6 +478,19 @@ export function LiabilityTable() {
         countLabel="liabilities"
         count={liabilities.length}
         resultCount={resultCount}
+        stats={[
+          { label: "Initial debt", value: formatMoneyColumn(pageTotals.initialDebt) },
+          {
+            label: "Paid down",
+            value: `${pageTotals.paidDownDollars >= 0 ? "+" : ""}${formatMoneyColumn(pageTotals.paidDownDollars)} (${formatPercent(pageTotals.paidDownPercent)})`,
+            tone:
+              pageTotals.paidDownDollars > 0
+                ? "positive"
+                : pageTotals.paidDownDollars < 0
+                  ? "negative"
+                  : "neutral",
+          },
+        ]}
         sectionItems={sectionNavItems}
         activeSectionId={sectionFilter}
         onSectionSelect={handleSectionNavSelect}

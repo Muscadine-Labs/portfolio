@@ -12,9 +12,18 @@ import {
 export type PortfolioExportData = PortfolioDataPayload;
 export type { PortfolioImportResult };
 
-type CellValue = string | number | boolean | Date | null;
+type CurrencyCell = { value: number; format: string };
+type CellValue = string | number | boolean | Date | CurrencyCell | null;
+type RawCell = string | number | CurrencyCell | null | undefined;
 
-function rows(values: (string | number | null | undefined)[][]): CellValue[][] {
+const USD_FORMAT = "$#,##0.00";
+
+/** Excel currency cell with thousand separators ($10,000,000.00). */
+function usd(value: number | null | undefined): CurrencyCell | null {
+  return value == null ? null : { value, format: USD_FORMAT };
+}
+
+function rows(values: RawCell[][]): CellValue[][] {
   return values.map((row) =>
     row.map((cell) => (cell === undefined || cell === "" ? null : cell))
   );
@@ -50,35 +59,35 @@ export async function exportPortfolioToXlsx(
     [],
     ["Summary"],
     ["Metric", "Value"],
-    ["Net Worth", snapshot.netWorth],
-    ["Total Assets", snapshot.totalAssets],
-    ["Total Cash", snapshot.totalCash],
-    ["Total Liabilities", snapshot.totalLiabilities],
-    ["Net Gain", snapshot.netGain],
+    ["Net Worth", usd(snapshot.netWorth)],
+    ["Total Assets", usd(snapshot.totalAssets)],
+    ["Total Cash", usd(snapshot.totalCash)],
+    ["Total Liabilities", usd(snapshot.totalLiabilities)],
+    ["Net Gain", usd(snapshot.netGain)],
     ["Net Gain %", snapshot.netGainPercent],
     [],
     ["Assets by Section"],
     ["Section", "Value"],
-    ...snapshot.assets.map((r) => [r.label, r.value]),
+    ...snapshot.assets.map((r): RawCell[] => [r.label, usd(r.value)]),
     [],
     ["Cash by Section"],
     ["Section", "Value"],
-    ...snapshot.cash.map((r) => [r.label, r.value]),
+    ...snapshot.cash.map((r): RawCell[] => [r.label, usd(r.value)]),
     [],
     ["Liabilities by Section"],
     ["Section", "Value"],
-    ...snapshot.liabilities.map((r) => [r.label, r.value]),
+    ...snapshot.liabilities.map((r): RawCell[] => [r.label, usd(r.value)]),
     [],
     ["Net Worth History"],
     ["Period", "Net Worth", "Total Cost Basis"],
-    ...(data.netWorthHistory ?? []).map((s) => [
+    ...(data.netWorthHistory ?? []).map((s): RawCell[] => [
       s.period,
-      s.netWorth,
-      s.totalCostBasis ?? null,
+      usd(s.netWorth),
+      usd(s.totalCostBasis ?? null),
     ]),
   ]);
 
-  const assetRows: (string | number | null | undefined)[][] = [["Assets"], []];
+  const assetRows: RawCell[][] = [["Assets"], []];
   const assetHeaders = [
     "Symbol",
     "Name",
@@ -102,12 +111,12 @@ export async function exportPortfolioToXlsx(
       assetRows.push([
         asset.symbol,
         asset.name,
-        asset.price,
+        usd(asset.price),
         asset.quantity,
-        asset.costBasis ?? null,
-        avg ?? null,
-        getMarketValue(asset),
-        gain?.dollars ?? null,
+        usd(asset.costBasis ?? null),
+        usd(avg ?? null),
+        usd(getMarketValue(asset)),
+        usd(gain?.dollars ?? null),
         gain != null ? formatPercent(gain.percent) : null,
         asset.network ? formatAssetNetworkLabel(asset.network) : null,
         asset.protocol ?? null,
@@ -123,14 +132,14 @@ export async function exportPortfolioToXlsx(
     ...cashSections.flatMap((section) =>
       data.cashAccounts
         .filter((a) => a.sectionId === section.id)
-        .map((account) => [
+        .map((account): RawCell[] => [
           section.label,
           account.name,
-          account.balance,
+          usd(account.balance),
           account.protocol ?? null,
           account.address ?? null,
-          account.originalAmount ?? null,
-          account.interest ?? null,
+          usd(account.originalAmount ?? null),
+          usd(account.interest ?? null),
         ])
     ),
   ]);
@@ -151,26 +160,26 @@ export async function exportPortfolioToXlsx(
     ...liabilitySections.flatMap((section) =>
       data.liabilities
         .filter((l) => l.sectionId === section.id)
-        .map((l) => [
+        .map((l): RawCell[] => [
           section.label,
           l.name,
-          l.balance,
+          usd(l.balance),
           l.address ?? null,
-          l.collateral ?? null,
+          usd(l.collateral ?? null),
           l.lltv ?? null,
           l.ltv ?? null,
-          l.liquidationPrice ?? null,
+          usd(l.liquidationPrice ?? null),
         ])
     ),
   ]);
 
-  const planRows: (string | number | null | undefined)[][] = [
+  const planRows: RawCell[][] = [
     ["Plan"],
     ["Generated", new Date().toISOString()],
     [],
     ["Income"],
     ["Description", data.incomePlan?.description ?? ""],
-    ["Monthly Income", data.monthlyIncome ?? null],
+    ["Monthly Income", usd(data.monthlyIncome ?? null)],
     [],
     ["Allocation Guide"],
     ["Label", "Parent", "% of Parent", "Order", "Notes", "Track Page", "Track Section"],
@@ -211,8 +220,8 @@ export async function exportPortfolioToXlsx(
       planRows.push([
         section.label,
         item.title,
-        item.targetAmount ?? null,
-        item.currentAmount ?? null,
+        usd(item.targetAmount ?? null),
+        usd(item.currentAmount ?? null),
         item.targetDate ?? null,
         item.status,
         item.notes ?? null,
@@ -228,8 +237,8 @@ export async function exportPortfolioToXlsx(
       planRows.push([
         section.label,
         item.name,
-        item.budget,
-        item.spent,
+        usd(item.budget),
+        usd(item.spent),
         item.frequency,
         item.notes ?? null,
       ]);

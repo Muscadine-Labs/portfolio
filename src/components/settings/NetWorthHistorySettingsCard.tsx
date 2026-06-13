@@ -77,6 +77,9 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
     const snapshot = normalizeNetWorthSnapshot({
       period: key,
       netWorth: liveSnapshot.netWorth,
+      totalAssets: liveSnapshot.totalAssets,
+      totalCash: liveSnapshot.totalCash,
+      totalLiabilities: liveSnapshot.totalLiabilities,
       totalCostBasis: liveSnapshot.totalCostBasis,
     });
 

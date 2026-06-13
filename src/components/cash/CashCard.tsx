@@ -36,9 +36,9 @@ import {
 } from "@/lib/section-columns";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { computeTotalCash } from "@/lib/mock-data";
-import { sumCashSectionTotals } from "@/lib/section-totals";
+import { sumCashPageTotals, sumCashSectionTotals } from "@/lib/section-totals";
 import { sortCashInSection } from "@/lib/position-sort";
-import { formatCurrency, formatMoneyColumn } from "@/lib/utils";
+import { formatCurrency, formatMoneyColumn, formatPercent } from "@/lib/utils";
 import { formatSectionTotal, portfolioPanel } from "@/lib/portfolio-panel";
 import {
   buildPageSectionLayout,
@@ -186,6 +186,7 @@ export function CashPageContent() {
   }, [cashAccounts, visibleSections, search]);
 
   const total = computeTotalCash(cashAccounts);
+  const pageTotals = useMemo(() => sumCashPageTotals(cashAccounts), [cashAccounts]);
   const showEmptySections = search.trim() === "" && sectionFilter === "all";
 
   const sectionNavItems: PortfolioSectionNavItem[] = useMemo(() => {
@@ -399,6 +400,19 @@ export function CashPageContent() {
         countLabel="accounts"
         count={cashAccounts.length}
         resultCount={resultCount}
+        stats={[
+          { label: "Cost basis", value: formatCurrency(pageTotals.costBasis) },
+          {
+            label: "Interest / gain",
+            value: `${pageTotals.gainDollars >= 0 ? "+" : ""}${formatCurrency(pageTotals.gainDollars)} (${formatPercent(pageTotals.gainPercent)})`,
+            tone:
+              pageTotals.gainDollars > 0
+                ? "positive"
+                : pageTotals.gainDollars < 0
+                  ? "negative"
+                  : "neutral",
+          },
+        ]}
         sectionItems={sectionNavItems}
         activeSectionId={sectionFilter}
         onSectionSelect={handleSectionNavSelect}

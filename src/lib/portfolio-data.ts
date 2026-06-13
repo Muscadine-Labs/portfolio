@@ -965,6 +965,26 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
                 typeof chart?.costBasisLineColor === "string"
                   ? chart.costBasisLineColor
                   : undefined,
+              showAssetsLine:
+                typeof chart?.showAssetsLine === "boolean"
+                  ? chart.showAssetsLine
+                  : undefined,
+              showCashLine:
+                typeof chart?.showCashLine === "boolean" ? chart.showCashLine : undefined,
+              showLiabilitiesLine:
+                typeof chart?.showLiabilitiesLine === "boolean"
+                  ? chart.showLiabilitiesLine
+                  : undefined,
+              assetsLineColor:
+                typeof chart?.assetsLineColor === "string"
+                  ? chart.assetsLineColor
+                  : undefined,
+              cashLineColor:
+                typeof chart?.cashLineColor === "string" ? chart.cashLineColor : undefined,
+              liabilitiesLineColor:
+                typeof chart?.liabilitiesLineColor === "string"
+                  ? chart.liabilitiesLineColor
+                  : undefined,
             }),
             sidebarCompact:
               typeof body.uiPreferences.sidebarCompact === "boolean"
