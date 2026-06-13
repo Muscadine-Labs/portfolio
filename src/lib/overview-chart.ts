@@ -1,14 +1,5 @@
 import type { NetWorthSnapshot, OverviewChartPreferences } from "@/types";
 
-export const OVERVIEW_LINE_TYPES = [
-  { value: "monotone", label: "Smooth (monotone)" },
-  { value: "linear", label: "Linear" },
-  { value: "natural", label: "Natural" },
-  { value: "step", label: "Step" },
-  { value: "stepBefore", label: "Step before" },
-  { value: "stepAfter", label: "Step after" },
-] as const;
-
 export const DEFAULT_OVERVIEW_CHART: OverviewChartPreferences = {
   showBar: true,
   showLine: false,
@@ -146,16 +137,6 @@ export function netWorthChartScale(
 
   return { domain: [yMin, yMax], ticks };
 }
-
-/** @deprecated Use netWorthChartScale — kept for callers that only need domain. */
-export function netWorthChartYDomain(
-  data: NetWorthSnapshot[],
-  paddingRatio = 0.08
-): [number, number] {
-  void paddingRatio;
-  return netWorthChartScale(data).domain;
-}
-
 export function hasNetWorthCostBasisSeries(data: NetWorthSnapshot[]): boolean {
   return data.some(
     (row) => row.totalCostBasis != null && Number.isFinite(row.totalCostBasis) && row.totalCostBasis > 0

@@ -1,6 +1,6 @@
 # Agent instructions
 
-**Version 1.1.6**
+**Version 1.1.7**
 
 Read first: `CLAUDE.md` (full guide), `README.md`, `SECURITY.md`.
 

@@ -1,6 +1,8 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.6** — Proxy fix (strip content-encoding; fixes admin login + price refresh), CoinGecko crypto quotes, price fetch on asset add, goals linking on add + liability paydown progress, cash balance↔interest sync, page-toolbar cost basis/gain stats, net-worth chart category lines, thousand separators everywhere, mobile assets sectioned layout.
+**Release v1.1.7** — Dead-code cleanup: removed unused `netWorthChartYDomain`, `periodMatchesMonthKey`, `formatMonthPeriodLabel`, `OVERVIEW_LINE_TYPES`.
+
+Previous (v1.1.6) — Proxy fix (strip content-encoding; fixes admin login + price refresh), CoinGecko crypto quotes, price fetch on asset add, goals linking on add + liability paydown progress, cash balance↔interest sync, page-toolbar cost basis/gain stats, net-worth chart category lines, thousand separators everywhere, mobile assets sectioned layout.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 

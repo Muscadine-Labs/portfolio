@@ -182,11 +182,6 @@ export function periodMatchesCaptureKey(
   return sortKey != null && target != null && sortKey === target;
 }
 
-/** @deprecated Use periodMatchesCaptureKey */
-export function periodMatchesMonthKey(period: string, monthKey: string): boolean {
-  return periodMatchesCaptureKey(period, monthKey);
-}
-
 export function formatPeriodDisplayLabel(period: string): string {
   const key = parsePeriodSortKey(period);
   if (key == null) return period;
@@ -195,9 +190,4 @@ export function formatPeriodDisplayLabel(period: string): string {
   const month = key % 100;
   const mm = String(month).padStart(2, "0");
   return `${mm}-${year}`;
-}
-
-/** @deprecated Use formatPeriodDisplayLabel */
-export function formatMonthPeriodLabel(date = new Date()): string {
-  return monthPeriodKey(date);
 }
