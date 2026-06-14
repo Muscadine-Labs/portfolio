@@ -1,13 +1,13 @@
 {
   "name": "portfolio",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "private": true,
   "license": "MIT",
   "scripts": {
     "clean": "rm -rf .next",
     "dev": "next dev -p 3000",
     "dev:webpack": "next dev -p 3000 --webpack",
-    "build": "next build",
+    "build": "next build --experimental-build-mode compile",
     "start": "next start",
     "lint": "eslint",
     "test:smoke": "node scripts/smoke-test.mjs",

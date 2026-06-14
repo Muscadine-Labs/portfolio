@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { apiErrorMessage } from "@/lib/format-error";
+import { apiErrorMessage, readJsonResponse } from "@/lib/format-error";
 import { formatMoneyColumn } from "@/lib/utils";
 import {
   filterWalletSyncSections,
@@ -224,10 +224,11 @@ export function WalletMorphoMappingPanel({
     try {
       const res = await fetch("/api/wallets/morpho-preview", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresses: addressEntries }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string; positions?: MorphoPreviewItem[] }>(res);
       if (!res.ok) {
         toast.error("Morpho scan failed", {
           description: apiErrorMessage(data.error, "Unknown error"),

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { WalletMapDrawer } from "@/components/plan/WalletMapDrawer";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { formatWalletAddress } from "@/lib/asset-sections";
-import { apiErrorMessage } from "@/lib/format-error";
+import { apiErrorMessage, readJsonResponse } from "@/lib/format-error";
 import { validatePortfolioPayload } from "@/lib/portfolio-data";
 import { getWalletAddressEntries } from "@/lib/wallet-entries";
 import { getWalletChildren, isOnChainWallet } from "@/lib/wallet-map";
@@ -187,8 +187,8 @@ export function WalletMapGuide() {
   const [syncingAll, setSyncingAll] = useState(false);
 
   const reloadPortfolio = async () => {
-    const res = await fetch("/api/export");
-    const body = await res.json();
+    const res = await fetch("/api/export", { credentials: "include" });
+    const body = await readJsonResponse<{ error?: string }>(res);
     if (!res.ok) {
       throw new Error(apiErrorMessage(body.error, "Could not reload portfolio"));
     }
@@ -204,10 +204,11 @@ export function WalletMapGuide() {
     try {
       const res = await fetch("/api/wallets/sync", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletId: node.id }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);
       if (!res.ok) {
         toast.error("Morpho sync failed", {
           description: apiErrorMessage(data.error, "Unknown error"),
@@ -243,8 +244,11 @@ export function WalletMapGuide() {
     }
     setSyncingAll(true);
     try {
-      const res = await fetch("/api/wallets/sync", { method: "PUT" });
-      const data = await res.json();
+      const res = await fetch("/api/wallets/sync", {
+        method: "PUT",
+        credentials: "include",
+      });
+      const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);
       if (!res.ok) {
         toast.error("Morpho sync failed", {
           description: apiErrorMessage(data.error, "Unknown error"),

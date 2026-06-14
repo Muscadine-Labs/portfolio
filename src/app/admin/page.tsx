@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiErrorMessage } from "@/lib/format-error";
+import { PortfolioVersionsCard } from "@/components/settings/PortfolioVersionsCard";
 
 type AdminAccount = {
   username: string;
@@ -347,6 +348,8 @@ export default function AdminPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <PortfolioVersionsCard />
 
         <Card className="border-border/60 bg-card/80 shadow-sm lg:col-span-2">
           <CardHeader>

@@ -26,6 +26,22 @@ export function formatAppError(error: unknown): string {
   return "An unexpected error occurred.";
 }
 
+/** Parse a fetch Response as JSON; surfaces HTML/error pages as readable errors. */
+export async function readJsonResponse<T = unknown>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`Empty response from server (${res.status})`);
+  }
+  if (text.trimStart().startsWith("<")) {
+    throw new Error(`Server returned HTML instead of JSON (${res.status})`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Invalid JSON from server (${res.status})`);
+  }
+}
+
 /** API / toast helper — never surfaces `[object Object]`. */
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (error === undefined || error === null) return fallback;
