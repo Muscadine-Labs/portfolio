@@ -24,12 +24,13 @@ export type MarketQuotesResponse = {
   skipped?: string[];
   notFound?: string[];
   apiCalls?: number;
+  coingeckoSymbols?: number;
   finnhubCalls?: number;
   yfinanceSymbols?: number;
   cacheHits?: number;
   lastRefreshAt?: string | null;
-  sourcesByAsset?: Record<string, "finnhub" | "yfinance" | "fixed">;
-  providers?: { finnhub?: boolean; yfinance?: boolean };
+  sourcesByAsset?: Record<string, "coingecko" | "finnhub" | "yfinance" | "fixed">;
+  providers?: { coingecko?: boolean; finnhub?: boolean; yfinance?: boolean };
   uniqueSymbols?: string[];
   message?: string;
   error?: string;

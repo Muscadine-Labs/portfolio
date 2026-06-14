@@ -89,6 +89,7 @@ export function AssetDrawer({
     (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
     Boolean(asset?.network || asset?.protocol);
   const metalsSection = selectedSection != null && isMetalsSection(selectedSection);
+  const cryptoSection = selectedSection != null && isCryptoAssetSection(selectedSection);
 
   useDrawerFormReset(
     open,
@@ -202,7 +203,9 @@ export function AssetDrawer({
               <p className="text-xs text-muted-foreground">
                 {metalsSection
                   ? "Metals refresh to USD per troy oz (Yahoo futures on the home server)."
-                  : "API uses Finnhub with yfinance fallback on the home server."}
+                  : cryptoSection
+                    ? "Crypto uses CoinGecko on the home server (Finnhub and Yahoo as backups)."
+                    : "Stocks and ETFs use Finnhub on the home server with Yahoo as backup."}
               </p>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm">

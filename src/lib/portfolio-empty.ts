@@ -13,6 +13,33 @@ import type { Asset, CashAccount, Liability, PlanningItem, SpendingItem } from "
 
 /** Empty defaults when API is unreachable (should not happen in normal dev). */
 export const EMPTY_SECTIONS: PortfolioSection[] = [];
+
+/** Default Plan page sections so goals/budget items can be saved on first use. */
+export const DEFAULT_PLAN_SECTIONS: PortfolioSection[] = [
+  { id: "sec-goals", page: "planning", label: "Goals", order: 0 },
+  { id: "sec-budget", page: "spending", label: "Monthly Budget", order: 0 },
+];
+
+/** Ensure every portfolio has at least one planning and spending section. */
+export function ensureDefaultPlanSections(sections: PortfolioSection[]): PortfolioSection[] {
+  const hasPlanning = sections.some((s) => s.page === "planning");
+  const hasSpending = sections.some((s) => s.page === "spending");
+  if (hasPlanning && hasSpending) return sections;
+  const next = [...sections];
+  if (!hasPlanning) {
+    next.push({
+      ...DEFAULT_PLAN_SECTIONS[0],
+      order: next.filter((s) => s.page === "planning").length,
+    });
+  }
+  if (!hasSpending) {
+    next.push({
+      ...DEFAULT_PLAN_SECTIONS[1],
+      order: next.filter((s) => s.page === "spending").length,
+    });
+  }
+  return next;
+}
 export const EMPTY_SECTION_GROUPS: SectionGroup[] = [];
 export const EMPTY_ASSETS: Asset[] = [];
 export const EMPTY_CASH_ACCOUNTS: CashAccount[] = [];

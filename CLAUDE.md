@@ -1,6 +1,8 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.7** — Dead-code cleanup: removed unused `netWorthChartYDomain`, `periodMatchesMonthKey`, `formatMonthPeriodLabel`, `OVERVIEW_LINE_TYPES`.
+**Release v1.1.8** — Plan save fix (default Goals/Budget sections, immediate save on section/income edits), demo refresh (ETH, linked liability goal, totalCash snapshots), CoinGecko messaging on crypto assets + price refresh.
+
+Previous (v1.1.7) — Dead-code cleanup: removed unused `netWorthChartYDomain`, `periodMatchesMonthKey`, `formatMonthPeriodLabel`, `OVERVIEW_LINE_TYPES`.
 
 Previous (v1.1.6) — Proxy fix (strip content-encoding; fixes admin login + price refresh), CoinGecko crypto quotes, price fetch on asset add, goals linking on add + liability paydown progress, cash balance↔interest sync, page-toolbar cost basis/gain stats, net-worth chart category lines, thousand separators everywhere, mobile assets sectioned layout.
 

@@ -76,6 +76,9 @@ export function PriceRefreshSettingsCard() {
       if (typeof data.cacheHits === "number" && data.cacheHits > 0) {
         parts.push(`${data.cacheHits} from shared cache`);
       }
+      if (typeof data.coingeckoSymbols === "number" && data.coingeckoSymbols > 0) {
+        parts.push(`${data.coingeckoSymbols} CoinGecko`);
+      }
       if (typeof data.finnhubCalls === "number" && data.finnhubCalls > 0) {
         parts.push(`${data.finnhubCalls} Finnhub`);
       }
@@ -98,8 +101,9 @@ export function PriceRefreshSettingsCard() {
       <CardHeader>
         <CardTitle>Market prices</CardTitle>
         <CardDescription>
-          Refresh stock, ETF, metal, and crypto prices from the home API. Scheduled refresh runs
-          daily at 4:00 AM with shared caching across accounts.
+          Refresh stock, ETF, metal, and crypto prices from the home API. Crypto uses CoinGecko
+          first; stocks and metals use Finnhub with Yahoo as backup. Scheduled refresh runs daily
+          at 4:00 AM with shared caching across accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -109,8 +113,8 @@ export function PriceRefreshSettingsCard() {
             <span className="font-medium">{formatRefreshTime(lastRefreshAt)}</span>
           </p>
           <p className="text-muted-foreground">
-            {eligibleCount} eligible holding{eligibleCount === 1 ? "" : "s"} · cbBTC/CBTC/CBBTC → BTC,
-            WETH → ETH · USDC/USDT/DAI → $1
+            {eligibleCount} eligible holding{eligibleCount === 1 ? "" : "s"} · crypto → CoinGecko
+            (Finnhub/Yahoo backup) · cbBTC/CBTC/CBBTC → BTC, WETH → ETH · USDC/USDT/DAI → $1
           </p>
           {!lastRefreshAt && !isDemo ? (
             <button

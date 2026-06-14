@@ -12,16 +12,16 @@ import {
   EMPTY_LIABILITIES,
   EMPTY_NET_WORTH_HISTORY,
   EMPTY_PLANNING_ITEMS,
-  EMPTY_SECTIONS,
   EMPTY_SECTION_GROUPS,
   EMPTY_SPENDING_ITEMS,
   EMPTY_UI_PREFERENCES,
   EMPTY_WALLET_MAP_NODES,
+  DEFAULT_PLAN_SECTIONS,
 } from "@/lib/portfolio-empty";
 
 export function createEmptyPortfolioData(): PortfolioDataPayload {
   return {
-    sections: structuredClone(EMPTY_SECTIONS),
+    sections: structuredClone(DEFAULT_PLAN_SECTIONS),
     sectionGroups: structuredClone(EMPTY_SECTION_GROUPS),
     assets: structuredClone(EMPTY_ASSETS),
     cashAccounts: structuredClone(EMPTY_CASH_ACCOUNTS),

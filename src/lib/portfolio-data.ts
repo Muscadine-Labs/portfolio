@@ -23,6 +23,7 @@ import {
   EMPTY_SPENDING_ITEMS,
   EMPTY_UI_PREFERENCES,
   EMPTY_WALLET_MAP_NODES,
+  ensureDefaultPlanSections,
 } from "@/lib/portfolio-empty";
 import type {
   AllocationNode,
@@ -303,7 +304,7 @@ export function normalizePortfolioEntityIds(
 
   return {
     ...payload,
-    sections: dedupeEntityIds(migrated.sections, "section"),
+    sections: dedupeEntityIds(ensureDefaultPlanSections(migrated.sections), "section"),
     sectionGroups: dedupeEntityIds(migrated.sectionGroups, "group"),
     assets: dedupeEntityIds(payload.assets ?? [], "asset"),
     cashAccounts: dedupeEntityIds(payload.cashAccounts ?? [], "cash"),

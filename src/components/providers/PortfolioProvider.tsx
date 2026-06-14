@@ -490,7 +490,8 @@ export function PortfolioProvider({
 
   const setIncomePlanDescription = useCallback((description: string) => {
     setIncomePlan((prev) => ({ ...prev, description }));
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const setMonthlyIncomeWithSave = useCallback(
     (value: number | undefined) => {
@@ -520,7 +521,8 @@ export function PortfolioProvider({
       }
       return [...prev, group];
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const addSectionGroup = useCallback(
     (page: SectionGroupPage, name: string) => {
@@ -570,8 +572,9 @@ export function PortfolioProvider({
         }
       }
       setSectionGroups((prev) => prev.filter((g) => g.id !== groupId));
+      savePortfolioNow();
     },
-    [sectionGroups, sections]
+    [sectionGroups, sections, savePortfolioNow]
   );
 
   const upsertSection = useCallback((section: PortfolioSection) => {
@@ -584,7 +587,8 @@ export function PortfolioProvider({
       }
       return [...prev, section];
     });
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const deleteSection = useCallback((sectionId: string, page: PageType) => {
     setSections((prev) => prev.filter((s) => !(s.id === sectionId && s.page === page)));
@@ -605,7 +609,8 @@ export function PortfolioProvider({
         setSpendingItems((prev) => prev.filter((i) => i.sectionId !== sectionId));
         break;
     }
-  }, []);
+    savePortfolioNow();
+  }, [savePortfolioNow]);
 
   const addSection = useCallback(
     (page: PageType, label: string, metadata?: PortfolioSection["metadata"]) => {
