@@ -12,6 +12,7 @@ import { formatWalletAddress } from "@/lib/asset-sections";
 import { apiErrorMessage, readJsonResponse } from "@/lib/format-error";
 import { validatePortfolioPayload } from "@/lib/portfolio-data";
 import { getWalletAddressEntries } from "@/lib/wallet-entries";
+import { walletNetworkLabel } from "@/lib/wallet-address";
 import { getWalletChildren, isOnChainWallet } from "@/lib/wallet-map";
 import { cn } from "@/lib/utils";
 import type { WalletMapNode } from "@/types";
@@ -44,7 +45,9 @@ function WalletRow({
 }) {
   const children = getWalletChildren(nodes, node.id);
   const isPlanned = node.status === "planned";
+  const entries = getWalletAddressEntries(node);
   const evmAddress = evmAddressForWallet(node);
+  const chainLabels = [...new Set(entries.flatMap((entry) => entry.networks))].map(walletNetworkLabel);
   const mappedCount =
     node.morphoMappings?.filter((m) => m.enabled && m.sectionId).length ?? 0;
   const canSync =
@@ -92,7 +95,29 @@ function WalletRow({
                 </Badge>
               ) : null}
             </div>
-            {isOnChainWallet(node) && evmAddress ? (
+            {chainLabels.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {chainLabels.map((label) => (
+                  <Badge key={`${node.id}-${label}`} variant="outline" className="text-[10px]">
+                    {label}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            {entries.length > 0 ? (
+              <div className="mt-1 space-y-0.5">
+                {entries.map((entry) => (
+                  <p
+                    key={entry.id}
+                    className="font-mono text-xs text-muted-foreground"
+                    title={entry.address}
+                  >
+                    {entry.label ? `${entry.label}: ` : ""}
+                    {formatWalletAddress(entry.address)}
+                  </p>
+                ))}
+              </div>
+            ) : isOnChainWallet(node) && evmAddress ? (
               <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                 {formatWalletAddress(evmAddress)}
               </p>
@@ -166,8 +191,14 @@ function WalletRow({
 }
 
 export function WalletMapGuide() {
-  const { walletMapNodes, upsertWalletMapNode, deleteWalletMapNode, replacePortfolioData } =
-    usePortfolio();
+  const {
+    walletMapNodes,
+    upsertWalletMapNode,
+    deleteWalletMapNode,
+    replacePortfolioData,
+    uiPreferences,
+    savePortfolio,
+  } = usePortfolio();
   const roots = useMemo(() => getWalletChildren(walletMapNodes, null), [walletMapNodes]);
   const syncableCount = useMemo(
     () =>
@@ -202,11 +233,15 @@ export function WalletMapGuide() {
   const syncWallet = async (node: WalletMapNode) => {
     setSyncingId(node.id);
     try {
+      await savePortfolio();
       const res = await fetch("/api/wallets/sync", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletId: node.id }),
+        body: JSON.stringify({
+          walletId: node.id,
+          morphoDisplayMode: uiPreferences.morphoVaultDisplayMode ?? "share_price",
+        }),
       });
       const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);
       if (!res.ok) {
@@ -244,9 +279,14 @@ export function WalletMapGuide() {
     }
     setSyncingAll(true);
     try {
+      await savePortfolio();
       const res = await fetch("/api/wallets/sync", {
         method: "PUT",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          morphoDisplayMode: uiPreferences.morphoVaultDisplayMode ?? "share_price",
+        }),
       });
       const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);
       if (!res.ok) {
@@ -257,7 +297,16 @@ export function WalletMapGuide() {
       }
       await reloadPortfolio();
       toast.success("Wallets synced", {
-        description: `${data.walletsSynced ?? 0} wallet(s) · ${data.vaultsAdded ?? 0} asset row(s).`,
+        description: [
+          `${data.walletsSynced ?? 0} wallet(s)`,
+          data.vaultsAdded ? `${data.vaultsAdded} asset row(s) added` : null,
+          data.vaultsUpdated ? `${data.vaultsUpdated} asset row(s) updated` : null,
+          data.liabilitiesAdded ? `${data.liabilitiesAdded} liability row(s) added` : null,
+          data.liabilitiesUpdated ? `${data.liabilitiesUpdated} liability row(s) updated` : null,
+          data.cashAdded ? `${data.cashAdded} cash row(s) added` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Portfolio rows updated from wallets.",
       });
     } catch (err) {
       toast.error("Morpho sync failed", {
@@ -294,7 +343,8 @@ export function WalletMapGuide() {
             <div>
               <CardTitle className="text-base">Wallets</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Organize wallets in a tree and sync Morpho positions on Ethereum and Base.
+                Organize wallets in a tree. Add addresses per chain, sync Morpho on Ethereum/Base,
+                and Bitcoin balances where configured.
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:flex-row">

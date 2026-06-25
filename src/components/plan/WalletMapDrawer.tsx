@@ -20,14 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { WalletMorphoMappingPanel } from "@/components/plan/WalletMorphoMappingPanel";
+import {
+  WalletAddressEntriesEditor,
+  initialWalletAddressEntries,
+} from "@/components/plan/WalletAddressEntriesEditor";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
-import {
-  emptyWalletAddressEntry,
-  validateWalletAddressEntries,
-  walletLegacyFieldsFromEntries,
-} from "@/lib/wallet-entries";
+import { validateWalletAddressEntries, walletLegacyFieldsFromEntries } from "@/lib/wallet-entries";
 import { isWalletSyncSection } from "@/lib/wallet-sync-sections";
 import { normalizeMorphoMappings } from "@/lib/morpho-mapping-utils";
 import type { MorphoPositionMapping, WalletAddressEntry, WalletMapNode } from "@/types";
@@ -56,22 +56,12 @@ interface WalletMapDrawerProps {
   onSave: (node: WalletMapNode) => void;
 }
 
-function initialEvmAddress(node?: WalletMapNode | null): string {
-  if (node?.addresses?.length) {
-    const evm = node.addresses.find((entry) =>
-      entry.networks.some((n) => n === "ethereum" || n === "base")
-    );
-    return (evm ?? node.addresses[0]).address;
-  }
-  return node?.address ?? node?.identifier ?? "";
-}
-
-function addressEntryFromInput(address: string): ReturnType<typeof emptyWalletAddressEntry> {
-  return {
-    ...emptyWalletAddressEntry(["ethereum", "base"]),
-    address: address.trim(),
-    networks: ["ethereum", "base"],
-  };
+function hasMorphoCapableAddress(entries: WalletAddressEntry[]): boolean {
+  return entries.some(
+    (entry) =>
+      /^0x[a-fA-F0-9]{40}$/.test(entry.address.trim()) &&
+      entry.networks.some((network) => network === "ethereum" || network === "base")
+  );
 }
 
 export function WalletMapDrawer({
@@ -88,7 +78,9 @@ export function WalletMapDrawer({
   const liabilitySections = getSections("liabilities");
   const cashSections = getSections("cash");
 
-  const [evmAddress, setEvmAddress] = useState("");
+  const [addressEntries, setAddressEntries] = useState<WalletAddressEntry[]>([
+    ...initialWalletAddressEntries(null),
+  ]);
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [morphoMappings, setMorphoMappings] = useState<MorphoPositionMapping[]>([]);
 
@@ -103,18 +95,18 @@ export function WalletMapDrawer({
 
   const status = useWatch({ control, name: "status" });
 
-  const addressEntries = useMemo(
-    () => (evmAddress.trim() ? [addressEntryFromInput(evmAddress)] : []),
-    [evmAddress]
+  const preparedEntries = useMemo(
+    () => addressEntries.filter((entry) => entry.address.trim().length > 0),
+    [addressEntries]
   );
 
-  const canSync = status === "active" && /^0x[a-fA-F0-9]{40}$/.test(evmAddress.trim());
+  const canSync = status === "active" && hasMorphoCapableAddress(preparedEntries);
 
   useDrawerFormReset(
     open,
     reset,
     () => {
-      setEvmAddress(initialEvmAddress(node));
+      setAddressEntries(initialWalletAddressEntries(node));
       setSyncEnabled(node?.syncEnabled ?? false);
       setMorphoMappings(
         normalizeMorphoMappings(
@@ -148,17 +140,12 @@ export function WalletMapDrawer({
   );
 
   const onSubmit = (values: FormValues) => {
-    const trimmed = evmAddress.trim();
-    let entries: WalletAddressEntry[] = [];
-
-    if (trimmed) {
-      const validation = validateWalletAddressEntries([addressEntryFromInput(trimmed)]);
-      if (!validation.ok) {
-        toast.error(validation.message);
-        return;
-      }
-      entries = validation.entries;
+    const validation = validateWalletAddressEntries(preparedEntries);
+    if (!validation.ok) {
+      toast.error(validation.message);
+      return;
     }
+    const entries = validation.entries;
 
     const legacy = walletLegacyFieldsFromEntries(entries);
     const normalizedMappings = normalizeMorphoMappings(
@@ -169,8 +156,8 @@ export function WalletMapDrawer({
     );
 
     if (syncEnabled) {
-      if (!trimmed) {
-        toast.error("Add an Ethereum address before enabling sync.");
+      if (!hasMorphoCapableAddress(entries)) {
+        toast.error("Add an Ethereum/Base address with those chains selected before enabling sync.");
         return;
       }
       const activeMappings = normalizedMappings.filter((m) => m.enabled && m.sectionId);
@@ -198,6 +185,7 @@ export function WalletMapDrawer({
     }
 
     onSave({
+      ...(node ?? {}),
       id: node?.id ?? createEntityId("wm"),
       parentId: node?.parentId ?? parentId,
       label: values.label.trim(),
@@ -209,7 +197,9 @@ export function WalletMapDrawer({
       syncEnabled: syncEnabled || undefined,
       status: values.status,
       notes: values.notes?.trim() || undefined,
-      owner: undefined,
+      links: node?.links,
+      walletType: node?.walletType,
+      owner: node?.owner,
     });
     onOpenChange(false);
   };
@@ -222,8 +212,8 @@ export function WalletMapDrawer({
             {node ? "Edit wallet" : parentLabel ? `Add under ${parentLabel}` : "Add root wallet"}
           </DrawerTitle>
           <DrawerDescription>
-            Name the wallet, add an Ethereum/Base address, scan Morpho positions, and choose where
-            each syncs in your portfolio.
+            Name the wallet, add addresses per chain, scan Morpho on Ethereum/Base, and choose where
+            each position syncs in your portfolio.
           </DrawerDescription>
         </DrawerHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
@@ -260,25 +250,12 @@ export function WalletMapDrawer({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="wallet-evm-address">Ethereum / Base address</Label>
-              <Input
-                id="wallet-evm-address"
-                value={evmAddress}
-                onChange={(event) => setEvmAddress(event.target.value)}
-                placeholder="0x…"
-                className="font-mono text-sm"
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                Morpho positions are scanned on Ethereum and Base for this address.
-              </p>
-            </div>
+            <WalletAddressEntriesEditor entries={addressEntries} onChange={setAddressEntries} />
 
             {canSync ? (
               <div className="space-y-3">
                 <WalletMorphoMappingPanel
-                  addressEntries={addressEntries}
+                  addressEntries={preparedEntries}
                   assetSections={assetSections}
                   liabilitySections={liabilitySections}
                   cashSections={cashSections}
@@ -290,9 +267,9 @@ export function WalletMapDrawer({
                 />
                 <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
                   <div>
-                    <span className="text-sm font-medium">Enable Morpho sync</span>
+                    <span className="text-sm font-medium">Enable wallet sync</span>
                     <p className="text-xs text-muted-foreground">
-                      Mapped positions update on sync from the wallet list.
+                      Mapped Morpho positions and Bitcoin balances update on sync.
                     </p>
                   </div>
                   <input

@@ -238,23 +238,28 @@ export function WalletMorphoMappingPanel({
       const found = (data.positions ?? []) as MorphoPreviewItem[];
       setPositions(found);
 
-      const next: MorphoPositionMapping[] = found.map((item) => {
-        const prev = mappingByKey.get(item.key);
-        const target = prev?.target ?? defaultTarget(item.kind);
-        return {
-          key: item.key,
-          enabled: prev?.enabled ?? true,
-          target,
-          sectionId: resolveSectionId(
+      const scannedKeys = new Set(found.map((item) => item.key));
+      const kept = (mappings ?? []).filter((mapping) => !scannedKeys.has(mapping.key));
+      const next: MorphoPositionMapping[] = [
+        ...kept,
+        ...found.map((item) => {
+          const prev = mappingByKey.get(item.key);
+          const target = prev?.target ?? defaultTarget(item.kind);
+          return {
+            key: item.key,
+            enabled: prev?.enabled ?? true,
             target,
-            prev?.sectionId ??
-              defaultSectionId(target, assetSections, liabilitySections, cashSections)
-          ),
-          rowId: prev?.rowId,
-          label: item.label,
-          kind: item.kind,
-        };
-      });
+            sectionId: resolveSectionId(
+              target,
+              prev?.sectionId ??
+                defaultSectionId(target, assetSections, liabilitySections, cashSections)
+            ),
+            rowId: prev?.rowId,
+            label: item.label,
+            kind: item.kind,
+          };
+        }),
+      ];
       onChange(next);
 
       toast.success(`Found ${found.length} Morpho position(s)`);

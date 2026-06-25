@@ -24,5 +24,5 @@ Server env: `API_URL`, `API_SECRET` (must match mini PC exactly), `NEXT_PUBLIC_A
 
 ## Docs
 
-- `CLAUDE.md` / `AGENTS.md` — agent guide (includes version bump rules after push)
+- `CLAUDE.md` / `AGENTS.md` — agent guide for AI assistants
 - `SECURITY.md` — privacy and trust boundaries

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { validatePortfolioPayload } from "@/lib/portfolio-data";
 import { isDemoSessionFromCookies } from "@/lib/demo";
+import { getDemoPortfolioData } from "@/lib/demo-data";
 import { proxyToHomeApi } from "@/lib/home-api";
 
 /** GET — portfolio JSON from home API. */
 export async function GET(request: Request) {
   if (await isDemoSessionFromCookies()) {
-    return NextResponse.json({ ok: true, demo: true });
+    return NextResponse.json(getDemoPortfolioData());
   }
 
   const proxied = await proxyToHomeApi(request, "/api/export");

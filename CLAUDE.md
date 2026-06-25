@@ -1,28 +1,12 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.1.8** — Plan save fix (default Goals/Budget sections, immediate save on section/income edits), demo refresh (ETH, linked liability goal, totalCash snapshots), CoinGecko messaging on crypto assets + price refresh.
+**Release v1.2.0** — Multi-chain wallet editor (`WalletAddressEntriesEditor`: multiple addresses + per-chain checkboxes); wallet sync hardening (preserve `links`/`walletType` on save, merge Morpho mappings on rescan, flush save before sync, pass `morphoDisplayMode`); `PortfolioApiError` when home API unreachable (no silent empty portfolio); proxy returns JSON 401 for unauthenticated API calls; import validates before proxy; demo export returns full portfolio; serialized saves in `PortfolioProvider`; admin passwords masked.
 
-Previous (v1.1.7) — Dead-code cleanup: removed unused `netWorthChartYDomain`, `periodMatchesMonthKey`, `formatMonthPeriodLabel`, `OVERVIEW_LINE_TYPES`.
+Previous (v1.1.9) — Morpho sync client errors, API status on admin page.
 
-Previous (v1.1.6) — Proxy fix (strip content-encoding; fixes admin login + price refresh), CoinGecko crypto quotes, price fetch on asset add, goals linking on add + liability paydown progress, cash balance↔interest sync, page-toolbar cost basis/gain stats, net-worth chart category lines, thousand separators everywhere, mobile assets sectioned layout.
+Previous (v1.1.8) — Plan save fix, demo refresh, CoinGecko messaging.
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
-
----
-
-## Version bumps (after every GitHub push)
-
-When you **push this repo to GitHub**, bump `package.json` `version` in that push (or the commit immediately before it).
-
-Versions use three single digits **0–9** per segment (`major.minor.patch`). There is no `1.0.10`.
-
-| Step | Rule |
-|------|------|
-| Default | Add **+1** to **patch**: `1.0.4` → `1.0.5` |
-| Patch is 9 | Patch → `0`, minor **+1**: `1.0.9` → `1.1.0`, `2.0.9` → `2.1.0` |
-| Minor and patch both 9 | Minor & patch → `0`, major **+1**: `2.9.9` → `3.0.0` |
-
-Also update the **Release** line at the top of this file (and `AGENTS.md` version if present).
 
 ---
 
@@ -59,10 +43,10 @@ Browser → portfolio.muscadine.io (Vercel)
 
 - **`/login`** → proxied `POST /api/auth/login`
 - Cookies: `portfolio_session`, `portfolio_tenant`, `portfolio_admin`
-- **`src/proxy.ts`** — session gate; admin routes need `portfolio_admin`
-- **`API_SECRET`** on Vercel must **exactly** match home API (including base64 `=`)
+- **`src/proxy.ts`** — session gate; admin routes need `portfolio_admin`; unauthenticated `/api/*` (except auth/health) returns JSON 401, not HTML redirect
+- **Session secret** on Vercel: `API_SECRET` → `PORTFOLIO_AUTH_SECRET` → `PORTFOLIO_PASSWORD` — must match api-portfolio exactly
 
-`proxyToHomeApi()` must buffer upstream JSON bodies (not stream) so login/admin responses work on Vercel.
+`proxyToHomeApi()` must buffer upstream JSON bodies (not stream) so login/admin responses work on Vercel. Strips `content-encoding`/`transfer-encoding` from upstream.
 
 ---
 
@@ -74,6 +58,7 @@ Only **`.env`** (gitignored) and **`.env.example`** (committed).
 |----------|---------|
 | `API_URL` | Home API base |
 | `API_SECRET` | Session HMAC — match api-portfolio |
+| `PORTFOLIO_AUTH_SECRET` | Optional alternate secret (both repos accept it) |
 | `NEXT_PUBLIC_APP_HOST` | Canonical hostname |
 
 Finnhub keys stay on the home API only. Build: `env -u NODE_ENV npm run build` if shell sets `NODE_ENV=development`.
@@ -82,20 +67,21 @@ Finnhub keys stay on the home API only. Build: `env -u NODE_ENV npm run build` i
 
 ## Wallet sync (UI)
 
-Wallet editing lives under **Plan → Wallets** (`WalletMapDrawer.tsx`).
+Wallet editing lives under **Plan → Wallets** (`WalletMapDrawer.tsx` + `WalletAddressEntriesEditor.tsx`).
 
 | Feature | Path |
 |---------|------|
-| Multi-address rows | `src/lib/wallet-entries.ts`, `WalletMapDrawer.tsx` |
+| Multi-address + multi-chain rows | `WalletAddressEntriesEditor.tsx`, `wallet-entries.ts`, `wallet-address.ts` |
 | Morpho scan + map to assets/liabilities/cash | `WalletMorphoMappingPanel.tsx` |
 | Sync settings (Morpho display mode) | `WalletSyncSettingsCard.tsx` |
+| Manual sync | `WalletMapGuide.tsx` → `/api/wallets/sync` |
 | Proxy routes | `src/app/api/wallets/sync`, `morpho-preview` |
 
-**Syncable chains (backend):** Ethereum, Base (Morpho), Bitcoin (electrs). Solana addresses are supported in the UI but not auto-synced.
+**Syncable chains (backend):** Ethereum, Base (Morpho), Bitcoin (electrs). Solana can be tagged in the UI but is not auto-synced.
+
+**Daily auto-sync** runs on the home API at 4:30 AM (`portfolio-wallet-sync.timer`) — not triggered from this repo.
 
 Wallet sync only maps to sections with **Crypto** or **DeFi** metadata (`src/lib/wallet-sync-sections.ts`).
-
-Crypto/DeFi sections: sort rows by **network → protocol → market value**; section edit toggles **show network/protocol column**; Filter picker controls visibility. Assets: optional cost basis, 2-decimal prices, network dropdown (Bitcoin/Base/Ethereum/Solana). Liabilities: Filter exposes Morpho fields (collateral, LLTV, LTV, liq. price) on DeFi sections.
 
 Each wallet can have `addresses[]` with per-row networks, plus optional `morphoMappings[]` to pick which Morpho vaults/debt/collateral rows merge into which portfolio sections.
 
@@ -104,17 +90,17 @@ Each wallet can have `addresses[]` with per-row networks, plus optional `morphoM
 ## Key paths
 
 ```
-src/app/                      Pages + /api route handlers
+src/app/                              Pages + /api route handlers
 src/components/providers/PortfolioProvider.tsx
 src/components/plan/WalletMapDrawer.tsx
+src/components/plan/WalletAddressEntriesEditor.tsx
 src/components/plan/WalletMorphoMappingPanel.tsx
-src/lib/home-api.ts           proxyToHomeApi()
-src/lib/portfolio-data.ts     Validation — keep in sync with api-portfolio
-src/lib/wallet-entries.ts     Multi-address helpers
-src/lib/wallet-address.ts     Address format validation
-src/lib/overview-period.ts    Net worth chart periods (All default)
-src/lib/demo-constants.ts     Client-safe demo tenant check
-src/proxy.ts                  Auth middleware
+src/lib/home-api.ts                   proxyToHomeApi()
+src/lib/portfolio-api.ts              SSR fetch + PortfolioApiError
+src/lib/portfolio-data.ts             Validation — keep in sync with api-portfolio
+src/lib/wallet-entries.ts             Multi-address helpers
+src/lib/wallet-address.ts             Address format + chain validation
+src/proxy.ts                          Auth middleware
 ```
 
 ---
@@ -124,31 +110,20 @@ src/proxy.ts                  Auth middleware
 1. Minimize diff; match existing patterns.
 2. No user data or secrets in git.
 3. Keep `portfolio-data.ts` in sync with api-portfolio.
-4. Bump version after every push (see above).
-5. Read `README.md`, `SECURITY.md`, `AGENTS.md`.
+4. Read `README.md`, `SECURITY.md`, `AGENTS.md`.
 
 ---
 
-## Gotchas learned (v1.1.6)
+## Gotchas learned
 
-- **Proxy must strip `content-encoding`/`transfer-encoding`** from upstream
-  responses and `accept-encoding` from upstream requests (`src/lib/home-api.ts`).
-  Node `fetch` decompresses bodies; re-forwarding the encoding header makes the
-  browser try to decompress plain JSON → `res.json()` fails → broken login /
-  "Could not reach the server". This broke admin login and price refresh.
-- **Money formatting**: use `formatMoneyColumn` / `formatCurrency` (thousand
-  separators) — never `value.toFixed(2)` for display. XLSX export uses native
-  Excel currency cells (`xlsx-portfolio.ts` `usd()` helper).
-- **Quote symbols**: `quote-aliases.ts` maps crypto tickers to CoinGecko IDs,
-  Finnhub pairs, and Yahoo `-USD` formats — keep mirrored with api-portfolio.
-- **New assets fetch a price on add** (`AssetTable.handleSaveAsset`): reuse an
-  existing position's price for the same spot ticker first, then POST
-  `/api/market/quotes` with `{ symbols: [...] }`, toast if unreachable.
-- **Net worth snapshots** now carry `totalAssets` / `totalCash` /
-  `totalLiabilities`; the overview chart draws per-category lines with
-  settings toggles (`overviewChart.show*Line`, default on).
-- **Liability-linked goals** measure paydown: `goalProgressPercent(current,
-  target, "liabilities")` inverts so less debt = more progress.
+- **Proxy must strip `content-encoding`/`transfer-encoding`** from upstream responses (`home-api.ts`) or browser JSON parsing fails on Vercel.
+- **Never return empty portfolio on API failure** — `getInitialPortfolioFromApi()` throws `PortfolioApiError` so SSR shows an error instead of wiping data on save.
+- **Import validates before proxy** — same as export POST; malformed payloads never hit the home API.
+- **Wallet edit must spread existing node** — preserve `links`, `walletType`, `owner` or legacy Morpho routing breaks.
+- **Morpho rescan merges mappings** — don't replace the full array; keep mappings for positions not in the latest scan.
+- **Save before sync** — `savePortfolio()` then POST sync so `morphoDisplayMode` and mappings are persisted first.
+- **Money formatting**: use `formatMoneyColumn` / `formatCurrency` — never raw `toFixed(2)` for display.
+- **Quote symbols**: `quote-aliases.ts` mirrored with api-portfolio.
 
 ---
 

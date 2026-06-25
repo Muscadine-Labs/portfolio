@@ -1,7 +1,7 @@
 import { normalizeAssetNetwork } from "@/lib/asset-network";
 import { normalizeOverviewChart } from "@/lib/overview-chart";
 import { normalizeOverviewWidgets } from "@/lib/overview-widgets";
-import { normalizeNetWorthSnapshotCadence } from "@/lib/net-worth-history";
+import { normalizeNetWorthSnapshot, normalizeNetWorthSnapshotCadence } from "@/lib/net-worth-history";
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import { migrateAndNormalizeSectionGroups } from "@/lib/section-groups";
 import { parseSectionMetadata } from "@/lib/section-metadata";
@@ -235,7 +235,7 @@ function collectDuplicateIds(ids: string[], label: string, errors: string[]): vo
   for (const id of ids) {
     if (seen.has(id)) {
       errors.push(`Duplicate ${label} id: ${id}`);
-      return;
+      continue;
     }
     seen.add(id);
   }
@@ -852,6 +852,12 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
         }
         const parentId =
           raw.parentId === null ? null : optionalString(raw.parentId) ?? null;
+        const walletTypeRaw = optionalString(raw.walletType);
+        const walletTypes = new Set(["hot", "cold", "exchange", "hardware", "other"]);
+        const walletType =
+          walletTypeRaw && walletTypes.has(walletTypeRaw)
+            ? (walletTypeRaw as WalletMapNode["walletType"])
+            : undefined;
         nodeIds.add(raw.id);
         walletMapNodes.push({
           id: raw.id,
@@ -859,7 +865,7 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
           label: raw.label.trim(),
           order,
           owner: optionalString(raw.owner),
-          walletType: optionalString(raw.walletType) as WalletMapNode["walletType"],
+          walletType,
           address: optionalString(raw.address) ?? optionalString(raw.identifier),
           networks:
             parseWalletNetworks(raw.networks) ??
@@ -877,6 +883,23 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       for (const node of walletMapNodes) {
         if (node.parentId && !nodeIds.has(node.parentId)) {
           errors.push(`walletMapNodes: unknown parentId "${node.parentId}".`);
+        }
+        for (const mapping of node.morphoMappings ?? []) {
+          if (!mapping.sectionId) continue;
+          const page =
+            mapping.target === "assets"
+              ? "assets"
+              : mapping.target === "cash"
+                ? "cash"
+                : "liabilities";
+          const sectionExists = sections.some(
+            (section) => section.id === mapping.sectionId && section.page === page
+          );
+          if (!sectionExists) {
+            errors.push(
+              `walletMapNodes: morpho mapping "${mapping.key}" references unknown section "${mapping.sectionId}".`
+            );
+          }
         }
       }
       collectDuplicateIds(
@@ -1102,7 +1125,33 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
     if (!Array.isArray(body.netWorthHistory)) {
       errors.push('"netWorthHistory" must be an array.');
     } else {
-      netWorthHistory = body.netWorthHistory as import("@/types").NetWorthSnapshot[];
+      netWorthHistory = [];
+      for (const [index, raw] of body.netWorthHistory.entries()) {
+        if (!isRecord(raw)) {
+          errors.push(`netWorthHistory[${index}] must be an object.`);
+          continue;
+        }
+        const period = optionalString(raw.period);
+        const netWorth = requireFiniteNumber(
+          raw.netWorth,
+          `netWorthHistory[${index}].netWorth`,
+          errors
+        );
+        if (!period || netWorth === null) continue;
+        netWorthHistory.push(
+          normalizeNetWorthSnapshot({
+            period,
+            netWorth,
+            totalAssets:
+              typeof raw.totalAssets === "number" ? raw.totalAssets : undefined,
+            totalCash: typeof raw.totalCash === "number" ? raw.totalCash : undefined,
+            totalLiabilities:
+              typeof raw.totalLiabilities === "number" ? raw.totalLiabilities : undefined,
+            totalCostBasis:
+              typeof raw.totalCostBasis === "number" ? raw.totalCostBasis : undefined,
+          })
+        );
+      }
     }
   }
 

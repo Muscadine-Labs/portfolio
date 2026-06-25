@@ -65,6 +65,13 @@ export async function fetchHomeApi(
   }
 }
 
+export class PortfolioApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortfolioApiError";
+  }
+}
+
 export async function getInitialPortfolioFromApi(): Promise<PortfolioDataPayload> {
   const tenant = await getTenantSlug();
   const res = await fetchHomeApi("/api/me", tenant);
@@ -80,7 +87,13 @@ export async function getInitialPortfolioFromApi(): Promise<PortfolioDataPayload
     );
   }
 
-  return createEmptyPortfolioData();
+  if (!getHomeApiBaseUrl()) {
+    return createEmptyPortfolioData();
+  }
+
+  throw new PortfolioApiError(
+    "Could not load portfolio from the home API. Verify API_URL and that the API server is reachable."
+  );
 }
 
 export async function getInitialAccountFromApi(): Promise<User> {

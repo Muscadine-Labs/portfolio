@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
@@ -38,6 +38,24 @@ export function PriceRefreshSettingsCard() {
     } catch {
       /* status optional */
     }
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (isDemo) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/market/quotes", { method: "GET" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { lastRefreshAt?: string | null };
+        if (!cancelled) setLastRefreshAt(data.lastRefreshAt ?? null);
+      } catch {
+        /* status optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isDemo]);
 
   const refreshPrices = async () => {

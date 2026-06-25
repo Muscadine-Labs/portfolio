@@ -70,6 +70,16 @@ export async function proxy(request: NextRequest) {
 
   if (
     !authenticated &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/auth/") &&
+    !pathname.startsWith("/api/admin") &&
+    pathname !== "/api/health"
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (
+    !authenticated &&
     !isPublicPath(pathname) &&
     !pathname.startsWith("/api/auth") &&
     !pathname.startsWith("/api/admin") &&

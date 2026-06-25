@@ -1,8 +1,7 @@
 # Tasks to work on portfolio and api-portfolio
 ## Review CLAUDE.md and AGENTS.md for both the repo portolio and the other repo api-portfolio before committing any changes.
 
-
-## Once All tasks are complete and fixed, go through the repo and find any bugs. Run lint, build, test and bump both repo versions using the guidelines descrbed on how to bump. Put what you learned inside of CLAUDE.md and AGENTS.md. If there is any dead/unused code, tell me.
+## Once All tasks are complete and fixed, go through the repo and find any bugs. Run lint, build, test. Put what you learned inside of CLAUDE.md and AGENTS.md. If there is any dead/unused code, tell me.
 
 # Future (don't focus on now)
 

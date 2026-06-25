@@ -785,24 +785,32 @@ export function PortfolioProvider({
   const persistPortfolio = useCallback((payload: PortfolioDataPayload, options?: { keepalive?: boolean }) => {
     if (account.tenant === "demo") return Promise.resolve();
     const body = JSON.stringify(payload);
-    const request = fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      keepalive: options?.keepalive === true,
-      body,
-    }).then(async (res) => {
-      if (!res.ok && options?.keepalive !== true) {
-        const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown };
-        toast.error(apiErrorMessage(errorBody.error, `Save failed (${res.status})`));
+    const request = (async () => {
+      const prev = persistInFlightRef.current;
+      if (prev) {
+        await prev.catch(() => undefined);
       }
-    }).catch(() => {
-      if (options?.keepalive !== true) {
-        toast.error("Could not reach the server — changes not saved");
-      }
-    });
+      await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        keepalive: options?.keepalive === true,
+        body,
+      })
+        .then(async (res) => {
+          if (!res.ok && options?.keepalive !== true) {
+            const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown };
+            toast.error(apiErrorMessage(errorBody.error, `Save failed (${res.status})`));
+          }
+        })
+        .catch(() => {
+          if (options?.keepalive !== true) {
+            toast.error("Could not reach the server — changes not saved");
+          }
+        });
+    })();
 
-    persistInFlightRef.current = request.then(() => undefined);
+    persistInFlightRef.current = request;
     return request;
   }, [account.tenant]);
 

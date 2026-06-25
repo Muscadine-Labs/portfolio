@@ -336,7 +336,8 @@ export default function AdminPage() {
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
-                type="text"
+                type="password"
+                autoComplete="new-password"
                 placeholder="Set initial password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
@@ -390,6 +391,8 @@ export default function AdminPage() {
                           <TableCell>—</TableCell>
                           <TableCell>
                             <Input
+                              type="password"
+                              autoComplete="new-password"
                               value={editing.password}
                               onChange={(e) =>
                                 setEditing({ ...editing, password: e.target.value })
@@ -433,7 +436,7 @@ export default function AdminPage() {
                           <TableCell>—</TableCell>
                           <TableCell>—</TableCell>
                           <TableCell className="font-mono text-xs">
-                            {adminAccount.password || "—"}
+                            {adminAccount.password ? "••••••••" : "—"}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -481,6 +484,8 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           <Input
+                            type="password"
+                            autoComplete="new-password"
                             value={editing.password}
                             onChange={(e) =>
                               setEditing({ ...editing, password: e.target.value })
@@ -516,7 +521,7 @@ export default function AdminPage() {
                         <TableCell>{user.name || "—"}</TableCell>
                         <TableCell>{user.email || "—"}</TableCell>
                         <TableCell className="font-mono text-xs">
-                          {user.password || "—"}
+                          {user.password ? "••••••••" : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
