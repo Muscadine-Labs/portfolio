@@ -39,7 +39,7 @@ export type MorphoPreviewItem = {
   underlyingPriceUsd: number;
   usdValue: number;
   vaultAddress: string;
-  version: "v1" | "v2";
+  version: "v2" | "market";
 };
 
 const TARGET_OPTIONS: { value: MorphoPositionTarget; label: string }[] = [
@@ -71,7 +71,7 @@ function mappingToPreviewItem(mapping: MorphoPositionMapping): MorphoPreviewItem
     underlyingPriceUsd: 0,
     usdValue: 0,
     vaultAddress: "",
-    version: "v1",
+    version: "v2",
   };
 }
 
