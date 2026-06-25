@@ -40,12 +40,17 @@ async function hmacToken(secret: string, payload: string): Promise<string> {
 }
 
 function sessionSecret(): string {
-  return (
+  const secret =
     process.env.API_SECRET?.trim() ||
     process.env.PORTFOLIO_AUTH_SECRET?.trim() ||
-    process.env.PORTFOLIO_PASSWORD ||
-    "portfolio-api-dev-secret"
-  );
+    process.env.PORTFOLIO_PASSWORD;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "API_SECRET or PORTFOLIO_AUTH_SECRET must be set when NODE_ENV=production"
+    );
+  }
+  return "portfolio-api-dev-secret";
 }
 
 export async function createSessionToken(tenant: string): Promise<string> {
