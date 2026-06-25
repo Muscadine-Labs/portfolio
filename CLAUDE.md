@@ -1,5 +1,7 @@
 # Portfolio UI — Agent Guide
 
+**Release v1.2.4** — Fix price refresh proxy: empty POST bodies no longer 502 "Home API unreachable" on Vercel; price refresh sends `{}` with credentials.
+
 **Release v1.2.2** — Session HMAC fails closed in production when `API_SECRET` / `PORTFOLIO_AUTH_SECRET` is unset (matches api-portfolio).
 
 **Release v1.2.1** — Morpho→Cash auto-creates **DeFi Cash** section on wallet save (`ensureWalletSyncSectionForTarget`); wallet drawer fixes (stale Morpho scan reset via panel `key`, clear `syncEnabled` when EVM removed, defer section creation to save — no orphan sections on cancel); `savePortfolio()` failure blocks sync; coerce Morpho target by position kind; validate stale `rowId` on save.
@@ -127,6 +129,7 @@ src/proxy.ts                          Auth middleware
 - **Morpho rescan merges mappings** — don't replace the full array; keep mappings for positions not in the latest scan.
 - **Morpho→Cash needs DeFi section** — wallet sync only writes to sections with `metadata.isCrypto` or `metadata.isDefi`. Saving a wallet with sync enabled auto-creates **DeFi Cash** (or Crypto/DeFi for other targets) if none exists.
 - **Defer section creation to wallet save** — mapping UI does not upsert sections mid-edit; canceling the drawer won't leave orphan sections.
+- **Empty POST proxy** — `proxyToHomeApi` must omit body (not send zero-length buffer) when the client POST has no body, or Vercel returns 502.
 - **Save before sync** — `savePortfolio()` then POST sync; abort sync if save fails.
 - **Money formatting**: use `formatMoneyColumn` / `formatCurrency` — never raw `toFixed(2)` for display.
 - **Quote symbols**: `quote-aliases.ts` mirrored with api-portfolio.

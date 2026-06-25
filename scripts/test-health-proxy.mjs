@@ -20,3 +20,13 @@ if (body.status !== "ok" || !body.version) {
 }
 
 console.log(`OK: ${BASE}/api/health → ${body.service} v${body.version}`);
+
+const emptyPost = await fetch(`${BASE}/api/market/quotes`, { method: "POST" });
+if (emptyPost.status === 502) {
+  const err = await emptyPost.json().catch(() => ({}));
+  console.error("FAIL: empty POST /api/market/quotes → 502", err);
+  process.exit(1);
+}
+console.log(
+  `OK: empty POST /api/market/quotes → HTTP ${emptyPost.status} (expected 401 without session, not 502)`
+);

@@ -57,6 +57,7 @@ export async function proxyToHomeApi(
     headers.delete("host");
     headers.delete("connection");
     headers.delete("content-length");
+    headers.delete("transfer-encoding");
     // Let Node's fetch negotiate encodings it can decode itself. Forwarding the
     // browser's accept-encoding (e.g. zstd) can yield bodies fetch cannot decompress.
     headers.delete("accept-encoding");
@@ -68,7 +69,12 @@ export async function proxyToHomeApi(
     };
 
     if (request.method !== "GET" && request.method !== "HEAD") {
-      init.body = await request.arrayBuffer();
+      const body = await request.arrayBuffer();
+      // Empty POST bodies must be omitted — forwarding a zero-length ArrayBuffer after
+      // stripping Content-Length breaks Node fetch on Vercel (502 "Home API unreachable").
+      if (body.byteLength > 0) {
+        init.body = body;
+      }
     }
 
     const upstream = await fetch(target, init);

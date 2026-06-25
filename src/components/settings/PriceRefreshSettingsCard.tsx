@@ -31,7 +31,10 @@ export function PriceRefreshSettingsCard() {
   const loadStatus = useCallback(async () => {
     if (isDemo) return;
     try {
-      const res = await fetch("/api/market/quotes", { method: "GET" });
+      const res = await fetch("/api/market/quotes", {
+        method: "GET",
+        credentials: "include",
+      });
       if (!res.ok) return;
       const data = (await res.json()) as { lastRefreshAt?: string | null };
       setLastRefreshAt(data.lastRefreshAt ?? null);
@@ -45,7 +48,10 @@ export function PriceRefreshSettingsCard() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/market/quotes", { method: "GET" });
+        const res = await fetch("/api/market/quotes", {
+        method: "GET",
+        credentials: "include",
+      });
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as { lastRefreshAt?: string | null };
         if (!cancelled) setLastRefreshAt(data.lastRefreshAt ?? null);
@@ -73,7 +79,12 @@ export function PriceRefreshSettingsCard() {
 
     setRefreshing(true);
     try {
-      const res = await fetch("/api/market/quotes", { method: "POST" });
+      const res = await fetch("/api/market/quotes", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
       const data = (await res.json()) as MarketQuotesResponse;
       if (!res.ok) {
         toast.error("Price refresh failed", {
