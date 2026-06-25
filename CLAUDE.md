@@ -1,5 +1,7 @@
 # Portfolio UI — Agent Guide
 
+**Release v1.2.1** — Morpho→Cash auto-creates **DeFi Cash** section on wallet save (`ensureWalletSyncSectionForTarget`); wallet drawer fixes (stale Morpho scan reset via panel `key`, clear `syncEnabled` when EVM removed, defer section creation to save — no orphan sections on cancel); `savePortfolio()` failure blocks sync; coerce Morpho target by position kind; validate stale `rowId` on save.
+
 **Release v1.2.0** — Multi-chain wallet editor (`WalletAddressEntriesEditor`: multiple addresses + per-chain checkboxes); wallet sync hardening (preserve `links`/`walletType` on save, merge Morpho mappings on rescan, flush save before sync, pass `morphoDisplayMode`); `PortfolioApiError` when home API unreachable (no silent empty portfolio); proxy returns JSON 401 for unauthenticated API calls; import validates before proxy; demo export returns full portfolio; serialized saves in `PortfolioProvider`; admin passwords masked.
 
 Previous (v1.1.9) — Morpho sync client errors, API status on admin page.
@@ -121,7 +123,9 @@ src/proxy.ts                          Auth middleware
 - **Import validates before proxy** — same as export POST; malformed payloads never hit the home API.
 - **Wallet edit must spread existing node** — preserve `links`, `walletType`, `owner` or legacy Morpho routing breaks.
 - **Morpho rescan merges mappings** — don't replace the full array; keep mappings for positions not in the latest scan.
-- **Save before sync** — `savePortfolio()` then POST sync so `morphoDisplayMode` and mappings are persisted first.
+- **Morpho→Cash needs DeFi section** — wallet sync only writes to sections with `metadata.isCrypto` or `metadata.isDefi`. Saving a wallet with sync enabled auto-creates **DeFi Cash** (or Crypto/DeFi for other targets) if none exists.
+- **Defer section creation to wallet save** — mapping UI does not upsert sections mid-edit; canceling the drawer won't leave orphan sections.
+- **Save before sync** — `savePortfolio()` then POST sync; abort sync if save fails.
 - **Money formatting**: use `formatMoneyColumn` / `formatCurrency` — never raw `toFixed(2)` for display.
 - **Quote symbols**: `quote-aliases.ts` mirrored with api-portfolio.
 

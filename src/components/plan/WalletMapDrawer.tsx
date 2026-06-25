@@ -29,8 +29,13 @@ import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
 import { validateWalletAddressEntries, walletLegacyFieldsFromEntries } from "@/lib/wallet-entries";
 import { isWalletSyncSection } from "@/lib/wallet-sync-sections";
-import { normalizeMorphoMappings } from "@/lib/morpho-mapping-utils";
-import type { MorphoPositionMapping, WalletAddressEntry, WalletMapNode } from "@/types";
+import { normalizeMorphoMappings, ensureWalletSyncSectionForTarget } from "@/lib/morpho-mapping-utils";
+import type {
+  MorphoPositionMapping,
+  MorphoPositionTarget,
+  WalletAddressEntry,
+  WalletMapNode,
+} from "@/types";
 
 const schema = z.object({
   label: z.string().min(1, "Name is required"),
@@ -73,7 +78,7 @@ export function WalletMapDrawer({
   siblingCount,
   onSave,
 }: WalletMapDrawerProps) {
-  const { getSections, assets, liabilities, cashAccounts } = usePortfolio();
+  const { getSections, assets, liabilities, cashAccounts, sections, upsertSection } = usePortfolio();
   const assetSections = getSections("assets");
   const liabilitySections = getSections("liabilities");
   const cashSections = getSections("cash");
@@ -148,14 +153,54 @@ export function WalletMapDrawer({
     const entries = validation.entries;
 
     const legacy = walletLegacyFieldsFromEntries(entries);
+    let workingSections = [...sections];
+    const ensureForTarget = (target: MorphoPositionTarget): string => {
+      const { sections: nextSections, sectionId } = ensureWalletSyncSectionForTarget(
+        workingSections,
+        target
+      );
+      const added = nextSections.find(
+        (section) => !workingSections.some((prev) => prev.id === section.id)
+      );
+      if (added) {
+        upsertSection(added);
+      }
+      workingSections = nextSections;
+      return sectionId;
+    };
+
+    const effectiveSyncEnabled = canSync && syncEnabled;
+
+    if (effectiveSyncEnabled) {
+      for (const mapping of morphoMappings.filter((m) => m.enabled)) {
+        ensureForTarget(mapping.target);
+      }
+    }
+
+    const workingAssetSections = workingSections.filter((s) => s.page === "assets");
+    const workingLiabilitySections = workingSections.filter((s) => s.page === "liabilities");
+    const workingCashSections = workingSections.filter((s) => s.page === "cash");
+
     const normalizedMappings = normalizeMorphoMappings(
       morphoMappings,
-      assetSections,
-      liabilitySections,
-      cashSections
-    );
+      workingAssetSections,
+      workingLiabilitySections,
+      workingCashSections
+    ).map((mapping) => {
+      if (!mapping.rowId) return mapping;
+      const rowId = mapping.rowId;
+      const sectionId = mapping.sectionId;
+      if (!sectionId) return { ...mapping, rowId: undefined };
+      const valid =
+        mapping.target === "assets"
+          ? assets.some((row) => row.id === rowId && row.sectionId === sectionId)
+          : mapping.target === "liabilities"
+            ? liabilities.some((row) => row.id === rowId && row.sectionId === sectionId)
+            : cashAccounts.some((row) => row.id === rowId && row.sectionId === sectionId);
+      return valid ? mapping : { ...mapping, rowId: undefined };
+    });
 
-    if (syncEnabled) {
+    if (effectiveSyncEnabled) {
       if (!hasMorphoCapableAddress(entries)) {
         toast.error("Add an Ethereum/Base address with those chains selected before enabling sync.");
         return;
@@ -172,7 +217,7 @@ export function WalletMapDrawer({
             : mapping.target === "liabilities"
               ? "liabilities"
               : "cash";
-        const section = [...assetSections, ...liabilitySections, ...cashSections].find(
+        const section = workingSections.find(
           (s) => s.id === mapping.sectionId && s.page === page
         );
         if (!section || !isWalletSyncSection(section)) {
@@ -194,7 +239,7 @@ export function WalletMapDrawer({
       networks: legacy.networks,
       addresses: entries.length ? entries : undefined,
       morphoMappings: normalizedMappings.length ? normalizedMappings : undefined,
-      syncEnabled: syncEnabled || undefined,
+      syncEnabled: effectiveSyncEnabled || undefined,
       status: values.status,
       notes: values.notes?.trim() || undefined,
       links: node?.links,
@@ -255,6 +300,7 @@ export function WalletMapDrawer({
             {canSync ? (
               <div className="space-y-3">
                 <WalletMorphoMappingPanel
+                  key={node?.id ?? "new-wallet"}
                   addressEntries={preparedEntries}
                   assetSections={assetSections}
                   liabilitySections={liabilitySections}
@@ -275,7 +321,7 @@ export function WalletMapDrawer({
                   <input
                     id="wallet-sync-enabled"
                     type="checkbox"
-                    checked={syncEnabled}
+                    checked={canSync && syncEnabled}
                     onChange={(e) => setSyncEnabled(e.target.checked)}
                     className="size-4 rounded border-input"
                   />

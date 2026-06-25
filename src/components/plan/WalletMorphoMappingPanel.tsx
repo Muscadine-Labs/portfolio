@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { apiErrorMessage, readJsonResponse } from "@/lib/format-error";
 import { formatMoneyColumn } from "@/lib/utils";
-import {
-  filterWalletSyncSections,
-} from "@/lib/wallet-sync-sections";
+import { filterWalletSyncSections } from "@/lib/wallet-sync-sections";
 import {
   defaultMorphoSectionId,
+  defaultMorphoTargetForKind,
   normalizeMorphoMappings,
   sectionMatchesMorphoTarget,
 } from "@/lib/morpho-mapping-utils";
@@ -51,11 +50,6 @@ const TARGET_OPTIONS: { value: MorphoPositionTarget; label: string }[] = [
 
 function fmtUsd(value: number): string {
   return Number.isFinite(value) ? formatMoneyColumn(value) : "—";
-}
-
-function defaultTarget(kind: MorphoPositionKind): MorphoPositionTarget {
-  if (kind === "debt") return "liabilities";
-  return "assets";
 }
 
 function networkFromMappingKey(key: string): string {
@@ -98,6 +92,26 @@ function defaultSectionId(
   return defaultMorphoSectionId(target, assetSections, liabilitySections, cashSections);
 }
 
+function displaySectionId(
+  target: MorphoPositionTarget,
+  sectionId: string | undefined,
+  assetSections: PortfolioSection[],
+  liabilitySections: PortfolioSection[],
+  cashSections: PortfolioSection[]
+): string {
+  if (
+    sectionId &&
+    sectionMatchesMorphoTarget(sectionId, target, [
+      ...assetSections,
+      ...liabilitySections,
+      ...cashSections,
+    ])
+  ) {
+    return sectionId;
+  }
+  return defaultSectionId(target, assetSections, liabilitySections, cashSections);
+}
+
 export function WalletMorphoMappingPanel({
   addressEntries,
   assetSections,
@@ -124,6 +138,11 @@ export function WalletMorphoMappingPanel({
   );
   const [scanning, setScanning] = useState(false);
   const [positions, setPositions] = useState<MorphoPreviewItem[]>([]);
+  const mappingsRef = useRef(mappings);
+
+  useEffect(() => {
+    mappingsRef.current = mappings;
+  }, [mappings]);
 
   const syncAssetSections = useMemo(
     () => filterWalletSyncSections(assetSections),
@@ -156,20 +175,22 @@ export function WalletMorphoMappingPanel({
   }, [mappings, positions]);
 
   useEffect(() => {
-    if (mappings.length === 0) return;
+    const current = mappingsRef.current;
+    if (current.length === 0) return;
     const normalized = normalizeMorphoMappings(
-      mappings,
+      current,
       assetSections,
       liabilitySections,
       cashSections
     );
     const changed = normalized.some(
       (mapping, index) =>
-        mapping.sectionId !== mappings[index]?.sectionId ||
-        mapping.rowId !== mappings[index]?.rowId
+        mapping.sectionId !== current[index]?.sectionId ||
+        mapping.target !== current[index]?.target ||
+        mapping.rowId !== current[index]?.rowId
     );
     if (changed) onChange(normalized);
-  }, [mappings, assetSections, liabilitySections, cashSections, onChange]);
+  }, [assetSections, liabilitySections, cashSections, onChange]);
 
   if (!hasEvm) return null;
 
@@ -198,17 +219,6 @@ export function WalletMorphoMappingPanel({
           ? syncLiabilitySections
           : syncCashSections;
     return list.map((s) => ({ value: s.id, label: s.label }));
-  };
-
-  const resolveSectionId = (target: MorphoPositionTarget, sectionId: string | undefined) => {
-    if (sectionId && sectionMatchesMorphoTarget(sectionId, target, [
-      ...assetSections,
-      ...liabilitySections,
-      ...cashSections,
-    ])) {
-      return sectionId;
-    }
-    return defaultSectionId(target, assetSections, liabilitySections, cashSections);
   };
 
   const updateMapping = (key: string, patch: Partial<MorphoPositionMapping>) => {
@@ -244,16 +254,19 @@ export function WalletMorphoMappingPanel({
         ...kept,
         ...found.map((item) => {
           const prev = mappingByKey.get(item.key);
-          const target = prev?.target ?? defaultTarget(item.kind);
+          const target = prev?.target ?? defaultMorphoTargetForKind(item.kind);
           return {
             key: item.key,
             enabled: prev?.enabled ?? true,
             target,
-            sectionId: resolveSectionId(
-              target,
-              prev?.sectionId ??
-                defaultSectionId(target, assetSections, liabilitySections, cashSections)
-            ),
+            sectionId:
+              displaySectionId(
+                target,
+                prev?.sectionId,
+                assetSections,
+                liabilitySections,
+                cashSections
+              ) || undefined,
             rowId: prev?.rowId,
             label: item.label,
             kind: item.kind,
@@ -298,102 +311,112 @@ export function WalletMorphoMappingPanel({
       {displayItems.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No Morpho positions yet — click Scan to load vault, collateral, and debt positions from
-          Morpho. Mark sections as crypto or DeFi in Assets / Liabilities / Cash settings to use
-          them here.
-        </p>
-      ) : syncAssetSections.length === 0 &&
-        syncLiabilitySections.length === 0 &&
-        syncCashSections.length === 0 ? (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
-          No crypto/DeFi sections found. Edit a section and enable the crypto or DeFi toggle before
-          mapping Morpho positions.
+          Morpho.
         </p>
       ) : (
-        <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
-          {displayItems.map((item) => {
-            const mapping = mappingByKey.get(item.key);
-            if (!mapping) return null;
-            const kind = mapping.kind ?? item.kind;
-            const target = mapping.target;
-            const sectionId = mapping.sectionId ?? "";
-            const targetOptions = targetOptionsForKind(kind);
-            const scanned = positions.some((p) => p.key === item.key);
-            return (
-              <div key={item.key} className="space-y-2 rounded-md border border-border/50 p-2">
-                <label className="flex cursor-pointer items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={mapping.enabled}
-                    onChange={(e) =>
-                      updateMapping(item.key, { enabled: e.target.checked })
-                    }
-                    className="mt-1 size-4 rounded border-input"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{item.label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {kind} · {item.network}
-                      {scanned && item.usdValue > 0 ? ` · ${fmtUsd(item.usdValue)}` : null}
-                      {!scanned ? " · re-scan to refresh USD value" : null}
-                    </p>
-                  </div>
-                </label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Add to</Label>
-                    <NativeSelect
-                      value={target}
-                      onValueChange={(value) => {
-                        const nextTarget = value as MorphoPositionTarget;
-                        updateMapping(item.key, {
-                          target: nextTarget,
-                          sectionId: defaultSectionId(
-                            nextTarget,
-                            assetSections,
-                            liabilitySections,
-                            cashSections
-                          ),
-                          rowId: undefined,
-                        });
-                      }}
-                      options={targetOptions}
-                      disabled={targetOptions.length <= 1}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Section</Label>
-                    <NativeSelect
-                      value={resolveSectionId(target, sectionId)}
-                      onValueChange={(value) =>
-                        updateMapping(item.key, { sectionId: value, rowId: undefined })
+        <>
+          {syncAssetSections.length === 0 &&
+          syncLiabilitySections.length === 0 &&
+          syncCashSections.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No crypto/DeFi sections yet — a default section (e.g. DeFi Cash) is created when you
+              save with sync enabled.
+            </p>
+          ) : null}
+          <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+            {displayItems.map((item) => {
+              const mapping = mappingByKey.get(item.key);
+              if (!mapping) return null;
+              const kind = mapping.kind ?? item.kind;
+              const target = mapping.target;
+              const sectionId = mapping.sectionId ?? "";
+              const targetOptions = targetOptionsForKind(kind);
+              const scanned = positions.some((p) => p.key === item.key);
+              const sectionValue = displaySectionId(
+                target,
+                sectionId,
+                assetSections,
+                liabilitySections,
+                cashSections
+              );
+              return (
+                <div key={item.key} className="space-y-2 rounded-md border border-border/50 p-2">
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mapping.enabled}
+                      onChange={(e) =>
+                        updateMapping(item.key, { enabled: e.target.checked })
                       }
-                      options={sectionOptions(target)}
-                      placeholder={
-                        sectionOptions(target).length
-                          ? "Choose section"
-                          : "No crypto/DeFi sections"
-                      }
-                      disabled={sectionOptions(target).length === 0}
+                      className="mt-1 size-4 rounded border-input"
                     />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{item.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {kind} · {item.network}
+                        {scanned && item.usdValue > 0 ? ` · ${fmtUsd(item.usdValue)}` : null}
+                        {!scanned ? " · re-scan to refresh USD value" : null}
+                      </p>
+                    </div>
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Add to</Label>
+                      <NativeSelect
+                        value={target}
+                        onValueChange={(value) => {
+                          const nextTarget = value as MorphoPositionTarget;
+                          updateMapping(item.key, {
+                            target: nextTarget,
+                            sectionId:
+                              defaultSectionId(
+                                nextTarget,
+                                assetSections,
+                                liabilitySections,
+                                cashSections
+                              ) || undefined,
+                            rowId: undefined,
+                          });
+                        }}
+                        options={targetOptions}
+                        disabled={targetOptions.length <= 1}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Section</Label>
+                      <NativeSelect
+                        value={sectionValue}
+                        onValueChange={(value) =>
+                          updateMapping(item.key, { sectionId: value, rowId: undefined })
+                        }
+                        options={sectionOptions(target)}
+                        placeholder={
+                          sectionOptions(target).length
+                            ? "Choose section"
+                            : "Created on save"
+                        }
+                        disabled={sectionOptions(target).length === 0}
+                      />
+                    </div>
                   </div>
+                  {sectionId ? (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Merge into existing row (optional)</Label>
+                      <NativeSelect
+                        value={mapping.rowId ?? ""}
+                        onValueChange={(value) =>
+                          updateMapping(item.key, { rowId: value || undefined })
+                        }
+                        options={rowOptions(target, sectionId)}
+                        placeholder="Create new row"
+                      />
+                    </div>
+                  ) : null}
                 </div>
-                {sectionId ? (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Merge into existing row (optional)</Label>
-                    <NativeSelect
-                      value={mapping.rowId ?? ""}
-                      onValueChange={(value) =>
-                        updateMapping(item.key, { rowId: value || undefined })
-                      }
-                      options={rowOptions(target, sectionId)}
-                      placeholder="Create new row"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

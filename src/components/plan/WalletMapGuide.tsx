@@ -233,7 +233,8 @@ export function WalletMapGuide() {
   const syncWallet = async (node: WalletMapNode) => {
     setSyncingId(node.id);
     try {
-      await savePortfolio();
+      const saved = await savePortfolio();
+      if (!saved) return;
       const res = await fetch("/api/wallets/sync", {
         method: "POST",
         credentials: "include",
@@ -279,7 +280,8 @@ export function WalletMapGuide() {
     }
     setSyncingAll(true);
     try {
-      await savePortfolio();
+      const saved = await savePortfolio();
+      if (!saved) return;
       const res = await fetch("/api/wallets/sync", {
         method: "PUT",
         credentials: "include",
