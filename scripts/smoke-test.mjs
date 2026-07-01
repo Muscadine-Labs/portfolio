@@ -2,7 +2,7 @@
 /**
  * Smoke test against local or production UI.
  * Run: npm run test:smoke
- *      BASE_URL=https://portfolio.muscadine.io npm run test:smoke
+ *      BASE_URL=https://portfolio.muscadine.xyz npm run test:smoke
  */
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";

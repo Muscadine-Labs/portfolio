@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Portfolio",
-  description: "Personal finance dashboard for portfolio.muscadine.io",
+  description: "Personal finance dashboard for portfolio.muscadine.xyz",
   icons: {
     icon: [{ url: "/muscadinelogo.jpg", type: "image/jpeg" }],
     apple: [{ url: "/muscadinelogo.jpg", type: "image/jpeg" }],

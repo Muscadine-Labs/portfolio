@@ -10,13 +10,13 @@ export default function LegalPage() {
       </p>
       <p>
         <a href={MUSCADINE_LEGAL_URL} className="text-foreground hover:underline">
-          View terms, privacy, and legal information at muscadine.io/legal
+          View terms, privacy, and legal information at muscadine.xyz/legal
         </a>
       </p>
       <p>
         Website:{" "}
-        <a href="https://muscadine.io" className="text-foreground hover:underline">
-          muscadine.io
+        <a href="https://muscadine.xyz" className="text-foreground hover:underline">
+          muscadine.xyz
         </a>
       </p>
       <p>© 2026 Muscadine. All rights reserved.</p>

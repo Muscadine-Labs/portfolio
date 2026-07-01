@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Portfolio",
     short_name: "Portfolio",
-    description: "Personal finance dashboard for portfolio.muscadine.io",
+    description: "Personal finance dashboard for portfolio.muscadine.xyz",
     start_url: "/",
     display: "standalone",
     background_color: "#0c0a09",

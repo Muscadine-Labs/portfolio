@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Smoke test: portfolio /api/health reaches home API.
- *   BASE_URL=https://portfolio.muscadine.io node scripts/test-health-proxy.mjs
+ *   BASE_URL=https://portfolio.muscadine.xyz node scripts/test-health-proxy.mjs
  *   BASE_URL=http://127.0.0.1:3000 node scripts/test-health-proxy.mjs
  */
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");

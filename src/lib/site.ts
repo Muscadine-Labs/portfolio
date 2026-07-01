@@ -1,6 +1,6 @@
 /** Canonical app hostname (no per-user subdomains). */
 export const APP_HOST =
-  process.env.NEXT_PUBLIC_APP_HOST?.trim() || "portfolio.muscadine.io";
+  process.env.NEXT_PUBLIC_APP_HOST?.trim() || "portfolio.muscadine.xyz";
 
 export const APP_ORIGIN = `https://${APP_HOST}`;
 

@@ -193,8 +193,8 @@ export default function LoginPage() {
       </Card>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
-        <Link href="https://muscadine.io" className="hover:text-foreground">
-          muscadine.io
+        <Link href="https://muscadine.xyz" className="hover:text-foreground">
+          muscadine.xyz
         </Link>
       </p>
     </div>

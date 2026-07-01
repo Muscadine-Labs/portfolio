@@ -11,7 +11,7 @@ If you find a security issue, **do not open a public GitHub issue**. Email **[mu
 ## Architecture (production)
 
 ```
-Browser → portfolio.muscadine.io (Vercel UI + /api proxy)
+Browser → portfolio.muscadine.xyz (Vercel UI + /api proxy)
        → api-portfolio.muscadine.io (Cloudflare Tunnel)
        → mini PC API + SQLite (data/portfolio.db)
 ```

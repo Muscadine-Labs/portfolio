@@ -29,8 +29,8 @@ export function LegalPageLayout({ title, children }: LegalPageLayoutProps) {
               muscadinelabs@gmail.com
             </a>
             {" · "}
-            <a href="https://muscadine.io" className="hover:text-foreground">
-              muscadine.io
+            <a href="https://muscadine.xyz" className="hover:text-foreground">
+              muscadine.xyz
             </a>
           </p>
           <p className="mt-2">

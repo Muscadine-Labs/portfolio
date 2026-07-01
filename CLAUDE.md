@@ -24,11 +24,11 @@ Next.js **16** App Router. Check `node_modules/next/dist/docs/` before using dep
 
 ## Product
 
-Personal finance dashboard at **portfolio.muscadine.io** (Vercel). User data lives on the **home API** (`api-portfolio` on the mini PC).
+Personal finance dashboard at **portfolio.muscadine.xyz** (Vercel). User data lives on the **home API** (`api-portfolio` on the mini PC).
 
 | URL | Role |
 |-----|------|
-| `portfolio.muscadine.io` | This repo — UI + `/api/*` proxy |
+| `portfolio.muscadine.xyz` | This repo — UI + `/api/*` proxy |
 | `api-portfolio.muscadine.io` | SQLite backend via tunnel |
 
 Login username = tenant slug. Admin user → `/admin`.
@@ -38,7 +38,7 @@ Login username = tenant slug. Admin user → `/admin`.
 ## Architecture
 
 ```
-Browser → portfolio.muscadine.io (Vercel)
+Browser → portfolio.muscadine.xyz (Vercel)
             ├─ pages (UI)
             └─ /api/* → proxy → api-portfolio.muscadine.io → SQLite
 ```
@@ -60,14 +60,18 @@ Browser → portfolio.muscadine.io (Vercel)
 
 Only **`.env`** (gitignored) and **`.env.example`** (committed).
 
-| Variable | Purpose |
-|----------|---------|
-| `API_URL` | Home API base |
-| `API_SECRET` | Session HMAC — match api-portfolio |
-| `PORTFOLIO_AUTH_SECRET` | Optional alternate secret (both repos accept it) |
-| `NEXT_PUBLIC_APP_HOST` | Canonical hostname |
+| Variable | Required? | Purpose |
+|----------|-----------|---------|
+| `API_URL` | **Yes** (prod / with home API) | Home API base |
+| `API_SECRET` | **Yes** (prod / with home API) | Session HMAC — match api-portfolio |
+| `NEXT_PUBLIC_APP_HOST` | **Yes** (prod) | Canonical hostname |
+| `PORTFOLIO_AUTH_SECRET` | No | Alternate secret name (both repos accept it) |
+| `DEV_TENANT` | No | Local tenant slug |
+| `PORTFOLIO_USERNAME` / `PORTFOLIO_PASSWORD` | No | Legacy local auth when `API_URL` unset |
 
-Finnhub keys stay on the home API only. Build: `env -u NODE_ENV npm run build` if shell sets `NODE_ENV=development`.
+**Not in this repo:** `ADMIN_SECRET`, `FINNHUB_*` (api-portfolio only).
+
+Build: `env -u NODE_ENV npm run build` if shell sets `NODE_ENV=development`.
 
 ---
 

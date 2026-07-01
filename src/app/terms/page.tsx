@@ -6,8 +6,8 @@ export default function TermsPage() {
       <p>
         Portfolio is provided for personal portfolio tracking. Use of this
         application is subject to the terms published at{" "}
-        <a href="https://muscadine.io" className="text-foreground hover:underline">
-          muscadine.io
+        <a href="https://muscadine.xyz" className="text-foreground hover:underline">
+          muscadine.xyz
         </a>
         .
       </p>

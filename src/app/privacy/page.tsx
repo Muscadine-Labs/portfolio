@@ -17,10 +17,10 @@ export default function PrivacyPage() {
         </a>{" "}
         or visit{" "}
         <a
-          href="https://muscadine.io/contact"
+          href="https://muscadine.xyz/contact"
           className="text-foreground hover:underline"
         >
-          muscadine.io/contact
+          muscadine.xyz/contact
         </a>
         .
       </p>

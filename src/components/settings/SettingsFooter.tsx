@@ -16,18 +16,18 @@ export function SettingsFooter() {
       </p>
       <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <a
-          href="https://muscadine.io"
+          href="https://muscadine.xyz"
           target="_blank"
           rel="noopener noreferrer"
           className={externalLinkClass}
         >
-          muscadine.io
+          muscadine.xyz
         </a>
         <span aria-hidden className="text-border">
           ·
         </span>
         <a
-          href="https://muscadine.io/contact"
+          href="https://muscadine.xyz/contact"
           target="_blank"
           rel="noopener noreferrer"
           className={externalLinkClass}
