@@ -21,6 +21,7 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
       { id: "grp-investments", page: "assets", name: "Investments", order: 1 },
       { id: "grp-crypto", page: "assets", name: "Digital Assets", order: 2 },
       { id: "grp-banking", page: "cash", name: "Banking", order: 0 },
+      { id: "grp-defi", page: "cash", name: "DeFi", order: 1 },
     ],
     sections: [
       {
@@ -53,6 +54,14 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
         label: "Checking & Savings",
         order: 0,
         groupId: "grp-banking",
+      },
+      {
+        id: "sec-defi-cash",
+        page: "cash",
+        label: "DeFi Cash",
+        order: 0,
+        groupId: "grp-defi",
+        metadata: { isDefi: true, account: "Morpho" },
       },
       {
         id: "sec-auto",
@@ -152,7 +161,7 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
         id: "c-ally",
         name: "Ally Online Savings",
         sectionId: "sec-cash",
-        balance: 38240,
+        balance: 30000,
         originalAmount: 35000,
         interest: 3240,
       },
@@ -161,6 +170,15 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
         name: "Marcus Emergency Fund",
         sectionId: "sec-cash",
         balance: 15000,
+      },
+      {
+        id: "c-morpho-mfusdc",
+        name: "Muscadine USDC Frontier",
+        sectionId: "sec-defi-cash",
+        balance: 8240,
+        walletId: "w-defi-smart",
+        network: "Base",
+        protocol: "Morpho",
       },
     ],
     liabilities: [
@@ -283,7 +301,7 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
     ],
     incomePlan: {
       description:
-        "Sample allocation: 25% taxable brokerage, 15% Roth IRA, 15% cash, remainder for living expenses. Crypto spot prices refresh via CoinGecko.",
+        "Sample allocation: 25% taxable brokerage, 15% Roth IRA, 15% cash (incl. Morpho Vault V2 on Base), remainder for living expenses. Crypto spot prices refresh via CoinGecko when the home API is online.",
     },
     walletMapNodes: [
       {
@@ -292,9 +310,44 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
         label: "Bitcoin cold wallet",
         order: 0,
         walletType: "bitcoin_cold",
-        address: "bc1qdem0sample0000000000000000000000",
-        networks: ["bitcoin"],
+        addresses: [
+          {
+            id: "addr-btc-cold",
+            address: "bc1qdem0sample0000000000000000000000",
+            networks: ["bitcoin"],
+            label: "Cold storage",
+          },
+        ],
         links: { assetsSectionId: "sec-btc" },
+        status: "active",
+      },
+      {
+        id: "w-defi-smart",
+        parentId: null,
+        label: "Smart wallet (Base)",
+        order: 1,
+        walletType: "defi_onchain",
+        addresses: [
+          {
+            id: "addr-evm-base",
+            address: "0xdec0de0000000000000000000000000000000001",
+            networks: ["base", "ethereum"],
+            label: "EVM",
+          },
+        ],
+        links: { cashSectionId: "sec-defi-cash" },
+        syncEnabled: true,
+        morphoMappings: [
+          {
+            key: "base:vault:0x314fd07319ef645ba7d548915ccd91f4788a1839",
+            enabled: true,
+            target: "cash",
+            sectionId: "sec-defi-cash",
+            rowId: "c-morpho-mfusdc",
+            label: "Muscadine USDC Frontier",
+            kind: "vault",
+          },
+        ],
         status: "active",
       },
     ],
@@ -328,7 +381,7 @@ export function getDemoPortfolioData(): PortfolioDataPayload {
         wallets: true,
         plan: true,
       },
-      planTabs: { income: true, wallets: false, budget: true, goals: true },
+      planTabs: { income: true, wallets: true, budget: true, goals: true },
       overviewChart: DEFAULT_OVERVIEW_CHART,
       overviewWidgets: DEFAULT_OVERVIEW_WIDGETS,
       sidebarCompact: false,

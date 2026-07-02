@@ -1,5 +1,7 @@
 # Portfolio UI — Agent Guide
 
+**Release v1.2.5** — Canonical hostname **portfolio.muscadine.xyz** (was `.io`); dependency refresh; demo portfolio adds Morpho Vault V2 → DeFi Cash mapping, multi-address wallets, and Plan → Wallets tab. **Home API is offline for maintenance** — use **Demo** on `/login` (no api-portfolio required).
+
 **Release v1.2.4** — Fix price refresh proxy: empty POST bodies no longer 502 "Home API unreachable" on Vercel; price refresh sends `{}` with credentials.
 
 **Release v1.2.2** — Session HMAC fails closed in production when `API_SECRET` / `PORTFOLIO_AUTH_SECRET` is unset (matches api-portfolio).
@@ -24,12 +26,14 @@ Next.js **16** App Router. Check `node_modules/next/dist/docs/` before using dep
 
 ## Product
 
-Personal finance dashboard at **portfolio.muscadine.xyz** (Vercel). User data lives on the **home API** (`api-portfolio` on the mini PC).
+Personal finance dashboard at **portfolio.muscadine.xyz** (Vercel). User data lives on the **home API** (`api-portfolio` on the mini PC) when that service is running.
 
 | URL | Role |
 |-----|------|
 | `portfolio.muscadine.xyz` | This repo — UI + `/api/*` proxy |
-| `api-portfolio.muscadine.io` | SQLite backend via tunnel |
+| `api-portfolio.muscadine.io` | SQLite backend via tunnel (**offline during maintenance**) |
+
+**Demo mode** (`POST /api/auth/demo`) serves read-only sample data from `src/lib/demo-data.ts` — works without the home API (price refresh, wallet sync, login, and save are disabled or no-op).
 
 Login username = tenant slug. Admin user → `/admin`.
 

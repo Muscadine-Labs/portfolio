@@ -93,7 +93,7 @@ export default function LoginPage() {
         return;
       }
       toast.message("Demo mode", {
-        description: "Sample portfolio — changes are not saved.",
+        description: "Sample portfolio — no home API required; changes are not saved.",
       });
       router.replace("/dashboard");
       router.refresh();
@@ -112,7 +112,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Sign in with your username and password, or explore the demo
+          Sign in when the home API is online, or explore the demo anytime
         </p>
       </div>
 
