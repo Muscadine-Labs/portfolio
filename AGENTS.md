@@ -2,7 +2,7 @@
 
 **Version:** match `package.json` (currently **1.3.x**).
 
-Read first: `CLAUDE.md`, `README.md`, `SECURITY.md`. Automated vs manual: `../api-portfolio/docs/automation.md`.
+Read first: `CLAUDE.md`, `README.md`, `SECURITY.md`. Automated vs manual: `../api-portfolio/docs/automation.md`. Planned wallet token sync: `docs/wallet-token-sync.md`.
 
 ---
 

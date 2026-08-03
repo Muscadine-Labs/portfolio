@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,11 +33,12 @@ import {
   normalizeAssetNetwork,
 } from "@/lib/asset-network";
 import { isMetalsSection } from "@/lib/metals";
+import { lookupInstruments } from "@/lib/instrument-lookup";
 import type { Asset } from "@/types";
 
 const assetSchema = z.object({
   symbol: z.string().min(1, "Symbol is required"),
-  name: z.string().min(1, "Name is required"),
+  name: z.string().optional(),
   sectionId: z.string().min(1),
   network: z.string().optional(),
   protocol: z.string().optional(),
@@ -65,6 +67,7 @@ export function AssetDrawer({
 }: AssetDrawerProps) {
   const { getSections } = usePortfolio();
   const assetSections = getSections("assets");
+  const [saving, setSaving] = useState(false);
 
   const { register, control, handleSubmit, reset, setValue } = useForm<AssetFormValues>({
     resolver: zodResolver(assetSchema),
@@ -124,14 +127,28 @@ export function AssetDrawer({
     [asset?.id, defaultSectionId, assetSections.length]
   );
 
-  const onSubmit = (values: AssetFormValues) => {
+  const onSubmit = async (values: AssetFormValues) => {
+    const symbol = values.symbol.trim().toUpperCase();
+    let name = values.name?.trim() ?? "";
+    if (!name || name.toUpperCase() === symbol) {
+      setSaving(true);
+      try {
+        const { names } = await lookupInstruments([symbol], { includeNames: true });
+        name = names[symbol]?.trim() || symbol;
+      } catch {
+        name = symbol;
+      } finally {
+        setSaving(false);
+      }
+    }
+
     const isCrypto =
       (selectedSection != null && isCryptoAssetSection(selectedSection)) ||
       Boolean(values.network?.trim() || values.protocol?.trim() || asset?.walletId);
     const saved: Asset = {
       id: asset?.id ?? createEntityId("asset"),
-      symbol: values.symbol,
-      name: values.name,
+      symbol,
+      name,
       sectionId: values.sectionId,
       price: sanitizeAssetPriceInput(values.price),
       quantity: sanitizeAssetDecimalInput(values.quantity, isCrypto),
@@ -157,11 +174,15 @@ export function AssetDrawer({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="symbol">Symbol</Label>
-              <Input id="symbol" {...register("symbol")} />
+              <Input id="symbol" placeholder="e.g. AAPL, BTC, USDC" {...register("symbol")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" {...register("name")} />
+              <Label htmlFor="name">Name (optional)</Label>
+              <Input
+                id="name"
+                placeholder="Auto from symbol if blank"
+                {...register("name")}
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -266,7 +287,9 @@ export function AssetDrawer({
           </div>
           </DrawerBody>
           <DrawerFooter>
-            <Button type="submit">{asset?.id ? "Save Changes" : "Add Asset"}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Looking up…" : asset?.id ? "Save Changes" : "Add Asset"}
+            </Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">
                 Cancel

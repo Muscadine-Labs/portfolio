@@ -512,10 +512,12 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
       errors
     );
     if (price === null || quantity === null) continue;
-    if (!isNonEmptyString(raw.symbol) || !isNonEmptyString(raw.name)) {
-      errors.push(`assets[${index}].symbol and name are required.`);
+    if (!isNonEmptyString(raw.symbol)) {
+      errors.push(`assets[${index}].symbol is required.`);
       continue;
     }
+    const symbol = raw.symbol.trim();
+    const name = isNonEmptyString(raw.name) ? raw.name.trim() : symbol;
     const costBasis = optionalFiniteNumber(raw.costBasis);
     if (raw.costBasis != null && raw.costBasis !== "" && costBasis === undefined) {
       errors.push(`assets[${index}].costBasis must be a number.`);
@@ -528,8 +530,8 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
     const networkRaw = optionalString(raw.network);
     assets.push({
       id: raw.id,
-      symbol: raw.symbol.trim(),
-      name: raw.name.trim(),
+      symbol,
+      name,
       sectionId,
       price,
       quantity,

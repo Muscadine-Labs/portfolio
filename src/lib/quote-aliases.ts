@@ -29,6 +29,7 @@ export const CRYPTO_COINGECKO_IDS: Record<string, string> = {
   SOL: "solana",
   XRP: "ripple",
   WSTETH: "wrapped-steth",
+  CBETH: "coinbase-wrapped-staked-eth",
   LINK: "chainlink",
   AERO: "aerodrome-finance",
   VIRTUAL: "virtual-protocol",

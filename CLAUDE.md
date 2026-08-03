@@ -4,6 +4,8 @@
 
 **Automated vs manual** (prices, Morpho, Bitcoin electrs, snapshots): see sibling repo [`api-portfolio/docs/automation.md`](../api-portfolio/docs/automation.md).
 
+**Planned — wallet liquid tokens** (RPC balances + CoinGecko + Morpho-style row replace): [`docs/wallet-token-sync.md`](./docs/wallet-token-sync.md).
+
 **Demo mode** still works without the home API (`POST /api/auth/demo` on `/login`).
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).

@@ -21,6 +21,10 @@ import { useDrawerFormReset } from "@/hooks/use-drawer-form-reset";
 import { createEntityId } from "@/lib/sections";
 import { roundMoney } from "@/lib/utils";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
+import {
+  lookupInstruments,
+  looksLikeTickerSymbol,
+} from "@/lib/instrument-lookup";
 import type { CashAccount } from "@/types";
 
 const cashSchema = z.object({
@@ -52,6 +56,7 @@ export function CashDrawer({
 }: CashDrawerProps) {
   const { getSections } = usePortfolio();
   const cashSections = getSections("cash");
+  const [saving, setSaving] = useState(false);
 
   const { register, control, handleSubmit, reset, setValue, getValues } =
     useForm<CashFormValues>({
@@ -128,10 +133,29 @@ export function CashDrawer({
     setValue("interest", roundMoney(balance - originalAmount));
   };
 
-  const onSubmit = (values: CashFormValues) => {
+  const onSubmit = async (values: CashFormValues) => {
+    let name = values.name.trim();
+    if (looksLikeTickerSymbol(name)) {
+      const symbol = name.toUpperCase();
+      setSaving(true);
+      try {
+        const { names } = await lookupInstruments([symbol], { includeNames: true });
+        const resolved = names[symbol]?.trim();
+        if (resolved && resolved.toUpperCase() !== symbol) {
+          name = resolved;
+        } else {
+          name = symbol;
+        }
+      } catch {
+        name = symbol;
+      } finally {
+        setSaving(false);
+      }
+    }
+
     onSave({
       id: account?.id ?? createEntityId("cash"),
-      name: values.name,
+      name,
       sectionId: values.sectionId,
       balance: roundMoney(values.balance),
       protocol: values.protocol || undefined,
@@ -157,8 +181,15 @@ export function CashDrawer({
         <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
           <DrawerBody className="space-y-4 pb-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Account Name</Label>
-            <Input id="name" {...register("name")} />
+            <Label htmlFor="name">Account name or symbol</Label>
+            <Input
+              id="name"
+              placeholder="e.g. USDC or Checking"
+              {...register("name")}
+            />
+            <p className="text-xs text-muted-foreground">
+              Tickers like USDC or BTC expand to a full name from the market API when possible.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="cash-section">Section</Label>
@@ -255,7 +286,9 @@ export function CashDrawer({
           )}
           </DrawerBody>
           <DrawerFooter>
-            <Button type="submit">Save</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Looking up…" : "Save"}
+            </Button>
             <DrawerClose asChild>
               <Button variant="outline" type="button">
                 Cancel
