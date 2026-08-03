@@ -73,6 +73,8 @@ export function defaultMorphoTargetForKind(
   kind: MorphoPositionKind | undefined
 ): MorphoPositionTarget {
   if (kind === "debt") return "liabilities";
+  // Vault deposits default to cash (DeFi cash / stables) — matches typical Frontier/Prime USDC.
+  if (kind === "vault") return "cash";
   return "assets";
 }
 

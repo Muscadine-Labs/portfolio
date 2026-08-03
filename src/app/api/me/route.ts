@@ -18,3 +18,16 @@ export async function GET(request: Request) {
     { status: 503 }
   );
 }
+
+export async function PATCH(request: Request) {
+  if (await isDemoSessionFromCookies()) {
+    return NextResponse.json({ error: "Demo mode cannot update account." }, { status: 403 });
+  }
+
+  const proxied = await proxyToHomeApi(request, "/api/me");
+  if (proxied) return proxied;
+  return NextResponse.json(
+    { error: "Home API not configured (set API_URL)." },
+    { status: 503 }
+  );
+}

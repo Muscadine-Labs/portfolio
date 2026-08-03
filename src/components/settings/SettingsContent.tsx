@@ -24,10 +24,15 @@ function SettingsPanelHeader({ sectionId }: { sectionId: SettingsSectionId }) {
   const section = SETTINGS_SECTIONS.find((s) => s.id === sectionId);
   if (!section) return null;
   return (
-    <header className="mb-4 lg:hidden">
-      <h2 className="text-lg font-semibold tracking-tight">{section.label}</h2>
-      <p className="text-sm text-muted-foreground">{section.description}</p>
-    </header>
+    <>
+      <h2 id={`settings-${sectionId}`} className="sr-only">
+        {section.label}
+      </h2>
+      <header className="mb-4 lg:hidden">
+        <p className="text-lg font-semibold tracking-tight">{section.label}</p>
+        <p className="text-sm text-muted-foreground">{section.description}</p>
+      </header>
+    </>
   );
 }
 

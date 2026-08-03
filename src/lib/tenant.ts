@@ -42,15 +42,18 @@ export async function getInitialAccount(): Promise<User> {
   };
 }
 
-export async function getInitialPortfolio(): Promise<PortfolioDataPayload> {
+export async function getInitialPortfolio(): Promise<{
+  portfolio: PortfolioDataPayload;
+  updatedAt?: string;
+}> {
   if (await isDemoSessionFromHeaders()) {
-    return getDemoPortfolioData();
+    return { portfolio: getDemoPortfolioData() };
   }
   if (getHomeApiBaseUrl()) {
     return getInitialPortfolioFromApi();
   }
   const { createEmptyPortfolioData } = await import("@/lib/portfolio-api");
-  return createEmptyPortfolioData();
+  return { portfolio: createEmptyPortfolioData() };
 }
 
 export async function isTenantAuthRequired(): Promise<boolean> {

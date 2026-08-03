@@ -72,23 +72,37 @@ export class PortfolioApiError extends Error {
   }
 }
 
-export async function getInitialPortfolioFromApi(): Promise<PortfolioDataPayload> {
+export async function getInitialPortfolioFromApi(): Promise<{
+  portfolio: PortfolioDataPayload;
+  updatedAt?: string;
+}> {
   const tenant = await getTenantSlug();
   const res = await fetchHomeApi("/api/me", tenant);
   if (res?.ok) {
-    const body = (await res.json()) as { portfolio?: PortfolioDataPayload };
-    if (body.portfolio) return normalizePortfolioEntityIds(body.portfolio);
+    const body = (await res.json()) as {
+      portfolio?: PortfolioDataPayload;
+      updatedAt?: string;
+    };
+    if (body.portfolio) {
+      return {
+        portfolio: normalizePortfolioEntityIds(body.portfolio),
+        updatedAt: body.updatedAt ?? res.headers.get("X-Portfolio-Updated-At") ?? undefined,
+      };
+    }
   }
 
   const exportRes = await fetchHomeApi("/api/export", tenant);
   if (exportRes?.ok) {
-    return normalizePortfolioEntityIds(
-      (await exportRes.json()) as PortfolioDataPayload
-    );
+    return {
+      portfolio: normalizePortfolioEntityIds(
+        (await exportRes.json()) as PortfolioDataPayload
+      ),
+      updatedAt: exportRes.headers.get("X-Portfolio-Updated-At") ?? undefined,
+    };
   }
 
   if (!getHomeApiBaseUrl()) {
-    return createEmptyPortfolioData();
+    return { portfolio: createEmptyPortfolioData() };
   }
 
   throw new PortfolioApiError(

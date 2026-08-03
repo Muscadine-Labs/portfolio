@@ -399,7 +399,7 @@ function OverviewNetWorthChartPlot({
                     dataKey={line.key}
                     stroke={line.color}
                     strokeWidth={2}
-                    connectNulls
+                    connectNulls={false}
                     dot={{
                       r: isCompact ? 2 : 2.5,
                       fill: "var(--background)",
@@ -423,7 +423,7 @@ function OverviewNetWorthChartPlot({
                   dataKey="totalCostBasis"
                   stroke={chart.costBasisLineColor}
                   strokeWidth={2}
-                  connectNulls
+                  connectNulls={false}
                   dot={{
                     r: isCompact ? 2.5 : 3,
                     fill: "var(--background)",
@@ -472,7 +472,8 @@ export function OverviewNetWorthChart({
                 />
               ) : null}
               <p className="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-                No history yet. Add periods in Settings → Data or enable monthly auto-snapshot.
+                No history yet. Add periods in Settings → Data (include assets, cash, and
+                liabilities columns for category lines) or enable auto-snapshot.
               </p>
             </div>
           ) : (

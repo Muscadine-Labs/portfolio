@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import type { CredentialSource } from "@/lib/account-credentials-store";
 
@@ -221,12 +222,11 @@ export function ResetContent() {
                 ) : info.hasPassword ? (
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Current password</Label>
-                    <Input
+                    <PasswordInput
                       id="current-password"
-                      type="password"
                       autoComplete="current-password"
                       value={currentPassword}
-                      onChange={(event) => setCurrentPassword(event.target.value)}
+                      onChange={setCurrentPassword}
                     />
                   </div>
                 ) : null}
@@ -237,24 +237,22 @@ export function ResetContent() {
                   <Label htmlFor="new-password">
                     {info.hasPassword ? "New password" : "Password"}
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="new-password"
-                    type="password"
                     autoComplete="new-password"
                     value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
+                    onChange={setNewPassword}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">
                     {info.hasPassword ? "Confirm new password" : "Confirm password"}
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="confirm-password"
-                    type="password"
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    onChange={setConfirmPassword}
                   />
                 </div>
                 <Button type="button" disabled={saving} onClick={() => void handleSave()}>

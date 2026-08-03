@@ -229,10 +229,12 @@ export function PortfolioProvider({
   children,
   initialAccount,
   initialPortfolio,
+  initialPortfolioUpdatedAt,
 }: {
   children: ReactNode;
   initialAccount: User;
   initialPortfolio: PortfolioImportResult;
+  initialPortfolioUpdatedAt?: string;
 }) {
   const [boot] = useState(() => toNormalizedPortfolio(initialPortfolio));
   const [sections, setSections] = useState<PortfolioSection[]>(boot.sections);
@@ -267,6 +269,7 @@ export function PortfolioProvider({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestPayloadRef = useRef<PortfolioDataPayload | null>(null);
   const persistInFlightRef = useRef<Promise<void> | null>(null);
+  const portfolioUpdatedAtRef = useRef<string | undefined>(initialPortfolioUpdatedAt);
 
   const savePortfolioNow = useCallback(() => {
     saveNowRef.current = true;
@@ -803,14 +806,38 @@ export function PortfolioProvider({
       if (prev) {
         await prev.catch(() => undefined);
       }
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const baseUpdatedAt = portfolioUpdatedAtRef.current;
+      if (baseUpdatedAt) {
+        headers["If-Match"] = baseUpdatedAt;
+        headers["X-Portfolio-Base-Updated-At"] = baseUpdatedAt;
+      }
       await fetch("/api/export", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include",
         keepalive: options?.keepalive === true,
         body,
       })
         .then(async (res) => {
+          const nextUpdatedAt = res.headers.get("X-Portfolio-Updated-At");
+          if (nextUpdatedAt) portfolioUpdatedAtRef.current = nextUpdatedAt;
+          if (res.status === 409) {
+            const errorBody = (await res.json().catch(() => ({}))) as {
+              error?: unknown;
+              updatedAt?: string;
+            };
+            if (errorBody.updatedAt) portfolioUpdatedAtRef.current = errorBody.updatedAt;
+            if (options?.keepalive !== true) {
+              toast.error(
+                apiErrorMessage(
+                  errorBody.error,
+                  "Portfolio changed elsewhere — refresh the page"
+                )
+              );
+            }
+            return;
+          }
           if (!res.ok && options?.keepalive !== true) {
             const errorBody = (await res.json().catch(() => ({}))) as { error?: unknown };
             toast.error(apiErrorMessage(errorBody.error, `Save failed (${res.status})`));

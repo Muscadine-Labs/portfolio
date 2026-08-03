@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 interface DashboardShellProps {
   initialAccount: User;
   initialPortfolio: PortfolioImportResult;
+  initialPortfolioUpdatedAt?: string;
   children: ReactNode;
 }
 
@@ -81,6 +82,7 @@ function ShellInner({ children }: { children: ReactNode }) {
 export function DashboardShell({
   initialAccount,
   initialPortfolio,
+  initialPortfolioUpdatedAt,
   children,
 }: DashboardShellProps) {
   return (
@@ -88,6 +90,7 @@ export function DashboardShell({
       <PortfolioProvider
         initialAccount={initialAccount}
         initialPortfolio={initialPortfolio}
+        initialPortfolioUpdatedAt={initialPortfolioUpdatedAt}
       >
         <MobileNavProvider>
           <ShellInner>{children}</ShellInner>

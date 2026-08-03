@@ -11,6 +11,8 @@ export function isAppHostname(hostname: string): boolean {
   const host = hostname.split(":")[0].toLowerCase();
   if (LOCAL_HOSTS.has(host)) return true;
   if (host === APP_HOST.toLowerCase()) return true;
+  // Vercel preview deployments should still enforce auth when API_URL is set.
+  if (host.endsWith(".vercel.app")) return true;
   return false;
 }
 

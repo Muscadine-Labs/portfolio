@@ -143,7 +143,7 @@ function NetWorthChartDisplaySettings() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="chart-bar-color">Net worth bar color</Label>
           <div className="flex items-center gap-2">
@@ -172,6 +172,56 @@ function NetWorthChartDisplaySettings() {
             />
             <span className="font-mono text-xs text-muted-foreground">
               {chart.costBasisLineColor}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="chart-assets-color">Assets line color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chart-assets-color"
+              type="color"
+              value={chart.assetsLineColor}
+              onChange={(e) =>
+                setOverviewChartPreferences({ assetsLineColor: e.target.value })
+              }
+              className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+              disabled={!chart.showAssetsLine}
+            />
+            <span className="font-mono text-xs text-muted-foreground">{chart.assetsLineColor}</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="chart-cash-color">Cash line color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chart-cash-color"
+              type="color"
+              value={chart.cashLineColor}
+              onChange={(e) =>
+                setOverviewChartPreferences({ cashLineColor: e.target.value })
+              }
+              className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+              disabled={!chart.showCashLine}
+            />
+            <span className="font-mono text-xs text-muted-foreground">{chart.cashLineColor}</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="chart-liabilities-color">Liabilities line color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chart-liabilities-color"
+              type="color"
+              value={chart.liabilitiesLineColor}
+              onChange={(e) =>
+                setOverviewChartPreferences({ liabilitiesLineColor: e.target.value })
+              }
+              className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+              disabled={!chart.showLiabilitiesLine}
+            />
+            <span className="font-mono text-xs text-muted-foreground">
+              {chart.liabilitiesLineColor}
             </span>
           </div>
         </div>

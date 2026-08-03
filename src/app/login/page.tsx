@@ -3,13 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Grape, LogIn, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import {
   Card,
   CardContent,
@@ -139,12 +140,18 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                {...form.register("password")}
+              <Controller
+                name="password"
+                control={form.control}
+                render={({ field }) => (
+                  <PasswordInput
+                    id="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
               />
               {form.formState.errors.password && (
                 <p className="text-xs text-destructive">

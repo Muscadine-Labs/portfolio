@@ -183,20 +183,31 @@ function parseMorphoMappings(raw: unknown): WalletMapNode["morphoMappings"] | un
   const mappings: NonNullable<WalletMapNode["morphoMappings"]> = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
-    const key = optionalString(item.key);
+    const rawKey = optionalString(item.key);
     const target = optionalString(item.target);
-    if (!key || !target || !targets.has(target)) continue;
+    if (!rawKey || !target || !targets.has(target)) continue;
+    const key = rawKey.trim().toLowerCase().replace(/:(\d+)-(0x)/g, ":$2");
+    const kind =
+      typeof item.kind === "string" && kinds.has(item.kind)
+        ? (item.kind as "vault" | "debt" | "collateral")
+        : key.includes(":debt:")
+          ? ("debt" as const)
+          : key.includes(":collateral:")
+            ? ("collateral" as const)
+            : key.includes(":vault:")
+              ? ("vault" as const)
+              : undefined;
+    let coercedTarget = target as "assets" | "liabilities" | "cash";
+    if (kind === "debt") coercedTarget = "liabilities";
+    else if (coercedTarget === "liabilities") coercedTarget = "assets";
     mappings.push({
       key,
       enabled: item.enabled !== false,
-      target: target as "assets" | "liabilities" | "cash",
+      target: coercedTarget,
       sectionId: optionalString(item.sectionId),
       rowId: optionalString(item.rowId),
       label: optionalString(item.label),
-      kind:
-        typeof item.kind === "string" && kinds.has(item.kind)
-          ? (item.kind as "vault" | "debt" | "collateral")
-          : undefined,
+      kind,
     });
   }
   return mappings.length > 0 ? mappings : undefined;

@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
-  Eye,
-  EyeOff,
   LogOut,
   Pencil,
   Plus,
@@ -37,6 +35,8 @@ import {
 import { toast } from "sonner";
 import { apiErrorMessage } from "@/lib/format-error";
 import { PortfolioVersionsCard } from "@/components/settings/PortfolioVersionsCard";
+import { PasswordInput } from "@/components/shared/PasswordInput";
+import { PasswordReveal } from "@/components/shared/PasswordReveal";
 
 type AdminAccount = {
   username: string;
@@ -58,78 +58,6 @@ type EditDraft = {
   email: string;
   password: string;
 };
-
-function PasswordInput({
-  id,
-  value,
-  onChange,
-  placeholder,
-  className,
-  autoComplete = "new-password",
-}: {
-  id?: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
-  autoComplete?: string;
-}) {
-  const [visible, setVisible] = useState(false);
-
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        type={visible ? "text" : "password"}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`pr-10 ${className ?? ""}`}
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-        onClick={() => setVisible((open) => !open)}
-        aria-label={visible ? "Hide password" : "Show password"}
-      >
-        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </Button>
-    </div>
-  );
-}
-
-function PasswordReveal({
-  password,
-  ariaLabel,
-}: {
-  password: string;
-  ariaLabel: string;
-}) {
-  const [visible, setVisible] = useState(false);
-
-  if (!password) {
-    return <>—</>;
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-mono text-xs">{visible ? password : "••••••••"}</span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={() => setVisible((open) => !open)}
-        aria-label={visible ? `Hide ${ariaLabel} password` : `Show ${ariaLabel} password`}
-      >
-        {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-      </Button>
-    </div>
-  );
-}
 
 export default function AdminPage() {
   const router = useRouter();

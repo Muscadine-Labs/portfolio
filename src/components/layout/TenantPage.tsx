@@ -17,7 +17,7 @@ export async function TenantPage({
   compact = false,
   children,
 }: TenantPageProps) {
-  const [initialAccount, initialPortfolio] = await Promise.all([
+  const [initialAccount, initial] = await Promise.all([
     getInitialAccount(),
     getInitialPortfolio(),
   ]);
@@ -25,7 +25,8 @@ export async function TenantPage({
   return (
     <DashboardShell
       initialAccount={initialAccount}
-      initialPortfolio={initialPortfolio}
+      initialPortfolio={initial.portfolio}
+      initialPortfolioUpdatedAt={initial.updatedAt}
     >
       <Header title={title} description={description} compact={compact} />
       <main

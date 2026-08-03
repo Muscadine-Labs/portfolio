@@ -53,12 +53,33 @@ function sessionSecret(): string {
   return "portfolio-api-dev-secret";
 }
 
+function timingSafeEqualString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+function sessionExpiryUnix(): number {
+  return Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SEC;
+}
+
+/** Token format: `{exp}.{hmac}` — must match api-portfolio. */
 export async function createSessionToken(tenant: string): Promise<string> {
-  return hmacToken(sessionSecret(), `${SESSION_PAYLOAD}:${tenant.toLowerCase()}`);
+  const exp = sessionExpiryUnix();
+  const sig = await hmacToken(
+    sessionSecret(),
+    `${SESSION_PAYLOAD}:${tenant.toLowerCase()}:${exp}`
+  );
+  return `${exp}.${sig}`;
 }
 
 export async function createAdminSessionToken(): Promise<string> {
-  return hmacToken(sessionSecret(), ADMIN_SESSION_PAYLOAD);
+  const exp = sessionExpiryUnix();
+  const sig = await hmacToken(sessionSecret(), `${ADMIN_SESSION_PAYLOAD}:${exp}`);
+  return `${exp}.${sig}`;
 }
 
 export function isAuthEnabled(): boolean {
@@ -80,13 +101,17 @@ export async function verifySessionToken(
   if (!isAuthRequiredForTenant(tenant) && !getHomeApiBaseUrl()) return true;
   if (!token) return false;
   try {
-    const expected = await createSessionToken(tenant);
-    if (token.length !== expected.length) return false;
-    let mismatch = 0;
-    for (let i = 0; i < token.length; i++) {
-      mismatch |= token.charCodeAt(i) ^ expected.charCodeAt(i);
-    }
-    return mismatch === 0;
+    const dot = token.indexOf(".");
+    if (dot <= 0) return false;
+    const expStr = token.slice(0, dot);
+    const sig = token.slice(dot + 1);
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false;
+    const expected = await hmacToken(
+      sessionSecret(),
+      `${SESSION_PAYLOAD}:${tenant.toLowerCase()}:${exp}`
+    );
+    return timingSafeEqualString(sig, expected);
   } catch {
     return false;
   }
@@ -97,13 +122,17 @@ export async function verifyAdminSessionToken(
 ): Promise<boolean> {
   if (!token) return false;
   try {
-    const expected = await createAdminSessionToken();
-    if (token.length !== expected.length) return false;
-    let mismatch = 0;
-    for (let i = 0; i < token.length; i++) {
-      mismatch |= token.charCodeAt(i) ^ expected.charCodeAt(i);
-    }
-    return mismatch === 0;
+    const dot = token.indexOf(".");
+    if (dot <= 0) return false;
+    const expStr = token.slice(0, dot);
+    const sig = token.slice(dot + 1);
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false;
+    const expected = await hmacToken(
+      sessionSecret(),
+      `${ADMIN_SESSION_PAYLOAD}:${exp}`
+    );
+    return timingSafeEqualString(sig, expected);
   } catch {
     return false;
   }
@@ -121,14 +150,20 @@ export function validateCredentials(
   if (tenant) {
     const stored = getTenantCredentials(tenant);
     if (stored?.username && stored?.password) {
-      return trimmedUser === stored.username && password === stored.password;
+      return (
+        trimmedUser.toLowerCase() === stored.username.toLowerCase() &&
+        password === stored.password
+      );
     }
   }
 
   if (isEnvAuthEnabled()) {
     const expectedUser = process.env.PORTFOLIO_USERNAME?.trim() ?? "";
     const expectedPass = process.env.PORTFOLIO_PASSWORD ?? "";
-    return trimmedUser === expectedUser && password === expectedPass;
+    return (
+      trimmedUser.toLowerCase() === expectedUser.toLowerCase() &&
+      password === expectedPass
+    );
   }
 
   return false;

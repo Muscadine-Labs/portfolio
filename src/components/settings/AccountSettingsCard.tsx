@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordReveal } from "@/components/shared/PasswordReveal";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
+import { apiErrorMessage } from "@/lib/format-error";
 import type { User } from "@/types";
 
 type AccountCredentialInfo = {
@@ -59,15 +60,42 @@ export function AccountSettingsCard({ authEnabled }: AccountSettingsCardProps) {
 
     setSaving(true);
     try {
-      const next: User = {
-        ...account,
-        displayName: draft.displayName.trim(),
-        email: draft.email.trim(),
-        password: "",
-      };
-
-      updateAccount(next);
-      setDraft(next);
+      if (authEnabled) {
+        const res = await fetch("/api/me", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            displayName: draft.displayName.trim(),
+            email: draft.email.trim(),
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          user?: User;
+        };
+        if (!res.ok) {
+          toast.error(apiErrorMessage(body.error, "Save failed"));
+          return;
+        }
+        const next: User = {
+          ...account,
+          displayName: body.user?.displayName ?? draft.displayName.trim(),
+          email: body.user?.email ?? draft.email.trim(),
+          password: "",
+        };
+        updateAccount(next);
+        setDraft(next);
+      } else {
+        const next: User = {
+          ...account,
+          displayName: draft.displayName.trim(),
+          email: draft.email.trim(),
+          password: "",
+        };
+        updateAccount(next);
+        setDraft(next);
+      }
       toast.success("Account updated");
       router.refresh();
     } catch {
