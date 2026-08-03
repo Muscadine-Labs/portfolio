@@ -6,6 +6,7 @@ import { PageBreadcrumbs, type BreadcrumbItem } from "@/components/layout/PageBr
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirm-delete";
 import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
@@ -521,7 +522,10 @@ export function AssetTable() {
               variant="ghost"
               size="icon"
               className={cn(panel.iconBtn, "hover:text-destructive")}
-              onClick={() => deleteAsset(asset.id)}
+              onClick={() => {
+                if (!confirmDelete("asset", asset.symbol)) return;
+                deleteAsset(asset.id);
+              }}
               aria-label={`Delete ${asset.symbol}`}
             >
               <Trash2 className="h-3.5 w-3.5" />

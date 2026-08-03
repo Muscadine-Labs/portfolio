@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirm-delete";
 import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
@@ -408,7 +409,10 @@ export function LiabilityTable() {
                       variant="ghost"
                       size="icon"
                       className={cn(panel.iconBtn, "hover:text-destructive")}
-                      onClick={() => deleteLiability(l.id)}
+                      onClick={() => {
+                        if (!confirmDelete("liability", l.name)) return;
+                        deleteLiability(l.id);
+                      }}
                       aria-label={`Delete ${l.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

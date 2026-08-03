@@ -19,6 +19,7 @@ import {
 } from "@/lib/allocation-plan";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirm-delete";
 import type { AllocationNode } from "@/types";
 
 function AllocationRowDetails({
@@ -167,7 +168,10 @@ function AllocationRow({
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-destructive"
-            onClick={() => onDelete(node.id)}
+            onClick={() => {
+              if (!confirmDelete("allocation", node.label)) return;
+              onDelete(node.id);
+            }}
             aria-label={`Delete ${node.label}`}
           >
             <Trash2 className="h-3.5 w-3.5" />

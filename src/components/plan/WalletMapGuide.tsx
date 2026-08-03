@@ -14,6 +14,7 @@ import { validatePortfolioPayload } from "@/lib/portfolio-data";
 import { getWalletAddressEntries } from "@/lib/wallet-entries";
 import { walletNetworkLabel } from "@/lib/wallet-address";
 import { getWalletChildren, isOnChainWallet } from "@/lib/wallet-map";
+import { confirmDelete } from "@/lib/confirm-delete";
 import { cn } from "@/lib/utils";
 import type { WalletMapNode } from "@/types";
 
@@ -165,7 +166,10 @@ function WalletRow({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-destructive"
-              onClick={() => onDelete(node.id)}
+              onClick={() => {
+                if (!confirmDelete("wallet", node.label)) return;
+                onDelete(node.id);
+              }}
               aria-label={`Delete wallet ${node.label}`}
             >
               <Trash2 className="h-3.5 w-3.5" />

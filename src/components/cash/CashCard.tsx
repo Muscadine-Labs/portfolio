@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSectionFilterFromUrl, useScrollToSectionFromUrl, scrollToPortfolioSection } from "@/hooks/use-section-from-url";
 import { cn } from "@/lib/utils";
+import { confirmDelete } from "@/lib/confirm-delete";
 import { Pencil, Trash2 } from "lucide-react";
 import {
   Table,
@@ -345,7 +346,10 @@ export function CashPageContent() {
                       variant="ghost"
                       size="icon"
                       className={cn(panel.iconBtn, "hover:text-destructive")}
-                      onClick={() => deleteCashAccount(account.id)}
+                      onClick={() => {
+                        if (!confirmDelete("cash account", account.name)) return;
+                        deleteCashAccount(account.id);
+                      }}
                       aria-label={`Delete ${account.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
