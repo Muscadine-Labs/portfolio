@@ -32,7 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "display",
     label: "Display",
-    description: "Theme, sidebar, and chart",
+    description: "Theme and sidebar",
     icon: LayoutDashboard,
   },
   {
@@ -44,7 +44,7 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   {
     id: "data",
     label: "Data",
-    description: "Net worth history, import, and export",
+    description: "Net worth history, chart display, import, and export",
     icon: Database,
   },
 ];

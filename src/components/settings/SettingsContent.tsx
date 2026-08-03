@@ -5,10 +5,9 @@ import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { AppearanceSettingsCard } from "@/components/settings/AppearanceSettingsCard";
 import { DataImportExportCard } from "@/components/settings/DataImportExportCard";
 import { NetWorthHistorySettingsCard } from "@/components/settings/NetWorthHistorySettingsCard";
+import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
 import { PriceRefreshSettingsCard } from "@/components/settings/PriceRefreshSettingsCard";
 import { WalletSyncSettingsCard } from "@/components/settings/WalletSyncSettingsCard";
-import { NavigationSettingsCard } from "@/components/settings/NavigationSettingsCard";
-import { OverviewChartSettingsCard } from "@/components/settings/OverviewChartSettingsCard";
 import { PortfolioVersionsCard } from "@/components/settings/PortfolioVersionsCard";
 import { SettingsFooter } from "@/components/settings/SettingsFooter";
 import { SettingsNav } from "@/components/settings/SettingsNav";
@@ -54,7 +53,6 @@ export function SettingsContent({ authEnabled }: SettingsContentProps) {
             <section aria-labelledby="settings-display" className="space-y-4">
               <SettingsPanelHeader sectionId="display" />
               <AppearanceSettingsCard />
-              <OverviewChartSettingsCard />
             </section>
           )}
 

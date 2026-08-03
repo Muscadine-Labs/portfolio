@@ -409,8 +409,21 @@ export function PortfolioProvider({
         const next = [...prev];
         const merged = { ...next[index], ...patch };
         if (patch.netWorth != null) merged.netWorth = roundMoney(patch.netWorth);
-        if (patch.totalCostBasis != null) {
-          merged.totalCostBasis = roundMoney(patch.totalCostBasis);
+        if ("totalCostBasis" in patch) {
+          merged.totalCostBasis =
+            patch.totalCostBasis != null ? roundMoney(patch.totalCostBasis) : undefined;
+        }
+        if ("totalAssets" in patch) {
+          merged.totalAssets =
+            patch.totalAssets != null ? roundMoney(patch.totalAssets) : undefined;
+        }
+        if ("totalCash" in patch) {
+          merged.totalCash =
+            patch.totalCash != null ? roundMoney(patch.totalCash) : undefined;
+        }
+        if ("totalLiabilities" in patch) {
+          merged.totalLiabilities =
+            patch.totalLiabilities != null ? roundMoney(patch.totalLiabilities) : undefined;
         }
         next[index] = normalizeNetWorthSnapshot(merged);
         return sortNetWorthHistory(next);

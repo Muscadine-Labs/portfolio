@@ -23,12 +23,158 @@ import {
 } from "@/lib/net-worth-history";
 import { computeOverviewSnapshot } from "@/lib/overview";
 import { cn, formatCurrency } from "@/lib/utils";
+import type { NetWorthSnapshot } from "@/types";
 
 function parseOptionalNumber(raw: string): number | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
   const value = Number(trimmed);
   return Number.isFinite(value) ? value : undefined;
+}
+
+function OptionalMoneyInput({
+  id,
+  value,
+  onCommit,
+  className,
+}: {
+  id?: string;
+  value?: number;
+  onCommit: (next: number | undefined) => void;
+  className?: string;
+}) {
+  return (
+    <Input
+      id={id}
+      type="number"
+      step="any"
+      defaultValue={value ?? ""}
+      placeholder="—"
+      className={cn("h-8 text-right tabular-nums", className)}
+      onBlur={(e) => {
+        const next = parseOptionalNumber(e.target.value);
+        if (next === value) return;
+        onCommit(next);
+      }}
+    />
+  );
+}
+
+function NetWorthChartDisplaySettings() {
+  const { uiPreferences, setOverviewChartPreferences } = usePortfolio();
+  const chart = uiPreferences.overviewChart;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border/50 bg-muted/15 p-4">
+      <div>
+        <p className="text-sm font-medium">Chart display</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Category lines appear when rows include assets, cash, and liabilities. Use
+          &ldquo;Capture current&rdquo; to fill all columns for the current period.
+        </p>
+      </div>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 rounded border-border"
+          checked={chart.showCostBasisLine}
+          onChange={(e) => setOverviewChartPreferences({ showCostBasisLine: e.target.checked })}
+        />
+        <span>
+          <span className="font-medium">Show cost basis line</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            Overlays invested capital on the same scale as net worth bars.
+          </span>
+        </span>
+      </label>
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Category lines</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-border"
+              checked={chart.showAssetsLine}
+              onChange={(e) =>
+                setOverviewChartPreferences({ showAssetsLine: e.target.checked })
+              }
+            />
+            <span
+              className="inline-block h-0 w-4 border-t-2"
+              style={{ borderColor: chart.assetsLineColor }}
+            />
+            Assets
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-border"
+              checked={chart.showCashLine}
+              onChange={(e) =>
+                setOverviewChartPreferences({ showCashLine: e.target.checked })
+              }
+            />
+            <span
+              className="inline-block h-0 w-4 border-t-2"
+              style={{ borderColor: chart.cashLineColor }}
+            />
+            Cash
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-border"
+              checked={chart.showLiabilitiesLine}
+              onChange={(e) =>
+                setOverviewChartPreferences({ showLiabilitiesLine: e.target.checked })
+              }
+            />
+            <span
+              className="inline-block h-0 w-4 border-t-2"
+              style={{ borderColor: chart.liabilitiesLineColor }}
+            />
+            Liabilities
+          </label>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="chart-bar-color">Net worth bar color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chart-bar-color"
+              type="color"
+              value={chart.barColor}
+              onChange={(e) => setOverviewChartPreferences({ barColor: e.target.value })}
+              className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+            />
+            <span className="font-mono text-xs text-muted-foreground">{chart.barColor}</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="chart-cost-basis-color">Cost basis line color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chart-cost-basis-color"
+              type="color"
+              value={chart.costBasisLineColor}
+              onChange={(e) =>
+                setOverviewChartPreferences({ costBasisLineColor: e.target.value })
+              }
+              className="h-9 w-12 cursor-pointer rounded border border-border/60 bg-transparent"
+              disabled={!chart.showCostBasisLine}
+            />
+            <span className="font-mono text-xs text-muted-foreground">
+              {chart.costBasisLineColor}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function NetWorthHistorySettingsCard({ className }: { className?: string }) {
@@ -97,6 +243,16 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
     });
   };
 
+  const patchOptionalField = (
+    index: number,
+    row: NetWorthSnapshot,
+    field: "totalAssets" | "totalCash" | "totalLiabilities" | "totalCostBasis",
+    next: number | undefined
+  ) => {
+    if (next === row[field]) return;
+    upsertNetWorthSnapshotAt(index, { [field]: next });
+  };
+
   return (
     <Card className={cn("border-border/60 bg-card/80", className)}>
       <CardHeader className="space-y-4 pb-3">
@@ -106,9 +262,12 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
             Chart data saved with the portfolio. Use{" "}
             <span className="font-mono text-xs">06-2026</span> for months or{" "}
             <span className="font-mono text-xs">Q2-2026</span> for quarters (legacy{" "}
-            <span className="font-mono text-xs">YYYY-MM</span> still works).
+            <span className="font-mono text-xs">YYYY-MM</span> still works). Fill assets,
+            cash, and liabilities per row to show category lines on the overview chart.
           </CardDescription>
         </div>
+
+        <NetWorthChartDisplaySettings />
 
         <fieldset className="space-y-2">
           <legend className="text-xs font-medium text-muted-foreground">Capture cadence</legend>
@@ -160,7 +319,9 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
             Capture current ({currentPeriodKey})
           </Button>
           <span className="text-xs text-muted-foreground">
-            Live net worth: {formatCurrency(liveSnapshot.netWorth)}
+            Live: {formatCurrency(liveSnapshot.netWorth)} assets{" "}
+            {formatCurrency(liveSnapshot.totalAssets)} · cash {formatCurrency(liveSnapshot.totalCash)}
+            · liabilities {formatCurrency(liveSnapshot.totalLiabilities)}
             {liveSnapshot.totalCostBasis > 0
               ? ` · cost basis ${formatCurrency(liveSnapshot.totalCostBasis)}`
               : null}
@@ -187,11 +348,9 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                   tableOpen && "rotate-180"
                 )}
               />
-              <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-2 text-xs font-medium text-muted-foreground max-sm:grid-cols-2">
-                <span>Period</span>
-                <span className="text-right">Net worth</span>
-                <span className="hidden text-right sm:inline">Cost basis</span>
-              </div>
+              <span className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+                Period · net worth · assets · cash · liabilities · cost basis
+              </span>
               <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
                 {netWorthHistory.length}
               </span>
@@ -200,12 +359,15 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
             {tableOpen ? (
               <div className="max-h-[min(60vh,32rem)] overflow-auto border-t border-border/60">
                 <Table>
-                  <TableHeader className="sr-only">
+                  <TableHeader>
                     <TableRow>
-                      <TableHead>Period</TableHead>
-                      <TableHead className="text-right">Net worth</TableHead>
-                      <TableHead className="text-right">Cost basis</TableHead>
-                      <TableHead />
+                      <TableHead className="min-w-[7rem]">Period</TableHead>
+                      <TableHead className="text-right min-w-[6rem]">Net worth</TableHead>
+                      <TableHead className="text-right min-w-[5.5rem]">Assets</TableHead>
+                      <TableHead className="text-right min-w-[5.5rem]">Cash</TableHead>
+                      <TableHead className="text-right min-w-[5.5rem]">Liabilities</TableHead>
+                      <TableHead className="text-right min-w-[5.5rem]">Cost basis</TableHead>
+                      <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -244,18 +406,36 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                             }}
                           />
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Input
-                            type="number"
-                            step="any"
-                            defaultValue={row.totalCostBasis ?? ""}
-                            placeholder="Optional"
-                            className="h-8 text-right tabular-nums"
-                            onBlur={(e) => {
-                              const next = parseOptionalNumber(e.target.value);
-                              if (next === row.totalCostBasis) return;
-                              upsertNetWorthSnapshotAt(index, { totalCostBasis: next });
-                            }}
+                        <TableCell>
+                          <OptionalMoneyInput
+                            value={row.totalAssets}
+                            onCommit={(next) =>
+                              patchOptionalField(index, row, "totalAssets", next)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <OptionalMoneyInput
+                            value={row.totalCash}
+                            onCommit={(next) =>
+                              patchOptionalField(index, row, "totalCash", next)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <OptionalMoneyInput
+                            value={row.totalLiabilities}
+                            onCommit={(next) =>
+                              patchOptionalField(index, row, "totalLiabilities", next)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <OptionalMoneyInput
+                            value={row.totalCostBasis}
+                            onCommit={(next) =>
+                              patchOptionalField(index, row, "totalCostBasis", next)
+                            }
                           />
                         </TableCell>
                         <TableCell>

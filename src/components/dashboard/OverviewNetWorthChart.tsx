@@ -83,11 +83,11 @@ function NetWorthTooltip({
 
   const row = payload[0]?.payload;
   const label = row?.period;
-  let netWorth: number | undefined;
-  let totalCostBasis: number | undefined;
-  let totalAssets: number | undefined;
-  let totalCash: number | undefined;
-  let totalLiabilities: number | undefined;
+  let netWorth = row?.netWorth;
+  let totalCostBasis = row?.totalCostBasis;
+  let totalAssets = row?.totalAssets;
+  let totalCash = row?.totalCash;
+  let totalLiabilities = row?.totalLiabilities;
 
   for (const entry of payload) {
     if (entry.dataKey === "netWorth") netWorth = Number(entry.value ?? 0);
@@ -101,10 +101,18 @@ function NetWorthTooltip({
     netWorth != null && totalCostBasis != null ? netWorth - totalCostBasis : undefined;
 
   const rows: Array<{ label: string; value: number } | null> = [
-    totalAssets != null ? { label: "Assets", value: totalAssets } : null,
-    totalCash != null ? { label: "Cash", value: totalCash } : null,
-    totalLiabilities != null ? { label: "Liabilities", value: totalLiabilities } : null,
-    totalCostBasis != null ? { label: "Cost basis", value: totalCostBasis } : null,
+    totalAssets != null && Number.isFinite(totalAssets)
+      ? { label: "Assets", value: totalAssets }
+      : null,
+    totalCash != null && Number.isFinite(totalCash)
+      ? { label: "Cash", value: totalCash }
+      : null,
+    totalLiabilities != null && Number.isFinite(totalLiabilities)
+      ? { label: "Liabilities", value: totalLiabilities }
+      : null,
+    totalCostBasis != null && Number.isFinite(totalCostBasis)
+      ? { label: "Cost basis", value: totalCostBasis }
+      : null,
   ];
 
   return (
