@@ -75,4 +75,5 @@ export const EMPTY_UI_PREFERENCES: UiPreferences = {
   sidebarCompact: false,
   monthlyAutoSnapshot: false,
   netWorthSnapshotCadence: "month",
+  walletSyncAutoRoute: "cash_and_assets",
 };

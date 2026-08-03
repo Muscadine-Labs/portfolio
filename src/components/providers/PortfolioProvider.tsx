@@ -124,6 +124,9 @@ interface PortfolioContextValue {
   setNetWorthSnapshotCadence: (cadence: UiPreferences["netWorthSnapshotCadence"]) => void;
   setThemePreference: (theme: UiPreferences["theme"]) => void;
   setMorphoVaultDisplayMode: (mode: NonNullable<UiPreferences["morphoVaultDisplayMode"]>) => void;
+  setWalletSyncAutoRoute: (
+    mode: NonNullable<UiPreferences["walletSyncAutoRoute"]>
+  ) => void;
   setSidebarCompact: (compact: boolean) => void;
   applyAssetPrices: (pricesBySymbol: Record<string, number>) => number;
   replacePortfolioData: (data: PortfolioImportResult) => void;
@@ -482,6 +485,13 @@ export function PortfolioProvider({
   const setMorphoVaultDisplayMode = useCallback(
     (mode: NonNullable<UiPreferences["morphoVaultDisplayMode"]>) => {
       setUiPreferences((prev) => ({ ...prev, morphoVaultDisplayMode: mode }));
+    },
+    []
+  );
+
+  const setWalletSyncAutoRoute = useCallback(
+    (mode: NonNullable<UiPreferences["walletSyncAutoRoute"]>) => {
+      setUiPreferences((prev) => ({ ...prev, walletSyncAutoRoute: mode }));
     },
     []
   );
@@ -1037,6 +1047,7 @@ export function PortfolioProvider({
       setNetWorthSnapshotCadence,
       setThemePreference,
       setMorphoVaultDisplayMode,
+      setWalletSyncAutoRoute,
       setSidebarCompact,
       applyAssetPrices,
       replacePortfolioData,
@@ -1096,6 +1107,7 @@ export function PortfolioProvider({
       setNetWorthSnapshotCadence,
       setThemePreference,
       setMorphoVaultDisplayMode,
+      setWalletSyncAutoRoute,
       setSidebarCompact,
       applyAssetPrices,
       replacePortfolioData,

@@ -17,31 +17,83 @@ const MORPHO_MODE_OPTIONS = [
   },
 ] as const;
 
+const AUTO_ROUTE_OPTIONS = [
+  {
+    value: "cash_and_assets",
+    label: "Cash + assets (USD stables → cash; else assets; debt → liabilities)",
+  },
+  {
+    value: "assets",
+    label: "Everything to assets (debt still → liabilities)",
+  },
+  {
+    value: "manual",
+    label: "Manual only (new Morpho positions need a mapping)",
+  },
+] as const;
+
 export function WalletSyncSettingsCard() {
-  const { uiPreferences, setMorphoVaultDisplayMode } = usePortfolio();
+  const {
+    uiPreferences,
+    setMorphoVaultDisplayMode,
+    setWalletSyncAutoRoute,
+  } = usePortfolio();
   const mode: NonNullable<UiPreferences["morphoVaultDisplayMode"]> =
     uiPreferences.morphoVaultDisplayMode ?? "share_price";
+  const autoRoute: NonNullable<UiPreferences["walletSyncAutoRoute"]> =
+    uiPreferences.walletSyncAutoRoute ?? "cash_and_assets";
 
   return (
     <Card className="border-border/60 bg-card/80">
       <CardHeader>
-        <CardTitle>Morpho sync</CardTitle>
+        <CardTitle>Wallet sync</CardTitle>
         <CardDescription>
-          How Morpho vault rows appear when synced (share price vs underlying asset).
+          Daily and manual sync: Morpho positions, Bitcoin (electrs), and how new
+          rows are placed when you have not mapped them yet.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <Label htmlFor="morpho-vault-mode">Morpho vault display</Label>
-        <NativeSelect
-          id="morpho-vault-mode"
-          value={mode}
-          onValueChange={(value) => {
-            if (value === "share_price" || value === "underlying") {
-              setMorphoVaultDisplayMode(value);
-            }
-          }}
-          options={MORPHO_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-        />
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="wallet-auto-route">New positions</Label>
+          <NativeSelect
+            id="wallet-auto-route"
+            value={autoRoute}
+            onValueChange={(value) => {
+              if (
+                value === "manual" ||
+                value === "assets" ||
+                value === "cash_and_assets"
+              ) {
+                setWalletSyncAutoRoute(value);
+              }
+            }}
+            options={AUTO_ROUTE_OPTIONS.map((o) => ({
+              value: o.value,
+              label: o.label,
+            }))}
+          />
+          <p className="text-xs text-muted-foreground">
+            Explicit Morpho mappings still win. Disabled mappings stay off. Auto
+            modes create mappings for newly seen Morpho positions so they land in
+            Cash / Assets / Liabilities without a manual scan.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="morpho-vault-mode">Morpho vault display</Label>
+          <NativeSelect
+            id="morpho-vault-mode"
+            value={mode}
+            onValueChange={(value) => {
+              if (value === "share_price" || value === "underlying") {
+                setMorphoVaultDisplayMode(value);
+              }
+            }}
+            options={MORPHO_MODE_OPTIONS.map((o) => ({
+              value: o.value,
+              label: o.label,
+            }))}
+          />
+        </div>
       </CardContent>
     </Card>
   );

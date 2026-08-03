@@ -242,6 +242,7 @@ export function WalletMapGuide() {
         body: JSON.stringify({
           walletId: node.id,
           morphoDisplayMode: uiPreferences.morphoVaultDisplayMode ?? "share_price",
+          autoRoute: uiPreferences.walletSyncAutoRoute ?? "cash_and_assets",
         }),
       });
       const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);
@@ -289,6 +290,7 @@ export function WalletMapGuide() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           morphoDisplayMode: uiPreferences.morphoVaultDisplayMode ?? "share_price",
+          autoRoute: uiPreferences.walletSyncAutoRoute ?? "cash_and_assets",
         }),
       });
       const data = await readJsonResponse<{ error?: string } & Record<string, unknown>>(res);

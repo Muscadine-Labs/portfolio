@@ -6,7 +6,19 @@ export const STABLECOIN_USD_SYMBOLS = new Set([
   "USDC",
   "USDT",
   "DAI",
+  "USD",
+  "USDE",
+  "USDS",
 ]);
+
+/** True for USD stables (cash routing / $1 price). */
+export function isUsdStableSymbol(symbol: string): boolean {
+  const upper = symbol.trim().toUpperCase();
+  if (!upper) return false;
+  if (STABLECOIN_USD_SYMBOLS.has(upper)) return true;
+  const normalized = normalizeQuoteSymbol(upper);
+  return STABLECOIN_USD_SYMBOLS.has(normalized);
+}
 
 export const QUOTE_SYMBOL_ALIASES: Record<string, string> = {
   CBTC: "BTC",

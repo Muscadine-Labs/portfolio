@@ -1040,6 +1040,12 @@ export function validatePortfolioPayload(body: unknown): PortfolioValidationResu
                 : body.uiPreferences.morphoVaultDisplayMode === "share_price"
                   ? "share_price"
                   : undefined,
+            walletSyncAutoRoute:
+              body.uiPreferences.walletSyncAutoRoute === "manual" ||
+              body.uiPreferences.walletSyncAutoRoute === "assets" ||
+              body.uiPreferences.walletSyncAutoRoute === "cash_and_assets"
+                ? body.uiPreferences.walletSyncAutoRoute
+                : undefined,
             overviewWidgets: normalizeOverviewWidgets(
               parseOverviewWidgets(body.uiPreferences.overviewWidgets)
             ),

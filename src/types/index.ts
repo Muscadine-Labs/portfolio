@@ -108,6 +108,13 @@ export interface UiPreferences {
   netWorthSnapshotCadence: "month" | "quarter";
   /** Morpho vault rows: share price × shares vs underlying asset qty × price. */
   morphoVaultDisplayMode?: "share_price" | "underlying";
+  /**
+   * Where new Morpho / wallet positions go when not manually mapped.
+   * - manual: only enabled morphoMappings (skip new keys)
+   * - assets: everything → assets (debt → liabilities)
+   * - cash_and_assets: USD stables → cash, else assets; debt → liabilities
+   */
+  walletSyncAutoRoute?: "manual" | "assets" | "cash_and_assets";
 }
 
 export type SectionGroupPage = "assets" | "cash" | "liabilities";
