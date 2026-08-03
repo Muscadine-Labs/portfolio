@@ -1,8 +1,8 @@
 # Agent instructions
 
-**Version 1.2.5**
+**Version:** match `package.json` (currently **1.3.x**).
 
-Read first: `CLAUDE.md` (full guide), `README.md`, `SECURITY.md`.
+Read first: `CLAUDE.md`, `README.md`, `SECURITY.md`. Automated vs manual: `../api-portfolio/docs/automation.md`.
 
 ---
 

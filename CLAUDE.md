@@ -1,18 +1,10 @@
 # Portfolio UI — Agent Guide
 
-**Release v1.2.5** — Canonical hostname **portfolio.muscadine.xyz** (was `.io`); dependency refresh; demo portfolio adds Morpho Vault V2 → DeFi Cash mapping, multi-address wallets, and Plan → Wallets tab. **Home API is offline for maintenance** — use **Demo** on `/login` (no api-portfolio required).
+**Version:** see `package.json` (currently **1.3.x**). Hostname **portfolio.muscadine.xyz** (Vercel). Home API: **api-portfolio.muscadine.xyz** (live).
 
-**Release v1.2.4** — Fix price refresh proxy: empty POST bodies no longer 502 "Home API unreachable" on Vercel; price refresh sends `{}` with credentials.
+**Automated vs manual** (prices, Morpho, Bitcoin electrs, snapshots): see sibling repo [`api-portfolio/docs/automation.md`](../api-portfolio/docs/automation.md).
 
-**Release v1.2.2** — Session HMAC fails closed in production when `API_SECRET` / `PORTFOLIO_AUTH_SECRET` is unset (matches api-portfolio).
-
-**Release v1.2.1** — Morpho→Cash auto-creates **DeFi Cash** section on wallet save (`ensureWalletSyncSectionForTarget`); wallet drawer fixes (stale Morpho scan reset via panel `key`, clear `syncEnabled` when EVM removed, defer section creation to save — no orphan sections on cancel); `savePortfolio()` failure blocks sync; coerce Morpho target by position kind; validate stale `rowId` on save.
-
-**Release v1.2.0** — Multi-chain wallet editor (`WalletAddressEntriesEditor`: multiple addresses + per-chain checkboxes); wallet sync hardening (preserve `links`/`walletType` on save, merge Morpho mappings on rescan, flush save before sync, pass `morphoDisplayMode`); `PortfolioApiError` when home API unreachable (no silent empty portfolio); proxy returns JSON 401 for unauthenticated API calls; import validates before proxy; demo export returns full portfolio; serialized saves in `PortfolioProvider`; admin passwords masked.
-
-Previous (v1.1.9) — Morpho sync client errors, API status on admin page.
-
-Previous (v1.1.8) — Plan save fix, demo refresh, CoinGecko messaging.
+**Demo mode** still works without the home API (`POST /api/auth/demo` on `/login`).
 
 Context for AI assistants in the **portfolio** repo (Vercel UI).
 
