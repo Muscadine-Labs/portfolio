@@ -31,7 +31,7 @@ Personal finance dashboard at **portfolio.muscadine.xyz** (Vercel). User data li
 | URL | Role |
 |-----|------|
 | `portfolio.muscadine.xyz` | This repo — UI + `/api/*` proxy |
-| `api-portfolio.muscadine.io` | SQLite backend via tunnel (**offline during maintenance**) |
+| `api-portfolio.muscadine.xyz` | SQLite backend via tunnel (**offline during maintenance**) |
 
 **Demo mode** (`POST /api/auth/demo`) serves read-only sample data from `src/lib/demo-data.ts` — works without the home API (price refresh, wallet sync, login, and save are disabled or no-op).
 
@@ -44,7 +44,7 @@ Login username = tenant slug. Admin user → `/admin`.
 ```
 Browser → portfolio.muscadine.xyz (Vercel)
             ├─ pages (UI)
-            └─ /api/* → proxy → api-portfolio.muscadine.io → SQLite
+            └─ /api/* → proxy → api-portfolio.muscadine.xyz → SQLite
 ```
 
 ---

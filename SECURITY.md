@@ -12,7 +12,7 @@ If you find a security issue, **do not open a public GitHub issue**. Email **[mu
 
 ```
 Browser → portfolio.muscadine.xyz (Vercel UI + /api proxy)
-       → api-portfolio.muscadine.io (Cloudflare Tunnel)
+       → api-portfolio.muscadine.xyz (Cloudflare Tunnel)
        → mini PC API + SQLite (data/portfolio.db)
 ```
 

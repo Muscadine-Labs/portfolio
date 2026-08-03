@@ -67,7 +67,7 @@ export function PortfolioVersionsCard() {
         </div>
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/15 px-3 py-2.5">
           <a
-            href="https://api-portfolio.muscadine.io"
+            href="https://api-portfolio.muscadine.xyz"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-primary hover:underline"

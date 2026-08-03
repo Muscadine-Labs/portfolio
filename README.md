@@ -5,7 +5,7 @@ Next.js personal finance UI for [portfolio.muscadine.xyz](https://portfolio.musc
 | | |
 |---|---|
 | **Live UI** | https://portfolio.muscadine.xyz (Vercel) |
-| **Home API** | https://api-portfolio.muscadine.io (mini PC + tunnel) |
+| **Home API** | https://api-portfolio.muscadine.xyz (mini PC + tunnel) |
 | **Version** | See `package.json` |
 
 ## Local dev
@@ -24,7 +24,7 @@ Server env (required with home API): `API_URL`, `API_SECRET` (must match mini PC
 
 | Variable | Required? | Purpose |
 |----------|-----------|---------|
-| `API_URL` | **Yes** (prod) | Home API base (`https://api-portfolio.muscadine.io`) |
+| `API_URL` | **Yes** (prod) | Home API base (`https://api-portfolio.muscadine.xyz`) |
 | `API_SECRET` | **Yes** (prod) | Session HMAC — match api-portfolio |
 | `NEXT_PUBLIC_APP_HOST` | **Yes** (prod) | Canonical hostname (`portfolio.muscadine.xyz`) |
 | `DEV_TENANT` | No | Local tenant slug |
