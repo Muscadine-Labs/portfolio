@@ -109,30 +109,46 @@ export function AccountSettingsCard({ authEnabled }: AccountSettingsCardProps) {
             readOnly
             className="bg-muted/20"
           />
-          {authEnabled && credentialInfo?.canViewPassword && credentialInfo.password ? (
-            <div className="space-y-2 pt-1">
-              <Label htmlFor="account-password">Password</Label>
+        </div>
+        {authEnabled ? (
+          <div className="space-y-2">
+            <Label htmlFor="account-password">Password</Label>
+            {credentialInfo?.canViewPassword && credentialInfo.password ? (
               <PasswordReveal
                 password={credentialInfo.password}
                 ariaLabel="account password"
                 inputClassName="h-9"
               />
-            </div>
-          ) : null}
-          <p className="text-xs text-muted-foreground">
-            {authEnabled ? (
-              <>
-                Change username or password on the{" "}
+            ) : credentialInfo?.hasPassword ? (
+              <p className="text-sm text-muted-foreground">
+                Password is set. Change it on the{" "}
                 <Link href="/reset" className="text-primary hover:underline">
                   reset page
                 </Link>
                 .
-              </>
+              </p>
             ) : (
-              "Demo mode — sign out to return to the login screen."
+              <p className="text-sm text-muted-foreground">
+                No password on file yet. Set one on the{" "}
+                <Link href="/reset" className="text-primary hover:underline">
+                  reset page
+                </Link>
+                .
+              </p>
             )}
+            <p className="text-xs text-muted-foreground">
+              Change username or password on the{" "}
+              <Link href="/reset" className="text-primary hover:underline">
+                reset page
+              </Link>
+              .
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Demo mode — sign out to return to the login screen.
           </p>
-        </div>
+        )}
 
         <div className="border-t border-border/40 pt-4">
           {authEnabled ? (

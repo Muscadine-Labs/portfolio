@@ -58,16 +58,28 @@ export function normalizeOverviewChart(
   };
 }
 
-function chartValuePoints(data: NetWorthSnapshot[]): number[] {
+function chartValuePoints(
+  data: NetWorthSnapshot[],
+  series?: {
+    includeCostBasis?: boolean;
+    includeAssets?: boolean;
+    includeCash?: boolean;
+    includeLiabilities?: boolean;
+  }
+): number[] {
   const values: number[] = [];
+  const includeCostBasis = series?.includeCostBasis !== false;
+  const includeAssets = series?.includeAssets !== false;
+  const includeCash = series?.includeCash !== false;
+  const includeLiabilities = series?.includeLiabilities !== false;
   for (const row of data) {
     values.push(row.netWorth);
-    for (const extra of [
-      row.totalCostBasis,
-      row.totalAssets,
-      row.totalCash,
-      row.totalLiabilities,
-    ]) {
+    const extras: Array<number | undefined> = [];
+    if (includeCostBasis) extras.push(row.totalCostBasis);
+    if (includeAssets) extras.push(row.totalAssets);
+    if (includeCash) extras.push(row.totalCash);
+    if (includeLiabilities) extras.push(row.totalLiabilities);
+    for (const extra of extras) {
       if (extra != null && Number.isFinite(extra)) values.push(extra);
     }
   }
@@ -109,13 +121,19 @@ export function formatNetWorthAxisTick(value: number): string {
 /** Y-axis domain + evenly spaced “nice” dollar ticks (~4–6 lines). */
 export function netWorthChartScale(
   data: NetWorthSnapshot[],
-  targetTicks = 5
+  targetTicks = 5,
+  series?: {
+    includeCostBasis?: boolean;
+    includeAssets?: boolean;
+    includeCash?: boolean;
+    includeLiabilities?: boolean;
+  }
 ): { domain: [number, number]; ticks: number[] } {
   if (data.length === 0) {
     return { domain: [0, 100_000], ticks: [0, 25_000, 50_000, 75_000, 100_000] };
   }
 
-  const values = chartValuePoints(data);
+  const values = chartValuePoints(data, series);
   if (values.length === 0) {
     return { domain: [0, 100_000], ticks: [0, 25_000, 50_000, 75_000, 100_000] };
   }

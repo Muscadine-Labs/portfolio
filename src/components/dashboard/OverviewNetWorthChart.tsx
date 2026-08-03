@@ -98,19 +98,21 @@ function NetWorthTooltip({
   }
 
   const gain =
-    netWorth != null && totalCostBasis != null ? netWorth - totalCostBasis : undefined;
+    netWorth != null && totalCostBasis != null && totalCostBasis > 0
+      ? netWorth - totalCostBasis
+      : undefined;
 
   const rows: Array<{ label: string; value: number } | null> = [
-    totalAssets != null && Number.isFinite(totalAssets)
+    totalAssets != null && Number.isFinite(totalAssets) && totalAssets > 0
       ? { label: "Assets", value: totalAssets }
       : null,
-    totalCash != null && Number.isFinite(totalCash)
+    totalCash != null && Number.isFinite(totalCash) && totalCash > 0
       ? { label: "Cash", value: totalCash }
       : null,
-    totalLiabilities != null && Number.isFinite(totalLiabilities)
+    totalLiabilities != null && Number.isFinite(totalLiabilities) && totalLiabilities > 0
       ? { label: "Liabilities", value: totalLiabilities }
       : null,
-    totalCostBasis != null && Number.isFinite(totalCostBasis)
+    totalCostBasis != null && Number.isFinite(totalCostBasis) && totalCostBasis > 0
       ? { label: "Cost basis", value: totalCostBasis }
       : null,
   ];
@@ -227,7 +229,23 @@ function OverviewNetWorthChartPlot({
 
   const filteredData = useMemo(() => filterNetWorthHistory(data, period), [data, period]);
   const chartData = useMemo(() => enrichChartData(filteredData), [filteredData]);
-  const yScale = useMemo(() => netWorthChartScale(filteredData), [filteredData]);
+  const showCostBasis =
+    chart.showCostBasisLine && hasNetWorthCostBasisSeries(filteredData);
+  const showAssets =
+    chart.showAssetsLine && hasNetWorthSeries(filteredData, "totalAssets");
+  const showCash = chart.showCashLine && hasNetWorthSeries(filteredData, "totalCash");
+  const showLiabilities =
+    chart.showLiabilitiesLine && hasNetWorthSeries(filteredData, "totalLiabilities");
+  const yScale = useMemo(
+    () =>
+      netWorthChartScale(filteredData, 5, {
+        includeCostBasis: showCostBasis,
+        includeAssets: showAssets,
+        includeCash: showCash,
+        includeLiabilities: showLiabilities,
+      }),
+    [filteredData, showCostBasis, showAssets, showCash, showLiabilities]
+  );
   const periodDividers = useMemo(
     () => (chartData.length > 1 ? chartData.slice(0, -1).map((_, i) => i + 0.5) : []),
     [chartData]
@@ -237,14 +255,6 @@ function OverviewNetWorthChartPlot({
     if (!isCompact || chartData.length <= 6) return periodTicks;
     return periodTicks.filter((_, i) => i % 2 === 0);
   }, [isCompact, periodTicks, chartData.length]);
-
-  const showCostBasis =
-    chart.showCostBasisLine && hasNetWorthCostBasisSeries(filteredData);
-  const showAssets =
-    chart.showAssetsLine && hasNetWorthSeries(filteredData, "totalAssets");
-  const showCash = chart.showCashLine && hasNetWorthSeries(filteredData, "totalCash");
-  const showLiabilities =
-    chart.showLiabilitiesLine && hasNetWorthSeries(filteredData, "totalLiabilities");
 
   const categoryLines: Array<{
     key: "totalAssets" | "totalCash" | "totalLiabilities";

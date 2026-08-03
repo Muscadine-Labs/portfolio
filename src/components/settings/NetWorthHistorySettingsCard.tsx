@@ -37,14 +37,17 @@ function OptionalMoneyInput({
   value,
   onCommit,
   className,
+  remountKey,
 }: {
   id?: string;
   value?: number;
   onCommit: (next: number | undefined) => void;
   className?: string;
+  remountKey: string;
 }) {
   return (
     <Input
+      key={remountKey}
       id={id}
       type="number"
       step="any"
@@ -178,7 +181,7 @@ function NetWorthChartDisplaySettings() {
 }
 
 export function NetWorthHistorySettingsCard({ className }: { className?: string }) {
-  const [tableOpen, setTableOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(true);
   const {
     assets,
     cashAccounts,
@@ -371,13 +374,16 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {netWorthHistory.map((row, index) => (
-                      <TableRow key={`${row.period}-${index}`}>
+                    {netWorthHistory.map((row, index) => {
+                      const rowKey = `${row.period}-${index}-${row.netWorth}-${row.totalAssets ?? ""}-${row.totalCash ?? ""}-${row.totalLiabilities ?? ""}-${row.totalCostBasis ?? ""}`;
+                      return (
+                      <TableRow key={rowKey}>
                         <TableCell>
                           <Label htmlFor={`nw-period-${index}`} className="sr-only">
                             Period
                           </Label>
                           <Input
+                            key={`${rowKey}-period`}
                             id={`nw-period-${index}`}
                             defaultValue={row.period}
                             placeholder={cadence === "quarter" ? "Q2-2026" : "06-2026"}
@@ -394,6 +400,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                             Net worth
                           </Label>
                           <Input
+                            key={`${rowKey}-nw`}
                             id={`nw-value-${index}`}
                             type="number"
                             step="any"
@@ -408,6 +415,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                         </TableCell>
                         <TableCell>
                           <OptionalMoneyInput
+                            remountKey={`${rowKey}-assets`}
                             value={row.totalAssets}
                             onCommit={(next) =>
                               patchOptionalField(index, row, "totalAssets", next)
@@ -416,6 +424,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                         </TableCell>
                         <TableCell>
                           <OptionalMoneyInput
+                            remountKey={`${rowKey}-cash`}
                             value={row.totalCash}
                             onCommit={(next) =>
                               patchOptionalField(index, row, "totalCash", next)
@@ -424,6 +433,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                         </TableCell>
                         <TableCell>
                           <OptionalMoneyInput
+                            remountKey={`${rowKey}-liab`}
                             value={row.totalLiabilities}
                             onCommit={(next) =>
                               patchOptionalField(index, row, "totalLiabilities", next)
@@ -432,6 +442,7 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                         </TableCell>
                         <TableCell>
                           <OptionalMoneyInput
+                            remountKey={`${rowKey}-cost`}
                             value={row.totalCostBasis}
                             onCommit={(next) =>
                               patchOptionalField(index, row, "totalCostBasis", next)
@@ -451,7 +462,8 @@ export function NetWorthHistorySettingsCard({ className }: { className?: string 
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

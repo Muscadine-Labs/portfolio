@@ -60,6 +60,15 @@ export function normalizeMorphoPositionKey(key: string): string {
   return `${network}:${kind}:${normalizedId}`;
 }
 
+/** Parse `kind` from `network:kind:id` when mapping.kind is missing. */
+export function morphoKindFromKey(key: string): MorphoPositionKind | undefined {
+  const parts = key.trim().toLowerCase().split(":");
+  if (parts.length < 2) return undefined;
+  const kind = parts[1];
+  if (kind === "debt" || kind === "collateral" || kind === "vault") return kind;
+  return undefined;
+}
+
 export function defaultMorphoTargetForKind(
   kind: MorphoPositionKind | undefined
 ): MorphoPositionTarget {
@@ -68,8 +77,12 @@ export function defaultMorphoTargetForKind(
 }
 
 /** Debt must map to liabilities; vault/collateral cannot map to liabilities. */
-export function coerceMorphoTarget(mapping: MorphoPositionMapping): MorphoPositionTarget {
-  const kind = mapping.kind ?? "vault";
+export function coerceMorphoTarget(
+  mapping: MorphoPositionMapping,
+  fallbackKind?: MorphoPositionKind
+): MorphoPositionTarget {
+  const kind =
+    mapping.kind ?? morphoKindFromKey(mapping.key) ?? fallbackKind ?? "vault";
   if (kind === "debt") return "liabilities";
   if (mapping.target === "liabilities") return "assets";
   return mapping.target;
@@ -104,7 +117,7 @@ export function normalizeMorphoMapping(
   liabilitySections: PortfolioSection[],
   cashSections: PortfolioSection[]
 ): MorphoPositionMapping {
-  const target = coerceMorphoTarget(mapping);
+  const target = coerceMorphoTarget(mapping, morphoKindFromKey(mapping.key));
   const allSections = [...assetSections, ...liabilitySections, ...cashSections];
   const sectionId = mapping.sectionId?.trim();
   const canonicalKey = normalizeMorphoPositionKey(mapping.key);

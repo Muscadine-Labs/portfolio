@@ -159,7 +159,8 @@ export function WalletMorphoMappingPanel({
   );
 
   const mappingByKey = useMemo(
-    () => new Map(mappings.map((m) => [m.key, m])),
+    () =>
+      new Map(mappings.map((m) => [normalizeMorphoPositionKey(m.key), m])),
     [mappings]
   );
 
@@ -167,10 +168,12 @@ export function WalletMorphoMappingPanel({
   const displayItems = useMemo(() => {
     const byKey = new Map<string, MorphoPreviewItem>();
     for (const mapping of mappings) {
-      byKey.set(mapping.key, mappingToPreviewItem(mapping));
+      const key = normalizeMorphoPositionKey(mapping.key);
+      byKey.set(key, { ...mappingToPreviewItem(mapping), key });
     }
     for (const item of positions) {
-      byKey.set(item.key, item);
+      const key = normalizeMorphoPositionKey(item.key);
+      byKey.set(key, { ...item, key });
     }
     return [...byKey.values()];
   }, [mappings, positions]);
@@ -223,10 +226,13 @@ export function WalletMorphoMappingPanel({
   };
 
   const updateMapping = (key: string, patch: Partial<MorphoPositionMapping>) => {
-    const existing = mappingByKey.get(key);
+    const norm = normalizeMorphoPositionKey(key);
+    const existing = mappingByKey.get(norm);
     if (!existing) return;
     onChange(
-      mappings.map((m) => (m.key === key ? { ...m, ...patch } : m))
+      mappings.map((m) =>
+        normalizeMorphoPositionKey(m.key) === norm ? { ...m, ...patch } : m
+      )
     );
   };
 
@@ -262,7 +268,7 @@ export function WalletMorphoMappingPanel({
           const prev = prevByNorm.get(normalizeMorphoPositionKey(item.key));
           const target = prev?.target ?? defaultMorphoTargetForKind(item.kind);
           return {
-            key: item.key,
+            key: normalizeMorphoPositionKey(item.key),
             enabled: prev?.enabled ?? true,
             target,
             sectionId:
@@ -331,13 +337,17 @@ export function WalletMorphoMappingPanel({
           ) : null}
           <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
             {displayItems.map((item) => {
-              const mapping = mappingByKey.get(item.key);
+              const mapping = mappingByKey.get(normalizeMorphoPositionKey(item.key));
               if (!mapping) return null;
               const kind = mapping.kind ?? item.kind;
               const target = mapping.target;
               const sectionId = mapping.sectionId ?? "";
               const targetOptions = targetOptionsForKind(kind);
-              const scanned = positions.some((p) => p.key === item.key);
+              const scanned = positions.some(
+                (p) =>
+                  normalizeMorphoPositionKey(p.key) ===
+                  normalizeMorphoPositionKey(item.key)
+              );
               const sectionValue = displaySectionId(
                 target,
                 sectionId,
@@ -405,15 +415,18 @@ export function WalletMorphoMappingPanel({
                       />
                     </div>
                   </div>
-                  {sectionId ? (
+                  {sectionValue ? (
                     <div className="space-y-1">
                       <Label className="text-xs">Merge into existing row (optional)</Label>
                       <NativeSelect
                         value={mapping.rowId ?? ""}
                         onValueChange={(value) =>
-                          updateMapping(item.key, { rowId: value || undefined })
+                          updateMapping(item.key, {
+                            sectionId: sectionValue,
+                            rowId: value || undefined,
+                          })
                         }
-                        options={rowOptions(target, sectionId)}
+                        options={rowOptions(target, sectionValue)}
                         placeholder="Create new row"
                       />
                     </div>
