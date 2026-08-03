@@ -43,6 +43,10 @@ import { normalizeUiPreferences, writeSidebarCompactToStorage } from "@/lib/side
 import { normalizeThemePreference } from "@/lib/theme-preference";
 import type { PortfolioDataPayload, PortfolioImportResult } from "@/lib/portfolio-data";
 import { normalizePortfolioEntityIds } from "@/lib/portfolio-data";
+import {
+  reconcileMorphoMappingsToRow,
+  reconcileRowsToMorphoMappings,
+} from "@/lib/morpho-section-sync";
 import { isDemoTenant } from "@/lib/demo-constants";
 import { isFinnhubEligible } from "@/lib/finnhub";
 import { getFixedUsdPrice, resolveSpotTicker } from "@/lib/quote-aliases";
@@ -270,6 +274,19 @@ export function PortfolioProvider({
   const latestPayloadRef = useRef<PortfolioDataPayload | null>(null);
   const persistInFlightRef = useRef<Promise<void> | null>(null);
   const portfolioUpdatedAtRef = useRef<string | undefined>(initialPortfolioUpdatedAt);
+  const assetsRef = useRef(assets);
+  const liabilitiesRef = useRef(liabilities);
+  const cashAccountsRef = useRef(cashAccounts);
+
+  useEffect(() => {
+    assetsRef.current = assets;
+  }, [assets]);
+  useEffect(() => {
+    liabilitiesRef.current = liabilities;
+  }, [liabilities]);
+  useEffect(() => {
+    cashAccountsRef.current = cashAccounts;
+  }, [cashAccounts]);
 
   const savePortfolioNow = useCallback(() => {
     saveNowRef.current = true;
@@ -654,6 +671,11 @@ export function PortfolioProvider({
       }
       return [...prev, asset];
     });
+    if (asset.walletId && asset.protocol === "Morpho") {
+      setWalletMapNodes((prev) =>
+        reconcileMorphoMappingsToRow(prev, asset, "assets")
+      );
+    }
   }, []);
 
   const deleteAsset = useCallback((id: string) => {
@@ -670,6 +692,11 @@ export function PortfolioProvider({
       }
       return [...prev, account];
     });
+    if (account.walletId && account.protocol === "Morpho") {
+      setWalletMapNodes((prev) =>
+        reconcileMorphoMappingsToRow(prev, account, "cash")
+      );
+    }
   }, []);
 
   const deleteCashAccount = useCallback((id: string) => {
@@ -686,6 +713,11 @@ export function PortfolioProvider({
       }
       return [...prev, liability];
     });
+    if (liability.walletId && liability.protocol === "Morpho") {
+      setWalletMapNodes((prev) =>
+        reconcileMorphoMappingsToRow(prev, liability, "liabilities")
+      );
+    }
   }, []);
 
   const deleteLiability = useCallback((id: string) => {
@@ -755,14 +787,37 @@ export function PortfolioProvider({
   }, [savePortfolioNow]);
 
   const upsertWalletMapNode = useCallback((node: WalletMapNode) => {
+    const reconciled = reconcileRowsToMorphoMappings(
+      node.id,
+      node.morphoMappings,
+      assetsRef.current,
+      liabilitiesRef.current,
+      cashAccountsRef.current
+    );
+    if (reconciled.assets !== assetsRef.current) {
+      assetsRef.current = reconciled.assets;
+      setAssets(reconciled.assets);
+    }
+    if (reconciled.liabilities !== liabilitiesRef.current) {
+      liabilitiesRef.current = reconciled.liabilities;
+      setLiabilities(reconciled.liabilities);
+    }
+    if (reconciled.cashAccounts !== cashAccountsRef.current) {
+      cashAccountsRef.current = reconciled.cashAccounts;
+      setCashAccounts(reconciled.cashAccounts);
+    }
+    const nextNode: WalletMapNode = {
+      ...node,
+      morphoMappings: reconciled.mappings,
+    };
     setWalletMapNodes((prev) => {
-      const idx = prev.findIndex((n) => n.id === node.id);
+      const idx = prev.findIndex((n) => n.id === nextNode.id);
       if (idx >= 0) {
         const next = [...prev];
-        next[idx] = node;
+        next[idx] = nextNode;
         return next;
       }
-      return [...prev, node];
+      return [...prev, nextNode];
     });
     savePortfolioNow();
   }, [savePortfolioNow]);
