@@ -48,6 +48,18 @@ export function ensureWalletSyncSectionForTarget(
   return { sections: [...sections, newSection], sectionId: newSection.id };
 }
 
+/** Morpho market IDs may be stored as `8453-0x...` or `0x...` — canonicalize for mapping match. */
+export function normalizeMorphoPositionKey(key: string): string {
+  const trimmed = key.trim().toLowerCase();
+  const parts = trimmed.split(":");
+  if (parts.length < 3) return trimmed;
+  const network = parts[0];
+  const kind = parts[1];
+  const id = parts.slice(2).join(":");
+  const normalizedId = id.replace(/^\d+-(?=0x)/, "");
+  return `${network}:${kind}:${normalizedId}`;
+}
+
 export function defaultMorphoTargetForKind(
   kind: MorphoPositionKind | undefined
 ): MorphoPositionTarget {
@@ -95,8 +107,9 @@ export function normalizeMorphoMapping(
   const target = coerceMorphoTarget(mapping);
   const allSections = [...assetSections, ...liabilitySections, ...cashSections];
   const sectionId = mapping.sectionId?.trim();
+  const canonicalKey = normalizeMorphoPositionKey(mapping.key);
   if (sectionId && sectionMatchesMorphoTarget(sectionId, target, allSections)) {
-    return { ...mapping, target };
+    return { ...mapping, key: canonicalKey, target };
   }
   const nextSectionId = defaultMorphoSectionId(
     target,
@@ -106,6 +119,7 @@ export function normalizeMorphoMapping(
   );
   return {
     ...mapping,
+    key: canonicalKey,
     target,
     sectionId: nextSectionId || undefined,
     rowId: undefined,

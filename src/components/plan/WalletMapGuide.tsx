@@ -258,6 +258,7 @@ export function WalletMapGuide() {
           data.vaultsUpdated ? `${data.vaultsUpdated} asset row(s) updated` : null,
           data.liabilitiesAdded ? `${data.liabilitiesAdded} liability row(s) added` : null,
           data.liabilitiesUpdated ? `${data.liabilitiesUpdated} liability row(s) updated` : null,
+          data.cashAdded ? `${data.cashAdded} cash row(s) added` : null,
         ]
           .filter(Boolean)
           .join(" · ") || "Portfolio rows updated from Morpho.",

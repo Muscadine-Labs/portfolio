@@ -13,6 +13,7 @@ import {
   defaultMorphoSectionId,
   defaultMorphoTargetForKind,
   normalizeMorphoMappings,
+  normalizeMorphoPositionKey,
   sectionMatchesMorphoTarget,
 } from "@/lib/morpho-mapping-utils";
 import type {
@@ -248,12 +249,17 @@ export function WalletMorphoMappingPanel({
       const found = (data.positions ?? []) as MorphoPreviewItem[];
       setPositions(found);
 
-      const scannedKeys = new Set(found.map((item) => item.key));
-      const kept = (mappings ?? []).filter((mapping) => !scannedKeys.has(mapping.key));
+      const scannedNorm = new Set(found.map((item) => normalizeMorphoPositionKey(item.key)));
+      const kept = (mappings ?? []).filter(
+        (mapping) => !scannedNorm.has(normalizeMorphoPositionKey(mapping.key))
+      );
+      const prevByNorm = new Map(
+        (mappings ?? []).map((m) => [normalizeMorphoPositionKey(m.key), m])
+      );
       const next: MorphoPositionMapping[] = [
         ...kept,
         ...found.map((item) => {
-          const prev = mappingByKey.get(item.key);
+          const prev = prevByNorm.get(normalizeMorphoPositionKey(item.key));
           const target = prev?.target ?? defaultMorphoTargetForKind(item.kind);
           return {
             key: item.key,

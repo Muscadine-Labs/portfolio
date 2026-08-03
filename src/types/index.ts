@@ -194,6 +194,7 @@ export interface Liability {
   lltv?: number;
   ltv?: number;
   liquidationPrice?: number;
+  healthFactor?: number;
   network?: string;
   protocol?: string;
   address?: string;

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Eye,
+  EyeOff,
   LogOut,
   Pencil,
   Plus,
@@ -56,6 +58,78 @@ type EditDraft = {
   email: string;
   password: string;
 };
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+  className,
+  autoComplete = "new-password",
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  autoComplete?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`pr-10 ${className ?? ""}`}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+        onClick={() => setVisible((open) => !open)}
+        aria-label={visible ? "Hide password" : "Show password"}
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
+}
+
+function PasswordReveal({
+  password,
+  ariaLabel,
+}: {
+  password: string;
+  ariaLabel: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  if (!password) {
+    return <>—</>;
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-mono text-xs">{visible ? password : "••••••••"}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0"
+        onClick={() => setVisible((open) => !open)}
+        aria-label={visible ? `Hide ${ariaLabel} password` : `Show ${ariaLabel} password`}
+      >
+        {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </Button>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -334,13 +408,11 @@ export default function AdminPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
-                autoComplete="new-password"
                 placeholder="Set initial password"
                 value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                onChange={(password) => setForm((f) => ({ ...f, password }))}
               />
             </div>
             <Button className="w-full" disabled={saving} onClick={() => void createUser()}>
@@ -390,12 +462,10 @@ export default function AdminPage() {
                           <TableCell>—</TableCell>
                           <TableCell>—</TableCell>
                           <TableCell>
-                            <Input
-                              type="password"
-                              autoComplete="new-password"
+                            <PasswordInput
                               value={editing.password}
-                              onChange={(e) =>
-                                setEditing({ ...editing, password: e.target.value })
+                              onChange={(password) =>
+                                setEditing({ ...editing, password })
                               }
                               className="font-mono text-xs"
                             />
@@ -435,8 +505,11 @@ export default function AdminPage() {
                           </TableCell>
                           <TableCell>—</TableCell>
                           <TableCell>—</TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {adminAccount.password ? "••••••••" : "—"}
+                          <TableCell>
+                            <PasswordReveal
+                              password={adminAccount.password}
+                              ariaLabel="admin"
+                            />
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -483,12 +556,10 @@ export default function AdminPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="password"
-                            autoComplete="new-password"
+                          <PasswordInput
                             value={editing.password}
-                            onChange={(e) =>
-                              setEditing({ ...editing, password: e.target.value })
+                            onChange={(password) =>
+                              setEditing({ ...editing, password })
                             }
                             className="font-mono text-xs"
                           />
@@ -520,8 +591,8 @@ export default function AdminPage() {
                         <TableCell className="font-mono">{user.tenant}</TableCell>
                         <TableCell>{user.name || "—"}</TableCell>
                         <TableCell>{user.email || "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {user.password ? "••••••••" : "—"}
+                        <TableCell>
+                          <PasswordReveal password={user.password} ariaLabel={user.tenant} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
