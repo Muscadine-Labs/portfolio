@@ -8,9 +8,17 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordReveal } from "@/components/shared/PasswordReveal";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { usePortfolio } from "@/components/providers/PortfolioProvider";
 import type { User } from "@/types";
+
+type AccountCredentialInfo = {
+  username: string;
+  hasPassword: boolean;
+  canViewPassword: boolean;
+  password?: string;
+};
 
 interface AccountSettingsCardProps {
   /** When false, hide credential reset (demo / no home API). */
@@ -21,24 +29,27 @@ export function AccountSettingsCard({ authEnabled }: AccountSettingsCardProps) {
   const router = useRouter();
   const { account, updateAccount } = usePortfolio();
   const [draft, setDraft] = useState<User>(account);
-  const [signInUsername, setSignInUsername] = useState(account.username?.trim() ?? "");
+  const [credentialInfo, setCredentialInfo] = useState<AccountCredentialInfo | null>(null);
   const [saving, setSaving] = useState(false);
-  const displayedUsername = account.username?.trim() || signInUsername;
+  const displayedUsername =
+    credentialInfo?.username ?? account.username?.trim() ?? account.tenant;
 
   useEffect(() => {
+    if (!authEnabled) return;
+
     let active = true;
 
     fetch("/api/account/password", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { username?: string } | null) => {
-        if (active && data?.username) setSignInUsername(data.username);
+      .then((data: AccountCredentialInfo | null) => {
+        if (active && data) setCredentialInfo(data);
       })
       .catch(() => {});
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [authEnabled]);
 
   const handleSave = async () => {
     if (!draft.displayName.trim()) {
@@ -98,6 +109,16 @@ export function AccountSettingsCard({ authEnabled }: AccountSettingsCardProps) {
             readOnly
             className="bg-muted/20"
           />
+          {authEnabled && credentialInfo?.canViewPassword && credentialInfo.password ? (
+            <div className="space-y-2 pt-1">
+              <Label htmlFor="account-password">Password</Label>
+              <PasswordReveal
+                password={credentialInfo.password}
+                ariaLabel="account password"
+                inputClassName="h-9"
+              />
+            </div>
+          ) : null}
           <p className="text-xs text-muted-foreground">
             {authEnabled ? (
               <>
